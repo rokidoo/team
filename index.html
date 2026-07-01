@@ -343,6 +343,16 @@
   @media (max-width: 1100px) {
     .bento { grid-template-columns: 1fr; }
     .board { grid-template-columns: 1fr; }
+    /* Mobilde panel sırası: Sprint -> Fikir Havuzu -> Zaman Çizelgesi -> Kategoriler -> Performans */
+    .left-col, .mid-col, .right-col { display: contents; }
+    .panel + .panel { margin-top: 0; }
+    .panel { margin-bottom: 18px; }
+    #profilePanel   { order: 1; }
+    #sprintPanel    { order: 2; }
+    #inboxPanel     { order: 3; }
+    #timelinePanel  { order: 4; }
+    #categoriesPanel{ order: 5; }
+    #metricsPanel   { order: 6; margin-bottom: 0; }
   }
   @media (max-width: 640px) {
     .quickadd input[type=text] { flex: 1 1 100%; }
@@ -417,7 +427,7 @@
       <div class="bento">
         <!-- SOL -->
         <div class="left-col">
-          <div class="panel">
+          <div class="panel" id="profilePanel">
             <div class="profile-card">
               <div class="avatar" id="meAvatar"></div>
               <div class="profile-meta">
@@ -429,7 +439,7 @@
             <button class="btn btn-ghost full logout-btn" id="logoutBtn">Çıkış Yap</button>
           </div>
 
-          <div class="panel">
+          <div class="panel" id="categoriesPanel">
             <div class="panel-head">
               <h3>Kategoriler</h3>
               <span class="count-chip" id="catCount">0</span>
@@ -438,7 +448,7 @@
             <button class="btn btn-ghost full" id="addCatBtn" style="margin-top:10px; display:none">+ Kategori Ekle</button>
           </div>
 
-          <div class="panel">
+          <div class="panel" id="metricsPanel">
             <div class="panel-head"><h3>Performans Özeti</h3></div>
             <div class="metrics-grid">
               <div class="metric-box"><div class="num mono" id="metricTotal">0</div><div class="lbl">Toplam</div></div>
@@ -449,7 +459,7 @@
 
         <!-- ORTA -->
         <div class="mid-col">
-          <div class="panel">
+          <div class="panel" id="sprintPanel">
             <div class="panel-head">
               <h3>Sprint Görev Akışı</h3>
               <span class="count-chip" id="subtitleChip"></span>
@@ -488,7 +498,7 @@
 
         <!-- SAĞ -->
         <div class="right-col">
-          <div class="panel">
+          <div class="panel" id="inboxPanel">
             <div class="panel-head">
               <h3>Fikir Havuzu</h3>
               <span class="count-chip" id="inboxCount">0</span>
