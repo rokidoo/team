@@ -4,215 +4,382 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>TeamFlow · Görev Yönetim Paneli</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
+  /* ============================================================
+     SOFT BRUTALISM — Design Tokens
+     Neo-Brutalism (yüksek kontrast, kalın siyah kenar) +
+     Neumorphism (yumuşak, hacimli, dokunsal gölgeler)
+     ============================================================ */
   :root {
-    --bg:#0e0f13; --bg-soft:#16181f; --surface:#1b1e27; --surface-2:#21252f;
-    --surface-hover:#262b37; --border:#2b303c; --border-soft:#23272f;
-    --text:#eef0f4; --text-2:#9aa2b1; --text-3:#6a7280;
-    --accent:#7c8cff; --accent-soft:rgba(124,140,255,.14);
-    --green:#35d0a5; --amber:#ffb454; --red:#ff6b6b;
-    --radius:16px; --radius-sm:10px;
-    --shadow:0 10px 30px -12px rgba(0,0,0,.6); --shadow-lg:0 24px 60px -20px rgba(0,0,0,.75);
-    --ease:cubic-bezier(.22,.61,.36,1); --sidebar-w:288px;
+    --cream:      #F4F2EC;
+    --cream-2:    #EAE7E1;
+    --card:       #FFFDF9;
+    --card-2:     #FFFFFF;
+    --ink:        #121212;
+    --ink-soft:   #4A4A46;
+    --ink-mute:   #8A867E;
+
+    --cobalt:     #2F5DFF;
+    --cobalt-soft:#E4EBFF;
+    --red:        #E8402A;
+    --red-soft:   #FDE4DF;
+    --mustard:    #FFC53D;
+    --mustard-soft:#FFF3D6;
+    --green:      #22C55E;
+    --green-soft: #DFF6E7;
+    --purple:     #A855F7;
+    --purple-soft:#F1E4FE;
+
+    --pri-kritik:  #E63946;
+    --pri-yuksek:  #FF8A00;
+    --pri-normal:  #2F5DFF;
+    --pri-dusuk:   #9AA0A6;
+
+    --radius-lg: 24px;
+    --radius-md: 16px;
+    --radius-sm: 12px;
+
+    --border: 3px solid var(--ink);
+    --border-thin: 2px solid var(--ink);
+
+    --shadow-brutal: 6px 6px 0px var(--ink);
+    --shadow-brutal-sm: 4px 4px 0px var(--ink);
+    --shadow-neu: 0 24px 50px -24px rgba(18,18,18,.35);
+    --shadow-card: var(--shadow-brutal), var(--shadow-neu);
+    --shadow-inset: inset 3px 3px 8px rgba(18,18,18,.18), inset -2px -2px 6px rgba(255,255,255,.6);
+
+    --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+    --ease-soft: cubic-bezier(.22, .61, .36, 1);
+
+    --font-head: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+    --font-body: 'Plus Jakarta Sans', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
   }
-  * { box-sizing:border-box; margin:0; padding:0; }
-  html, body { height:100%; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
   body {
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
-    background:radial-gradient(1200px 600px at 80% -10%, rgba(124,140,255,.08), transparent 60%), var(--bg);
-    color:var(--text); -webkit-font-smoothing:antialiased; min-height:100vh; overflow-x:hidden;
+    font-family: var(--font-body);
+    background: var(--cream);
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(18,18,18,.06) 1px, transparent 0);
+    background-size: 22px 22px;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
   }
-  ::selection { background:var(--accent-soft); }
-  ::-webkit-scrollbar { width:10px; height:10px; }
-  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:20px; border:2px solid transparent; background-clip:content-box; }
-  ::-webkit-scrollbar-thumb:hover { background:var(--surface-hover); background-clip:content-box; }
+  h1, h2, h3, h4, .font-head { font-family: var(--font-head); letter-spacing: -.02em; }
+  .mono { font-family: var(--font-mono); }
+  ::selection { background: var(--mustard); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--ink); border-radius: 20px; border: 2px solid var(--cream); }
 
-  /* ---------- Butonlar ---------- */
-  .btn { border:none; cursor:pointer; font-family:inherit; font-weight:600; border-radius:var(--radius-sm);
-    transition:transform .15s var(--ease), background .2s, box-shadow .2s; display:inline-flex;
-    align-items:center; justify-content:center; gap:8px; font-size:13.5px; }
-  .btn:active { transform:scale(.97); }
-  .btn:disabled { opacity:.55; cursor:not-allowed; }
-  .btn-primary { background:linear-gradient(135deg,var(--accent),#6f7cf0); color:#fff; padding:11px 16px; box-shadow:0 8px 22px -10px rgba(124,140,255,.8); }
-  .btn-primary:hover:not(:disabled) { box-shadow:0 10px 26px -8px rgba(124,140,255,.9); }
-  .btn-ghost { background:var(--surface-2); color:var(--text); padding:10px 16px; border:1px solid var(--border); }
-  .btn-ghost:hover { background:var(--surface-hover); }
-  .btn-icon { width:34px; height:34px; border-radius:9px; background:var(--surface-2); color:var(--text-2); border:1px solid var(--border); font-size:18px; }
-  .btn-icon:hover { background:var(--surface-hover); color:var(--text); }
-  .full { width:100%; }
+  /* ---------- Genel butonlar ---------- */
+  .btn {
+    font-family: var(--font-head); font-weight: 700; cursor: pointer;
+    border: var(--border); border-radius: var(--radius-sm);
+    background: var(--card-2); color: var(--ink);
+    box-shadow: var(--shadow-brutal-sm);
+    transition: transform .18s var(--ease-spring), box-shadow .18s var(--ease-spring);
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 10px 16px; font-size: 13.5px;
+  }
+  .btn:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0px var(--ink); }
+  .btn:active { transform: translate(1px, 1px); box-shadow: 2px 2px 0px var(--ink); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+  .btn-primary { background: var(--cobalt); color: #fff; }
+  .btn-mustard { background: var(--mustard); color: var(--ink); }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-ghost { background: var(--card-2); }
+  .btn-icon { width: 38px; height: 38px; padding: 0; border-radius: var(--radius-sm); }
+  .full { width: 100%; }
 
-  /* ============ GİRİŞ / KAYIT EKRANI ============ */
-  .auth-wrap { min-height:100vh; display:grid; place-items:center; padding:24px; }
-  .auth-card { width:100%; max-width:400px; background:var(--surface); border:1px solid var(--border);
-    border-radius:var(--radius); padding:32px; box-shadow:var(--shadow-lg); }
-  .auth-brand { display:flex; align-items:center; gap:12px; margin-bottom:24px; }
-  .auth-brand .logo { width:44px; height:44px; border-radius:13px; background:linear-gradient(135deg,var(--accent),#b06cff);
-    display:grid; place-items:center; font-weight:800; font-size:20px; color:#fff; box-shadow:0 6px 18px -6px rgba(124,140,255,.7); }
-  .auth-brand h1 { font-size:18px; font-weight:700; }
-  .auth-brand p { font-size:12px; color:var(--text-3); margin-top:2px; }
-  .tabs { display:flex; background:var(--bg-soft); border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px; margin-bottom:20px; }
-  .tabs button { flex:1; background:none; border:none; color:var(--text-2); font-family:inherit; font-weight:600;
-    font-size:13.5px; padding:9px; border-radius:7px; cursor:pointer; transition:.2s; }
-  .tabs button.active { background:var(--surface-2); color:var(--text); }
-  .auth-msg { font-size:12.5px; margin-top:4px; padding:10px 12px; border-radius:8px; display:none; line-height:1.5; }
-  .auth-msg.err { display:block; background:rgba(255,107,107,.12); color:var(--red); }
-  .auth-msg.ok  { display:block; background:rgba(53,208,165,.12); color:var(--green); }
+  input, textarea, select {
+    font-family: var(--font-body); font-size: 13.5px; color: var(--ink);
+    border: var(--border-thin); border-radius: var(--radius-sm);
+    background: var(--card-2); padding: 10px 13px; outline: none;
+    transition: box-shadow .15s var(--ease-soft), border-color .15s;
+  }
+  input:focus, textarea:focus, select:focus { box-shadow: 3px 3px 0px var(--ink); }
+  select { cursor: pointer; appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23121212' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat: no-repeat; background-position: right 12px center; padding-right: 34px; }
+  label { display: block; font-size: 11.5px; font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
 
-  /* ---------- Form alanları ---------- */
-  .field { margin-bottom:14px; }
-  .field label { display:block; font-size:12.5px; font-weight:600; color:var(--text-2); margin-bottom:7px; }
-  .field input, .field textarea, .field select {
-    width:100%; background:var(--bg-soft); border:1px solid var(--border); border-radius:var(--radius-sm);
-    padding:11px 13px; color:var(--text); font-size:13.5px; font-family:inherit; outline:none; transition:border-color .2s, box-shadow .2s; }
-  .field input:focus, .field textarea:focus, .field select:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
-  .field textarea { resize:vertical; min-height:74px; }
-  .field select { appearance:none; cursor:pointer;
-    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239aa2b1' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");
-    background-repeat:no-repeat; background-position:right 13px center; padding-right:36px; }
-  .field .row { display:flex; gap:12px; } .field .row > * { flex:1; }
-  .form-error { font-size:12px; color:var(--red); margin-top:6px; display:none; }
-  .form-error.show { display:block; }
+  /* ============ AUTH EKRANI ============ */
+  .auth-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+  .auth-card {
+    width: 100%; max-width: 420px; background: var(--card);
+    border: var(--border); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card); padding: 32px;
+  }
+  .brand-row { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+  .logo {
+    width: 46px; height: 46px; border-radius: var(--radius-sm);
+    background: var(--mustard); border: var(--border);
+    display: grid; place-items: center; font-weight: 800; font-size: 20px;
+    box-shadow: var(--shadow-brutal-sm); font-family: var(--font-head);
+  }
+  .brand-row h1 { font-size: 19px; font-weight: 700; }
+  .brand-row p { font-size: 12px; color: var(--ink-soft); font-weight: 600; margin-top: 2px; }
 
-  /* ============ UYGULAMA ============ */
-  #app { display:none; }
-  #app.on { display:flex; min-height:100vh; }
+  .tabs { display: flex; gap: 8px; background: var(--cream-2); border: var(--border-thin); border-radius: var(--radius-sm); padding: 4px; margin-bottom: 20px; }
+  .tabs button { flex: 1; background: none; border: none; font-family: var(--font-head); font-weight: 700; font-size: 13px; padding: 9px; border-radius: 9px; cursor: pointer; color: var(--ink-soft); }
+  .tabs button.active { background: var(--card-2); color: var(--ink); box-shadow: var(--shadow-brutal-sm); }
 
-  .sidebar { width:var(--sidebar-w); flex-shrink:0; background:var(--bg-soft); border-right:1px solid var(--border-soft);
-    padding:26px 20px; display:flex; flex-direction:column; gap:22px; position:sticky; top:0; height:100vh;
-    overflow-y:auto; transition:transform .35s var(--ease); z-index:40; }
-  .brand { display:flex; align-items:center; gap:12px; }
-  .brand .logo { width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg,var(--accent),#b06cff);
-    display:grid; place-items:center; font-weight:800; font-size:18px; color:#fff; box-shadow:0 6px 18px -6px rgba(124,140,255,.7); }
-  .brand h1 { font-size:15px; font-weight:700; }
-  .brand p { font-size:11.5px; color:var(--text-3); margin-top:2px; }
+  .field { margin-bottom: 14px; }
+  .auth-msg { font-size: 12.5px; font-weight: 600; margin-top: 8px; padding: 10px 12px; border-radius: var(--radius-sm); border: var(--border-thin); display: none; }
+  .auth-msg.err { display: block; background: var(--red-soft); color: var(--red); }
+  .auth-msg.ok { display: block; background: var(--green-soft); color: #15803d; }
 
-  .me-card { background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--radius-sm); padding:13px; }
-  .me-top { display:flex; align-items:center; gap:11px; }
-  .me-card .name { font-size:13.5px; font-weight:700; }
-  .me-card .role { font-size:11.5px; color:var(--text-3); }
-  .admin-pill { font-size:10px; font-weight:700; color:var(--accent); background:var(--accent-soft); padding:2px 7px; border-radius:20px; margin-left:auto; }
-  .me-card .logout { margin-top:11px; }
+  /* ============ SETUP UYARISI ============ */
+  #setup { min-height: 100vh; display: none; place-items: center; padding: 24px; }
+  #setup.on { display: grid; }
+  .setup-card { max-width: 560px; background: var(--card); border: var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); padding: 30px; line-height: 1.65; }
+  .setup-card code { background: var(--cream-2); padding: 2px 7px; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; }
+  .setup-card ol { margin: 12px 0 0 20px; font-size: 13.5px; color: var(--ink-soft); }
+  .setup-card li { margin-bottom: 9px; }
 
-  .section-label { font-size:11px; text-transform:uppercase; letter-spacing:.8px; color:var(--text-3);
-    font-weight:700; display:flex; align-items:center; justify-content:space-between; }
-  .count-chip { background:var(--surface-2); color:var(--text-2); font-size:11px; padding:2px 8px; border-radius:20px; font-weight:600; }
-  .leader-list { display:flex; flex-direction:column; gap:9px; margin-top:14px; }
-  .leader-card { display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border-soft);
-    padding:11px 12px; border-radius:var(--radius-sm); }
-  .leader-card.is-me { border-color:var(--accent); }
-  .avatar { width:36px; height:36px; border-radius:50%; display:grid; place-items:center; flex-shrink:0; font-weight:700; font-size:13px; color:#fff; }
-  .leader-meta { min-width:0; flex:1; }
-  .leader-meta .name { font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .leader-meta .role { font-size:11.5px; color:var(--text-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .leader-card .task-badge { font-size:11px; color:var(--text-2); background:var(--bg); padding:2px 8px; border-radius:20px; font-weight:600; flex-shrink:0; }
-  .empty-hint { font-size:12.5px; color:var(--text-3); text-align:center; padding:18px 10px; border:1px dashed var(--border); border-radius:var(--radius-sm); line-height:1.5; }
+  /* ============ APP LAYOUT — BENTO GRID ============ */
+  #app { display: none; }
+  #app.on { display: block; }
+  .topbar {
+    display: flex; align-items: center; gap: 14px; padding: 18px 26px;
+    flex-wrap: wrap;
+  }
+  .topbar .brand-row { margin-bottom: 0; }
+  .topbar .logo { width: 40px; height: 40px; font-size: 17px; }
+  .topbar .spacer { flex: 1; }
+  .search-box { display: flex; align-items: center; gap: 8px; background: var(--card-2); border: var(--border-thin); border-radius: var(--radius-sm); padding: 8px 13px; min-width: 200px; }
+  .search-box input { border: none; padding: 0; font-size: 13px; flex: 1; }
+  .hamburger { display: none; }
 
-  .main { flex:1; min-width:0; display:flex; flex-direction:column; }
-  .topbar { display:flex; align-items:center; gap:14px; padding:20px 30px; border-bottom:1px solid var(--border-soft);
-    position:sticky; top:0; z-index:30; background:rgba(14,15,19,.72); backdrop-filter:blur(14px); flex-wrap:wrap; }
-  .topbar .title-block { flex:1; min-width:140px; }
-  .topbar h2 { font-size:20px; font-weight:700; letter-spacing:-.4px; }
-  .topbar .subtitle { font-size:12.5px; color:var(--text-3); margin-top:3px; }
-  .hamburger { display:none; }
-  .search { display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border);
-    border-radius:var(--radius-sm); padding:9px 13px; min-width:180px; }
-  .search input { background:none; border:none; outline:none; color:var(--text); font-size:13.5px; width:100%; font-family:inherit; }
-  .search input::placeholder { color:var(--text-3); }
+  .bento {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr) 300px;
+    gap: 18px; padding: 0 26px 26px;
+    align-items: start;
+  }
 
-  .view-toggle { display:flex; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:3px; }
-  .view-toggle button { background:none; border:none; color:var(--text-2); font-family:inherit; font-weight:600; font-size:12.5px;
-    padding:7px 12px; border-radius:7px; cursor:pointer; transition:.2s; white-space:nowrap; }
-  .view-toggle button.active { background:var(--surface-2); color:var(--text); }
+  .panel {
+    background: var(--card); border: var(--border); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card); padding: 18px;
+  }
+  .panel + .panel { margin-top: 18px; }
+  .panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .panel-head h3 { font-size: 13.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+  .panel-head .count-chip { margin-left: auto; background: var(--cream-2); border: var(--border-thin); font-family: var(--font-mono); font-weight: 700; font-size: 11px; padding: 2px 9px; border-radius: 20px; }
 
-  .board { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; padding:26px 30px; flex:1; align-items:start; }
-  .column { background:var(--bg-soft); border:1px solid var(--border-soft); border-radius:var(--radius); display:flex; flex-direction:column;
-    max-height:calc(100vh - 180px); transition:border-color .2s, background .2s; }
-  .column.drag-over { border-color:var(--accent); background:linear-gradient(180deg,var(--accent-soft),var(--bg-soft) 120px); }
-  .col-head { display:flex; align-items:center; gap:10px; padding:16px 18px 12px; }
-  .dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
-  .col-todo .dot { background:var(--text-2); } .col-doing .dot { background:var(--amber); } .col-done .dot { background:var(--green); }
-  .col-head .col-title { font-size:14px; font-weight:700; }
-  .col-head .col-count { margin-left:auto; font-size:12px; color:var(--text-2); background:var(--surface); padding:2px 9px; border-radius:20px; font-weight:600; }
-  .cards { padding:4px 12px 14px; display:flex; flex-direction:column; gap:11px; overflow-y:auto; flex:1; min-height:90px; }
+  /* ---------- SOL PANEL ---------- */
+  .left-col { display: flex; flex-direction: column; }
+  .profile-card { display: flex; align-items: center; gap: 11px; }
+  .avatar {
+    width: 42px; height: 42px; border-radius: var(--radius-sm); border: var(--border-thin);
+    display: grid; place-items: center; font-weight: 800; font-size: 15px; color: #fff;
+    flex-shrink: 0; font-family: var(--font-head);
+  }
+  .profile-meta { min-width: 0; flex: 1; }
+  .profile-meta .name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .profile-meta .role { font-size: 11.5px; color: var(--ink-soft); font-weight: 600; }
+  .admin-pill { font-size: 9.5px; font-weight: 800; background: var(--mustard); border: var(--border-thin); padding: 2px 7px; border-radius: 20px; }
+  .logout-btn { margin-top: 12px; }
 
-  .card { background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--radius-sm); padding:14px; cursor:grab;
-    transition:transform .18s var(--ease), box-shadow .2s, border-color .2s, opacity .2s; position:relative; animation:cardIn .3s var(--ease); }
-  @keyframes cardIn { from { opacity:0; transform:translateY(8px) scale(.98); } to { opacity:1; transform:none; } }
-  .card:hover { border-color:var(--border); box-shadow:var(--shadow); transform:translateY(-2px); }
-  .card:active { cursor:grabbing; }
-  .card.dragging { opacity:.45; box-shadow:var(--shadow-lg); transform:rotate(1.5deg) scale(1.02); border-color:var(--accent); }
-  .card-top { display:flex; align-items:flex-start; gap:10px; margin-bottom:8px; }
-  .check { width:20px; height:20px; border-radius:6px; flex-shrink:0; border:2px solid var(--border); background:transparent;
-    cursor:pointer; display:grid; place-items:center; margin-top:1px; transition:.18s; color:transparent; font-size:12px; font-weight:900; }
-  .check:hover { border-color:var(--green); }
-  .card.done .check { background:var(--green); border-color:var(--green); color:#06231b; }
-  .card-title { font-size:14px; font-weight:600; line-height:1.35; flex:1; }
-  .card.done .card-title { text-decoration:line-through; color:var(--text-3); }
-  .card-desc { font-size:12.5px; color:var(--text-2); line-height:1.5; margin:2px 0 12px 30px; }
-  .card.done .card-desc { color:var(--text-3); text-decoration:line-through; opacity:.7; }
-  .card-foot { display:flex; align-items:center; gap:10px; margin-left:30px; flex-wrap:wrap; }
-  .assignee { display:flex; align-items:center; gap:7px; min-width:0; }
-  .assignee .mini-avatar { width:22px; height:22px; border-radius:50%; flex-shrink:0; display:grid; place-items:center; font-size:10px; font-weight:700; color:#fff; }
-  .assignee .a-name { font-size:12px; color:var(--text-2); font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .due { margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; padding:3px 9px;
-    border-radius:20px; background:var(--surface-2); color:var(--text-2); white-space:nowrap; }
-  .due.soon { background:rgba(255,180,84,.14); color:var(--amber); }
-  .due.overdue { background:rgba(255,107,107,.15); color:var(--red); }
-  .card.done .due { opacity:.5; }
-  .card-del { position:absolute; top:10px; right:10px; width:24px; height:24px; border-radius:7px; border:none; background:transparent;
-    color:var(--text-3); cursor:pointer; display:grid; place-items:center; opacity:0; transition:.15s; font-size:15px; }
-  .card:hover .card-del { opacity:1; }
-  .card-del:hover { background:rgba(255,107,107,.15); color:var(--red); }
-  .drop-empty { text-align:center; font-size:12.5px; color:var(--text-3); padding:26px 12px; border:1px dashed var(--border); border-radius:var(--radius-sm); line-height:1.5; }
+  .cat-list { display: flex; flex-direction: column; gap: 8px; }
+  .cat-row { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: var(--radius-sm); border: var(--border-thin); background: var(--card-2); position: relative; }
+  .cat-dot { width: 14px; height: 14px; border-radius: 5px; border: 2px solid var(--ink); flex-shrink: 0; }
+  .cat-row .cat-name { font-size: 12.5px; font-weight: 700; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cat-del { border: none; background: none; cursor: pointer; color: var(--ink-mute); font-size: 13px; opacity: 0; transition: .15s; padding: 2px; }
+  .cat-row:hover .cat-del { opacity: 1; }
+  .cat-del:hover { color: var(--red); }
 
-  /* ---------- Modal ---------- */
-  .overlay { position:fixed; inset:0; background:rgba(6,7,10,.66); backdrop-filter:blur(6px); z-index:100;
-    display:grid; place-items:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .25s var(--ease); }
-  .overlay.open { opacity:1; pointer-events:auto; }
-  .modal { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); width:100%; max-width:460px;
-    box-shadow:var(--shadow-lg); padding:24px; transform:translateY(14px) scale(.98); transition:transform .28s var(--ease); max-height:90vh; overflow-y:auto; }
-  .overlay.open .modal { transform:none; }
-  .modal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
-  .modal-head h3 { font-size:17px; font-weight:700; }
-  .modal-actions { display:flex; gap:10px; margin-top:22px; }
-  .modal-actions .btn { flex:1; }
+  .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .metric-box { background: var(--cream-2); border: var(--border-thin); border-radius: var(--radius-sm); padding: 12px; text-align: center; }
+  .metric-box .num { font-family: var(--font-mono); font-size: 26px; font-weight: 700; }
+  .metric-box .lbl { font-size: 10px; font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
 
-  /* ---------- Toast ---------- */
-  .toast { position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(80px); background:var(--surface-2);
-    border:1px solid var(--border); color:var(--text); padding:12px 18px; border-radius:var(--radius-sm); font-size:13px; font-weight:500;
-    box-shadow:var(--shadow-lg); z-index:200; opacity:0; transition:all .3s var(--ease); display:flex; align-items:center; gap:9px; max-width:90vw; }
-  .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
-  .scrim { display:none; }
+  .personal-toggle-btn { margin-top: 4px; }
 
-  /* ---------- Kurulum uyarısı ---------- */
-  #setup { min-height:100vh; display:none; place-items:center; padding:24px; }
-  #setup.on { display:grid; }
-  .setup-card { max-width:560px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:30px; line-height:1.65; }
-  .setup-card h2 { font-size:18px; margin-bottom:14px; }
-  .setup-card code { background:var(--bg-soft); padding:2px 7px; border-radius:6px; font-size:12.5px; color:var(--amber); }
-  .setup-card ol { margin:12px 0 0 20px; font-size:13.5px; color:var(--text-2); }
-  .setup-card li { margin-bottom:9px; }
+  /* ---------- ORTA PANEL: SPRINT BOARD ---------- */
+  .mid-col { min-width: 0; }
+  .quickadd { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .quickadd input[type=text] { flex: 2; min-width: 160px; }
+  .quickadd select { flex: 1; min-width: 110px; }
+  .quickadd .btn { flex-shrink: 0; }
+
+  .priority-filters { display: flex; gap: 7px; margin-bottom: 16px; flex-wrap: wrap; }
+  .pf-btn {
+    font-family: var(--font-head); font-weight: 700; font-size: 11.5px; cursor: pointer;
+    border: var(--border-thin); border-radius: 20px; padding: 6px 13px;
+    background: var(--card-2); color: var(--ink-soft);
+    transition: transform .15s var(--ease-spring);
+  }
+  .pf-btn:hover { transform: translateY(-1px); }
+  .pf-btn.active { background: var(--ink); color: #fff; }
+
+  .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .column { background: var(--cream-2); border: var(--border-thin); border-radius: var(--radius-md); padding: 12px; min-height: 160px; transition: background .2s, border-color .2s; }
+  .column.drag-over { background: var(--mustard-soft); border-color: var(--mustard); }
+  .col-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 0 2px; }
+  .col-dot { width: 9px; height: 9px; border-radius: 50%; }
+  .col-todo .col-dot { background: var(--ink-mute); }
+  .col-doing .col-dot { background: var(--mustard); }
+  .col-done .col-dot { background: var(--green); }
+  .col-head .col-title { font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; }
+  .col-head .col-count { margin-left: auto; font-family: var(--font-mono); font-size: 11px; font-weight: 700; background: var(--card-2); border: 1.5px solid var(--ink); padding: 1px 7px; border-radius: 20px; }
+  .cards { display: flex; flex-direction: column; gap: 10px; min-height: 60px; }
+  .drop-empty { text-align: center; font-size: 11.5px; font-weight: 600; color: var(--ink-mute); padding: 20px 8px; border: 2px dashed var(--ink-mute); border-radius: var(--radius-sm); }
+
+  .card {
+    background: var(--card-2); border: var(--border-thin); border-radius: var(--radius-md);
+    padding: 12px; cursor: grab; position: relative;
+    box-shadow: var(--shadow-brutal-sm);
+    transition: transform .2s var(--ease-spring), box-shadow .25s var(--ease-spring);
+    animation: cardIn .32s var(--ease-spring);
+  }
+  @keyframes cardIn { from { opacity: 0; transform: translateY(10px) scale(.95); } to { opacity: 1; transform: none; } }
+  .card:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0px var(--ink); }
+  .card.dragging { opacity: .5; transform: rotate(2deg); }
+  .card.done {
+    box-shadow: var(--shadow-inset);
+    transform: scale(.97) translateY(1px);
+    background: var(--cream-2);
+  }
+  .card.done:hover { transform: scale(.97) translateY(1px); box-shadow: var(--shadow-inset); }
+
+  .card-top { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 7px; }
+  .check {
+    width: 21px; height: 21px; border-radius: 6px; flex-shrink: 0; margin-top: 1px;
+    border: 2.5px solid var(--ink); background: var(--card-2); cursor: pointer;
+    display: grid; place-items: center; color: transparent; font-size: 12px; font-weight: 900;
+    transition: all .25s var(--ease-spring);
+  }
+  .card.done .check { background: var(--green); color: #fff; transform: scale(.9); }
+  .card-title { font-size: 13.5px; font-weight: 700; line-height: 1.3; flex: 1; }
+  .card.done .card-title { text-decoration: line-through; color: var(--ink-mute); }
+  .card-desc { font-size: 11.5px; color: var(--ink-soft); margin: 0 0 9px 30px; line-height: 1.5; }
+  .card.done .card-desc { color: var(--ink-mute); text-decoration: line-through; opacity: .7; }
+
+  .card-tags { display: flex; gap: 6px; margin: 0 0 9px 30px; flex-wrap: wrap; }
+  .tag { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 20px; border: 1.5px solid var(--ink); }
+  .pri-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 20px; border: 1.5px solid var(--ink); color: #fff; }
+  .pri-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  .card-foot { display: flex; align-items: center; gap: 8px; margin-left: 30px; flex-wrap: wrap; }
+  .assignee { display: flex; align-items: center; gap: 6px; }
+  .mini-avatar { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--ink); display: grid; place-items: center; font-size: 9px; font-weight: 800; color: #fff; }
+  .a-name { font-size: 11px; font-weight: 600; color: var(--ink-soft); }
+  .due { margin-left: auto; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 20px; background: var(--cream-2); border: 1.5px solid var(--ink); }
+  .due.soon { background: var(--mustard-soft); border-color: var(--mustard); }
+  .due.overdue { background: var(--red-soft); border-color: var(--red); color: var(--red); }
+
+  .card-del {
+    position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-radius: 6px;
+    border: none; background: none; color: var(--ink-mute); cursor: pointer;
+    display: grid; place-items: center; opacity: 0; transition: .15s; font-size: 14px;
+  }
+  .card:hover .card-del { opacity: 1; }
+  .card-del:hover { background: var(--red-soft); color: var(--red); }
+
+  /* draggable inbox note over board */
+  .card.note-drag-target { outline: 3px dashed var(--cobalt); }
+
+  /* ---------- SAĞ PANEL: FİKİR HAVUZU ---------- */
+  .inbox-add { display: flex; gap: 8px; margin-bottom: 12px; }
+  .inbox-add textarea { flex: 1; min-height: 54px; resize: none; font-size: 12.5px; }
+  .inbox-list { display: flex; flex-direction: column; gap: 8px; }
+  .inbox-note {
+    background: var(--mustard-soft); border: var(--border-thin); border-radius: var(--radius-sm);
+    padding: 10px 11px; font-size: 12px; font-weight: 600; cursor: grab; position: relative;
+    box-shadow: var(--shadow-brutal-sm); transition: transform .2s var(--ease-spring);
+    line-height: 1.4;
+  }
+  .inbox-note:hover { transform: translate(-2px,-2px); box-shadow: 4px 4px 0px var(--ink); }
+  .inbox-note.dragging { opacity: .5; }
+  .inbox-note .note-del { position: absolute; top: 6px; right: 6px; border: none; background: none; cursor: pointer; opacity: 0; font-size: 12px; color: var(--ink-mute); }
+  .inbox-note:hover .note-del { opacity: 1; }
+  .inbox-empty { text-align: center; font-size: 11.5px; color: var(--ink-mute); font-weight: 600; padding: 18px 8px; border: 2px dashed var(--ink-mute); border-radius: var(--radius-sm); }
+  .inbox-hint { font-size: 10.5px; color: var(--ink-mute); font-weight: 600; margin-top: 10px; text-align: center; line-height: 1.5; }
+
+  /* ============ KİŞİSEL ALAN ============ */
+  #personalArea { display: none; }
+  #personalArea.on { display: block; }
+  .pa-board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; padding: 0 26px 20px; }
+  .pa-col { background: var(--cream-2); border: var(--border-thin); border-radius: var(--radius-md); padding: 10px; min-height: 140px; }
+  .pa-col.drag-over { background: var(--mustard-soft); border-color: var(--mustard); }
+  .pa-col-head { font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .pa-cards { display: flex; flex-direction: column; gap: 8px; min-height: 40px; }
+  .pa-card {
+    background: var(--card-2); border: var(--border-thin); border-radius: var(--radius-sm);
+    padding: 10px; cursor: grab; box-shadow: var(--shadow-brutal-sm); position: relative;
+    transition: transform .2s var(--ease-spring);
+  }
+  .pa-card:hover { transform: translate(-2px,-2px); box-shadow: 4px 4px 0px var(--ink); }
+  .pa-card.dragging { opacity: .5; }
+  .pa-card .pa-title { font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+  .pa-card .pa-time { font-size: 10px; font-family: var(--font-mono); font-weight: 700; color: var(--ink-soft); }
+  .pa-card .pa-link { font-size: 10.5px; color: var(--cobalt); font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 3px; margin-top: 4px; }
+  .pa-card .pa-del { position: absolute; top: 6px; right: 6px; border: none; background: none; cursor: pointer; opacity: 0; font-size: 12px; color: var(--ink-mute); }
+  .pa-card:hover .pa-del { opacity: 1; }
+
+  .pa-timeline-wrap { padding: 0 26px 26px; }
+  .timeline-panel { background: var(--card); border: var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); padding: 20px; }
+  .timeline { position: relative; margin-top: 14px; }
+  .tl-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1.5px dashed var(--cream-2); }
+  .tl-time { font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; width: 92px; flex-shrink: 0; color: var(--ink-soft); }
+  .tl-bar { flex: 1; background: var(--cobalt-soft); border: var(--border-thin); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 12.5px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .tl-bar a { color: var(--cobalt); }
+  .tl-empty { text-align: center; font-size: 12.5px; color: var(--ink-mute); font-weight: 600; padding: 20px; }
+
+  .pa-quickadd { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 26px 16px; }
+  .pa-quickadd input[type=text] { flex: 2; min-width: 160px; }
+  .pa-quickadd input[type=url] { flex: 2; min-width: 150px; }
+  .pa-quickadd input[type=time] { width: 110px; }
+
+  /* ---------- MODAL (Kategori Ekle) ---------- */
+  .overlay { position: fixed; inset: 0; background: rgba(18,18,18,.5); backdrop-filter: blur(4px); z-index: 100; display: grid; place-items: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity .25s var(--ease-soft); }
+  .overlay.open { opacity: 1; pointer-events: auto; }
+  .modal { background: var(--card); border: var(--border); border-radius: var(--radius-lg); width: 100%; max-width: 400px; box-shadow: var(--shadow-card); padding: 24px; transform: translateY(14px) scale(.97); transition: transform .28s var(--ease-spring); }
+  .overlay.open .modal { transform: none; }
+  .modal h3 { font-size: 16px; margin-bottom: 16px; }
+  .swatches { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .swatch { width: 28px; height: 28px; border-radius: 8px; border: 2.5px solid var(--ink); cursor: pointer; transition: transform .15s var(--ease-spring); }
+  .swatch.sel { transform: scale(1.15); box-shadow: 0 0 0 3px var(--ink); }
+  .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+  .modal-actions .btn { flex: 1; }
+
+  /* ---------- Quick Capture (Shift+Space) ---------- */
+  .capture-overlay { position: fixed; inset: 0; background: rgba(18,18,18,.55); z-index: 200; display: none; place-items: flex-start; justify-content: center; padding-top: 14vh; }
+  .capture-overlay.on { display: grid; }
+  .capture-box { width: 100%; max-width: 480px; background: var(--card); border: var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); padding: 18px; }
+  .capture-box textarea { width: 100%; min-height: 70px; resize: none; font-size: 14px; }
+  .capture-hint { font-size: 11px; color: var(--ink-mute); font-weight: 600; margin-top: 8px; }
+
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(90px); background: var(--ink); color: #fff; padding: 12px 18px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700; box-shadow: var(--shadow-brutal); z-index: 300; opacity: 0; transition: all .3s var(--ease-spring); }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  .scrim { display: none; }
 
   /* ---------- Responsive ---------- */
-  @media (max-width:980px) {
-    .board { grid-template-columns:1fr; gap:16px; padding:18px; }
-    .column { max-height:none; }
-    .sidebar { position:fixed; left:0; top:0; transform:translateX(-100%); box-shadow:var(--shadow-lg); }
-    .sidebar.open { transform:translateX(0); }
-    .hamburger { display:grid; }
-    .scrim.open { display:block; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:35; backdrop-filter:blur(2px); }
-    .search { flex:1; min-width:0; }
-    .topbar { padding:16px 18px; }
+  @media (max-width: 1100px) {
+    .bento { grid-template-columns: 1fr; }
+    .board { grid-template-columns: 1fr; }
+    .pa-board { grid-template-columns: repeat(2,1fr); }
   }
-  @media (max-width:560px) { .search { display:none; } .topbar h2 { font-size:17px; } }
+  @media (max-width: 640px) {
+    .quickadd input[type=text] { flex: 1 1 100%; }
+  }
 </style>
 </head>
 <body>
 
-  <!-- ===================== KURULUM UYARISI ===================== -->
+  <!-- ===================== SETUP UYARISI ===================== -->
   <div id="setup">
     <div class="setup-card">
-      <h2>⚙️ Önce kurulum gerekli</h2>
+      <h2 class="font-head">⚙️ Önce kurulum gerekli</h2>
       <p>Uygulamanın çalışması için <code>index.html</code> içindeki <b>AYARLAR</b> bloğunu doldurmalısın.</p>
       <ol>
         <li><b>Supabase</b> projesi aç → Project Settings → API'den <code>Project URL</code> ve <code>anon key</code>'i kopyala.</li>
@@ -220,14 +387,13 @@
         <li><b>Google Sheets</b>'te <code>apps-script.gs</code>'i web uygulaması olarak yayınla, <code>/exec</code> URL'sini al.</li>
         <li>Bu üç değeri <code>index.html</code> en üstteki <b>CONFIG</b> alanına yapıştır ve sayfayı yenile.</li>
       </ol>
-      <p style="margin-top:14px; font-size:13px; color:var(--text-3)">Detaylı adımlar: <code>README.md</code></p>
     </div>
   </div>
 
-  <!-- ===================== GİRİŞ / KAYIT ===================== -->
+  <!-- ===================== AUTH ===================== -->
   <div class="auth-wrap" id="authWrap" style="display:none">
     <div class="auth-card">
-      <div class="auth-brand">
+      <div class="brand-row">
         <div class="logo">T</div>
         <div><h1>TeamFlow</h1><p>Takım Lideri Görev Paneli</p></div>
       </div>
@@ -235,15 +401,11 @@
         <button id="tabLogin" class="active">Giriş Yap</button>
         <button id="tabSignup">Kayıt Ol</button>
       </div>
-
-      <!-- Giriş -->
       <form id="loginForm">
         <div class="field"><label>E-posta</label><input type="email" id="loginEmail" autocomplete="email" /></div>
         <div class="field"><label>Şifre</label><input type="password" id="loginPass" autocomplete="current-password" /></div>
         <button type="submit" class="btn btn-primary full" id="loginBtn">Giriş Yap</button>
       </form>
-
-      <!-- Kayıt -->
       <form id="signupForm" style="display:none">
         <div class="field"><label>Ad Soyad</label><input type="text" id="suName" placeholder="Elif Yılmaz" autocomplete="name" /></div>
         <div class="field"><label>Rol / Ünvan</label><input type="text" id="suRole" placeholder="Frontend Lideri" /></div>
@@ -251,85 +413,159 @@
         <div class="field"><label>Şifre (min. 6 karakter)</label><input type="password" id="suPass" autocomplete="new-password" /></div>
         <button type="submit" class="btn btn-primary full" id="suBtn">Kayıt Ol</button>
       </form>
-
       <div class="auth-msg" id="authMsg"></div>
     </div>
   </div>
 
-  <!-- ===================== UYGULAMA ===================== -->
+  <!-- ===================== APP ===================== -->
   <div id="app">
-    <aside class="sidebar" id="sidebar">
-      <div class="brand">
+    <header class="topbar">
+      <button class="btn btn-icon hamburger" id="hamburger">☰</button>
+      <div class="brand-row">
         <div class="logo">T</div>
-        <div><h1>TeamFlow</h1><p>Görev Yönetim Paneli</p></div>
+        <div><h1 style="font-size:16px">TeamFlow</h1><p style="font-size:11px;color:var(--ink-soft);font-weight:600">Görev Yönetim Paneli</p></div>
       </div>
+      <div class="spacer"></div>
+      <div class="search-box">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8A867E" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+        <input type="text" id="searchInput" placeholder="Görev ara..." />
+      </div>
+      <div id="viewToggle" class="tabs" style="display:none; width:auto">
+        <button data-view="mine" class="active">Görevlerim</button>
+        <button data-view="all">Tüm Ekip</button>
+      </div>
+      <button class="btn btn-mustard" id="personalToggleBtn" style="display:none">📋 Kişisel Alan</button>
+      <button class="btn btn-ghost" id="exportBtn">📤 Sheets'e Aktar</button>
+    </header>
 
-      <div class="me-card">
-        <div class="me-top">
-          <div class="avatar" id="meAvatar"></div>
-          <div style="min-width:0">
-            <div class="name" id="meName"></div>
-            <div class="role" id="meRole"></div>
+    <!-- ============ TAKIM PANOSU ============ -->
+    <div id="teamArea">
+      <div class="bento">
+        <!-- SOL -->
+        <div class="left-col">
+          <div class="panel">
+            <div class="profile-card">
+              <div class="avatar" id="meAvatar"></div>
+              <div class="profile-meta">
+                <div class="name" id="meName"></div>
+                <div class="role" id="meRole"></div>
+              </div>
+              <span class="admin-pill" id="mePill" style="display:none">ADMIN</span>
+            </div>
+            <button class="btn btn-ghost full logout-btn" id="logoutBtn">Çıkış Yap</button>
           </div>
-          <span class="admin-pill" id="mePill" style="display:none">ADMIN</span>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Kategoriler</h3>
+              <span class="count-chip" id="catCount">0</span>
+            </div>
+            <div class="cat-list" id="catList"></div>
+            <button class="btn btn-ghost full" id="addCatBtn" style="margin-top:10px; display:none">+ Kategori Ekle</button>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><h3>Performans Özeti</h3></div>
+            <div class="metrics-grid">
+              <div class="metric-box"><div class="num mono" id="metricTotal">0</div><div class="lbl">Toplam</div></div>
+              <div class="metric-box"><div class="num mono" id="metricDone">0</div><div class="lbl">Biten</div></div>
+            </div>
+          </div>
         </div>
-        <button class="btn btn-ghost full logout" id="logoutBtn">Çıkış Yap</button>
+
+        <!-- ORTA -->
+        <div class="mid-col">
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Sprint Görev Akışı</h3>
+              <span class="count-chip" id="subtitleChip"></span>
+            </div>
+
+            <div class="quickadd">
+              <input type="text" id="qaTitle" placeholder="Yeni görev planı yaz..." />
+              <select id="qaCategory"></select>
+              <select id="qaPriority">
+                <option value="kritik">Kritik</option>
+                <option value="yuksek">Yüksek</option>
+                <option value="normal" selected>Normal</option>
+                <option value="dusuk">Düşük</option>
+              </select>
+              <select id="qaAssignee" style="display:none"></select>
+              <button class="btn btn-mustard" id="qaAddBtn">Ekle</button>
+            </div>
+
+            <div class="priority-filters" id="priorityFilters">
+              <button class="pf-btn active" data-pri="all">Tümü</button>
+              <button class="pf-btn" data-pri="kritik">🔴 Kritik</button>
+              <button class="pf-btn" data-pri="yuksek">🟠 Yüksek</button>
+              <button class="pf-btn" data-pri="normal">🔵 Normal</button>
+              <button class="pf-btn" data-pri="dusuk">⚪ Düşük</button>
+            </div>
+
+            <div class="board" id="board"></div>
+          </div>
+        </div>
+
+        <!-- SAĞ -->
+        <div class="right-col">
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Fikir Havuzu</h3>
+              <span class="count-chip" id="inboxCount">0</span>
+            </div>
+            <div class="inbox-add">
+              <textarea id="inboxInput" placeholder="Aklına gelen fikri buraya yaz..."></textarea>
+            </div>
+            <button class="btn btn-primary full" id="inboxAddBtn" style="margin-bottom:12px">Notu Ekle</button>
+            <div class="inbox-list" id="inboxList"></div>
+            <div class="inbox-hint">Notları sürükleyip panodaki bir sütuna bırak → görev kartına dönüşsün.<br><b>Shift + Space</b> ile hızlı yakala.</div>
+          </div>
+        </div>
       </div>
+    </div>
 
-      <button class="btn btn-primary full" id="addTaskBtn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-        Yeni Görev
-      </button>
-
-      <button class="btn btn-ghost full" id="exportBtn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"/></svg>
-        Google Sheets'e Aktar
-      </button>
-
-      <div id="leadersSection" style="display:none">
-        <div class="section-label">Takım Liderleri <span class="count-chip" id="leaderCount">0</span></div>
-        <div class="leader-list" id="leaderList"></div>
+    <!-- ============ KİŞİSEL ALAN ============ -->
+    <div id="personalArea">
+      <div class="pa-quickadd">
+        <input type="text" id="paTitle" placeholder="Zaman bloğu / görev başlığı..." />
+        <input type="url" id="paLink" placeholder="https:// (opsiyonel link)" />
+        <input type="time" id="paStart" />
+        <input type="time" id="paEnd" />
+        <button class="btn btn-mustard" id="paAddBtn">+ Blok Ekle</button>
       </div>
-    </aside>
-    <div class="scrim" id="scrim"></div>
-
-    <main class="main">
-      <header class="topbar">
-        <button class="btn btn-icon hamburger" id="hamburger" aria-label="Menü">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
-        </button>
-        <div class="title-block">
-          <h2>Proje Panosu</h2>
-          <p class="subtitle" id="subtitle"></p>
+      <div class="pa-board" id="paBoard"></div>
+      <div class="pa-timeline-wrap">
+        <div class="timeline-panel">
+          <h3 class="font-head" style="font-size:14px; text-transform:uppercase; letter-spacing:.4px">🕐 Bugünün Zaman Çizelgesi</h3>
+          <div class="timeline" id="timeline"></div>
         </div>
-        <div class="view-toggle" id="viewToggle" style="display:none">
-          <button data-view="mine" class="active">Görevlerim</button>
-          <button data-view="all">Tüm Ekip</button>
-        </div>
-        <div class="search">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6a7280" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
-          <input type="text" id="searchInput" placeholder="Görev ara..." />
-        </div>
-      </header>
-      <section class="board" id="board"></section>
-    </main>
+      </div>
+    </div>
   </div>
 
-  <!-- ===================== GÖREV MODAL ===================== -->
-  <div class="overlay" id="taskOverlay">
+  <!-- ===================== MODAL: Kategori ===================== -->
+  <div class="overlay" id="catOverlay">
     <div class="modal">
-      <div class="modal-head"><h3>Yeni Görev Ekle</h3><button class="btn btn-icon" data-close-task style="width:30px;height:30px">✕</button></div>
-      <form id="taskForm">
-        <div class="field"><label>Görev Başlığı</label><input type="text" id="taskTitle" placeholder="Örn. Ana sayfa tasarımını tamamla" />
-          <div class="form-error" id="taskTitleErr">Lütfen bir başlık girin.</div></div>
-        <div class="field"><label>Kısa Açıklama</label><textarea id="taskDesc" placeholder="Görevle ilgili kısa bir not..."></textarea></div>
-        <div class="field" id="assignField" style="display:none"><label>Görevlendirilecek Lider</label><select id="taskLeader"></select></div>
-        <div class="field"><label>Son Teslim Tarihi</label><input type="date" id="taskDue" /></div>
+      <h3>Yeni Kategori Ekle</h3>
+      <form id="catForm">
+        <div class="field"><label>Kategori Adı</label><input type="text" id="catName" placeholder="Örn. Pazarlama" /></div>
+        <div class="field">
+          <label>Renk</label>
+          <div class="swatches" id="colorSwatches"></div>
+        </div>
         <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" data-close-task>Vazgeç</button>
-          <button type="submit" class="btn btn-primary" id="taskSubmit">Görevi Oluştur</button>
+          <button type="button" class="btn btn-ghost" id="catCancelBtn">Vazgeç</button>
+          <button type="submit" class="btn btn-primary">Ekle</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ===================== HIZLI YAKALAMA (Shift+Space) ===================== -->
+  <div class="capture-overlay" id="captureOverlay">
+    <div class="capture-box">
+      <textarea id="captureInput" placeholder="Aklındaki fikri yaz, Enter'a bas..."></textarea>
+      <div class="capture-hint">Enter: Fikir Havuzuna kaydet · Esc: Kapat</div>
     </div>
   </div>
 
@@ -339,7 +575,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 /* ============================================================
-   ⚙️ AYARLAR (CONFIG) — Kendi değerlerinle doldur
+   ⚙️ AYARLAR (CONFIG)
    ============================================================ */
 const SUPABASE_URL      = "https://drbkiuxnwmixuhfiybsm.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_3lMIgCXnZwrRGXLlr63gLg_4GhCKtsP";
@@ -349,28 +585,48 @@ const SHEETS_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzOfv2NX3k_Kj
 const $  = (s, r=document) => r.querySelector(s);
 const $$ = (s, r=document) => [...r.querySelectorAll(s)];
 
-const PALETTE = ["#7c8cff","#35d0a5","#ffb454","#ff6b6b","#b06cff","#4dd0e1","#f06292","#9ccc65","#ff8a65","#5c6bc0"];
+const AVATAR_PALETTE = ["#2F5DFF","#E8402A","#FFC53D","#22C55E","#A855F7","#0EA5E9","#EC4899","#84CC16","#FB923C","#6366F1"];
 const COLUMNS = [
   { id:"todo",  title:"Yapılacaklar", cls:"col-todo"  },
   { id:"doing", title:"Süreçtekiler", cls:"col-doing" },
   { id:"done",  title:"Tamamlandı",   cls:"col-done"  },
 ];
 const STATUS_LABEL = { todo:"Yapılacak", doing:"Süreçte", done:"Tamamlandı" };
+const PRIORITY_LABEL = { kritik:"Kritik", yuksek:"Yüksek", normal:"Normal", dusuk:"Düşük" };
+const PRIORITY_ORDER = { kritik:0, yuksek:1, normal:2, dusuk:3 };
+const PRIORITY_COLOR = { kritik:"var(--pri-kritik)", yuksek:"var(--pri-yuksek)", normal:"var(--pri-normal)", dusuk:"var(--pri-dusuk)" };
+const PRIORITY_ICON = { kritik:"🔴", yuksek:"🟠", normal:"🔵", dusuk:"⚪" };
+
+const PA_COLUMNS = [
+  { id:"fikir",     title:"Fikir" },
+  { id:"yapilacak", title:"Yapılacak" },
+  { id:"yapiliyor", title:"Yapılıyor" },
+  { id:"yapildi",   title:"Yapıldı" },
+  { id:"arsiv",     title:"Arşiv" },
+];
+
+const SWATCHES = ["#E8402A","#2F5DFF","#22C55E","#A855F7","#FFC53D","#0EA5E9","#EC4899","#84CC16","#FB923C","#6366F1","#121212","#9AA0A6"];
 
 /* ---------- Durum ---------- */
 let sb = null;
-let me = null;         // auth user
-let profile = null;    // benim profilim
-let profiles = {};     // id -> {name, role, is_admin}
-let tasks = [];        // görünür görevler (RLS'e göre)
-let view = "mine";     // mine | all  (yalnızca admin 'all' görebilir)
+let me = null;
+let profile = null;
+let profiles = {};
+let categories = [];
+let tasks = [];
+let inboxNotes = [];
+let personalBlocks = [];
+let view = "mine";
+let priorityFilter = "all";
 let searchQuery = "";
+let selectedSwatch = SWATCHES[0];
 let channel = null;
+let personalAreaOpen = false;
 
-/* ---------- Yardımcılar ---------- */
 const initials = n => (n||"?").trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase();
-const colorFor = id => { let h=0; for(const c of String(id)) h=(h*31+c.charCodeAt(0))>>>0; return PALETTE[h%PALETTE.length]; };
+const colorFor = id => { let h=0; for(const c of String(id)) h=(h*31+c.charCodeAt(0))>>>0; return AVATAR_PALETTE[h%AVATAR_PALETTE.length]; };
 const esc = (s="") => String(s).replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
+const configured = () => !SUPABASE_URL.includes("YOUR-PROJECT") && !SUPABASE_ANON_KEY.includes("YOUR-ANON-KEY");
 
 function dueMeta(dateStr, done) {
   if (!dateStr) return { show:false };
@@ -388,8 +644,8 @@ function toast(msg) {
   const t = $("#toast"); t.textContent = msg; t.classList.add("show");
   clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove("show"), 2400);
 }
-const configured = () =>
-  !SUPABASE_URL.includes("YOUR-PROJECT") && !SUPABASE_ANON_KEY.includes("YOUR-ANON-KEY");
+const openM  = el => el.classList.add("open");
+const closeM = el => el.classList.remove("open");
 
 /* ============================================================
    BAŞLANGIÇ
@@ -397,11 +653,9 @@ const configured = () =>
 async function boot() {
   if (!configured()) { $("#setup").classList.add("on"); return; }
   sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
   const { data:{ session } } = await sb.auth.getSession();
   if (session?.user) await enterApp(session.user);
   else showAuth();
-
   sb.auth.onAuthStateChange(async (_e, s) => {
     if (s?.user) { if (me?.id !== s.user.id) await enterApp(s.user); }
     else { me = null; profile = null; showAuth(); }
@@ -418,14 +672,12 @@ async function enterApp(user) {
   $("#authWrap").style.display = "none";
   $("#app").classList.add("on");
   await ensureProfile();
-  await reloadProfiles();
-  await reloadTasks();
+  await reloadAll();
   subscribeRealtime();
   renderMe();
   render();
 }
 
-/* Trigger profil oluşturmadıysa (nadir) yedek olarak oluştur */
 async function ensureProfile() {
   let { data } = await sb.from("profiles").select("*").eq("id", me.id).maybeSingle();
   if (!data) {
@@ -436,29 +688,31 @@ async function ensureProfile() {
   profile = data;
 }
 
-async function reloadProfiles() {
-  const { data } = await sb.from("profiles").select("*");
-  profiles = {};
-  (data || []).forEach(p => profiles[p.id] = p);
+async function reloadAll() {
+  const [p, c, t, ib, pb] = await Promise.all([
+    sb.from("profiles").select("*"),
+    sb.from("categories").select("*").order("sort_order"),
+    sb.from("tasks").select("*").order("created_at", { ascending:true }),
+    sb.from("inbox_notes").select("*").eq("user_id", me.id).order("created_at", { ascending:false }),
+    profile?.is_admin ? sb.from("personal_blocks").select("*").eq("user_id", me.id).order("created_at", { ascending:true }) : Promise.resolve({ data: [] }),
+  ]);
+  profiles = {}; (p.data||[]).forEach(x => profiles[x.id] = x);
+  categories = c.data || [];
+  tasks = t.data || [];
+  inboxNotes = ib.data || [];
+  personalBlocks = pb.data || [];
 }
 
-async function reloadTasks() {
-  const { data, error } = await sb.from("tasks").select("*").order("created_at", { ascending:true });
-  if (error) { toast("Görevler yüklenemedi: " + error.message); return; }
-  tasks = data || [];
-}
-
-async function reloadAndRender() {
-  await reloadProfiles();
-  await reloadTasks();
-  render();
-}
+async function reloadAndRender() { await reloadAll(); render(); }
 
 function subscribeRealtime() {
   if (channel) sb.removeChannel(channel);
   channel = sb.channel("rt")
     .on("postgres_changes", { event:"*", schema:"public", table:"tasks" }, reloadAndRender)
     .on("postgres_changes", { event:"*", schema:"public", table:"profiles" }, reloadAndRender)
+    .on("postgres_changes", { event:"*", schema:"public", table:"categories" }, reloadAndRender)
+    .on("postgres_changes", { event:"*", schema:"public", table:"inbox_notes" }, reloadAndRender)
+    .on("postgres_changes", { event:"*", schema:"public", table:"personal_blocks" }, reloadAndRender)
     .subscribe();
 }
 
@@ -472,121 +726,230 @@ function renderMe() {
   $("#meRole").textContent = profile.role || "Takım Lideri";
   $("#mePill").style.display = profile.is_admin ? "" : "none";
   $("#viewToggle").style.display = profile.is_admin ? "flex" : "none";
-  $("#leadersSection").style.display = profile.is_admin ? "" : "none";
-  $("#assignField").style.display = profile.is_admin ? "" : "none";
+  $("#addCatBtn").style.display = profile.is_admin ? "" : "none";
+  $("#qaAssignee").style.display = profile.is_admin ? "" : "none";
+  $("#personalToggleBtn").style.display = profile.is_admin ? "" : "none";
 }
 
 function visibleTasks() {
-  // Admin + "mine" => sadece kendi. Admin + "all" => hepsi. Lider => RLS zaten kendine kısıtlar.
-  if (profile.is_admin && view === "mine") return tasks.filter(t => t.user_id === me.id);
-  return tasks;
+  let list = (profile.is_admin && view === "mine") ? tasks.filter(t => t.user_id === me.id) : tasks.slice();
+  if (priorityFilter !== "all") list = list.filter(t => t.priority === priorityFilter);
+  if (searchQuery) {
+    list = list.filter(t => {
+      const leader = profiles[t.user_id];
+      const hay = (t.title + " " + (t.descr||"") + " " + (leader?.name||"")).toLowerCase();
+      return hay.includes(searchQuery);
+    });
+  }
+  return list;
 }
 
 function render() {
+  renderCategories();
+  renderQuickaddOptions();
   renderBoard();
-  renderLeaders();
-  renderSubtitle();
+  renderMetrics();
+  renderInbox();
+  if (profile.is_admin) { renderPersonalBoard(); renderTimeline(); }
 }
 
-function renderSubtitle() {
-  const list = visibleTasks();
-  const done = list.filter(t => t.status === "done").length;
-  const scope = (profile.is_admin && view === "all") ? "tüm ekip · " : "";
-  $("#subtitle").textContent = list.length
-    ? `${scope}${list.length} görev · ${done} tamamlandı · ${list.length - done} devam ediyor`
-    : "Henüz görev yok — 'Yeni Görev' ile başla";
+function renderMetrics() {
+  const list = profile.is_admin && view === "mine" ? tasks.filter(t=>t.user_id===me.id) : tasks;
+  $("#metricTotal").textContent = list.length;
+  $("#metricDone").textContent = list.filter(t=>t.status==="done").length;
+  const scope = (profile.is_admin && view === "all") ? "tüm ekip" : "";
+  $("#subtitleChip").textContent = scope || (list.length + " görev");
+}
+
+function renderCategories() {
+  $("#catCount").textContent = categories.length;
+  $("#catList").innerHTML = categories.map(c => `
+    <div class="cat-row">
+      <span class="cat-dot" style="background:${c.color}"></span>
+      <span class="cat-name">${esc(c.name)}</span>
+      ${profile.is_admin ? `<button class="cat-del" data-del-cat="${c.id}" title="Sil">✕</button>` : ""}
+    </div>`).join("") || `<div class="inbox-empty">Henüz kategori yok</div>`;
+}
+
+function renderQuickaddOptions() {
+  const catSel = $("#qaCategory");
+  catSel.innerHTML = `<option value="">Kategori yok</option>` + categories.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
+  if (profile.is_admin) {
+    const aSel = $("#qaAssignee");
+    aSel.innerHTML = Object.keys(profiles).map(id => `<option value="${id}" ${id===me.id?"selected":""}>${esc(profiles[id].name)}</option>`).join("");
+  }
 }
 
 function renderBoard() {
   const list = visibleTasks();
   $("#board").innerHTML = COLUMNS.map(col => {
-    const colTasks = list.filter(t => t.status === col.id);
+    let colTasks = list.filter(t => t.status === col.id);
+    colTasks.sort((a,b) => (PRIORITY_ORDER[a.priority]??2) - (PRIORITY_ORDER[b.priority]??2) || new Date(a.created_at)-new Date(b.created_at));
     return `
       <div class="column ${col.cls}" data-col="${col.id}">
-        <div class="col-head"><span class="dot"></span><span class="col-title">${col.title}</span><span class="col-count">${colTasks.length}</span></div>
+        <div class="col-head"><span class="col-dot"></span><span class="col-title">${col.title}</span><span class="col-count">${colTasks.length}</span></div>
         <div class="cards" data-drop="${col.id}">
-          ${colTasks.map(cardHTML).filter(Boolean).join("") || `<div class="drop-empty">Buraya görev sürükle</div>`}
+          ${colTasks.map(cardHTML).join("") || `<div class="drop-empty">Buraya sürükle</div>`}
         </div>
       </div>`;
   }).join("");
-  wireDnD();
+  wireBoardDnD();
 }
 
 function cardHTML(t) {
   const leader = profiles[t.user_id];
   const done = t.status === "done";
   const d = dueMeta(t.due, done);
-  const hay = (t.title + " " + (t.descr||"") + " " + (leader?.name||"")).toLowerCase();
-  if (searchQuery && !hay.includes(searchQuery)) return "";
+  const cat = categories.find(c => c.id === t.category_id);
+  const pri = t.priority || "normal";
+
+  const catTag = cat ? `<span class="tag" style="background:${cat.color}; color:#fff">${esc(cat.name)}</span>` : "";
+  const priTag = `<span class="pri-badge" style="background:${PRIORITY_COLOR[pri]}"><span class="pri-dot"></span>${PRIORITY_LABEL[pri]}</span>`;
 
   const assignee = leader
     ? `<div class="assignee"><span class="mini-avatar" style="background:${colorFor(t.user_id)}">${esc(initials(leader.name))}</span><span class="a-name">${esc(leader.name)}</span></div>`
-    : `<div class="assignee"><span class="a-name" style="color:var(--text-3)">—</span></div>`;
+    : `<div class="assignee"><span class="a-name">—</span></div>`;
 
   const due = d.show
-    ? `<span class="due ${d.cls||''}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>${esc(d.label)}</span>`
-    : "";
+    ? `<span class="due ${d.cls||''}">${esc(d.label)}</span>` : "";
 
   return `
     <div class="card ${done?"done":""}" draggable="true" data-id="${t.id}">
       <button class="card-del" data-del-task="${t.id}" title="Sil">✕</button>
       <div class="card-top">
-        <button class="check" data-toggle="${t.id}" title="Tamamlandı işaretle">✓</button>
+        <button class="check" data-toggle="${t.id}">✓</button>
         <div class="card-title">${esc(t.title)}</div>
       </div>
       ${t.descr ? `<div class="card-desc">${esc(t.descr)}</div>` : ""}
+      <div class="card-tags">${catTag}${priTag}</div>
       <div class="card-foot">${assignee}${due}</div>
     </div>`;
 }
 
-function renderLeaders() {
-  if (!profile.is_admin) return;
-  const ids = Object.keys(profiles);
-  $("#leaderCount").textContent = ids.length;
-  const list = $("#leaderList");
-  if (!ids.length) { list.innerHTML = `<div class="empty-hint">Henüz kayıtlı lider yok.</div>`; return; }
-  list.innerHTML = ids.map(id => {
-    const p = profiles[id];
-    const count = tasks.filter(t => t.user_id === id).length;
+function renderInbox() {
+  $("#inboxCount").textContent = inboxNotes.length;
+  $("#inboxList").innerHTML = inboxNotes.map(n => `
+    <div class="inbox-note" draggable="true" data-note-id="${n.id}">
+      ${esc(n.text)}
+      <button class="note-del" data-del-note="${n.id}">✕</button>
+    </div>`).join("") || `<div class="inbox-empty">Henüz not yok</div>`;
+  wireInboxDnD();
+}
+
+/* ---------- Kişisel Alan render ---------- */
+function renderPersonalBoard() {
+  $("#paBoard").innerHTML = PA_COLUMNS.map(col => {
+    const items = personalBlocks.filter(b => b.status === col.id);
     return `
-      <div class="leader-card ${id===me.id?"is-me":""}">
-        <div class="avatar" style="background:${colorFor(id)}">${esc(initials(p.name))}</div>
-        <div class="leader-meta"><div class="name">${esc(p.name)}${id===me.id?" (sen)":""}</div><div class="role">${esc(p.role||"Takım Lideri")}</div></div>
-        <span class="task-badge">${count}</span>
+      <div class="pa-col" data-pa-col="${col.id}">
+        <div class="pa-col-head">${col.title} <span class="mono" style="margin-left:auto;font-size:10px">${items.length}</span></div>
+        <div class="pa-cards" data-pa-drop="${col.id}">
+          ${items.map(paCardHTML).join("")}
+        </div>
       </div>`;
   }).join("");
+  wirePersonalDnD();
+}
+
+function paCardHTML(b) {
+  const time = (b.start_time && b.end_time) ? `${b.start_time}–${b.end_time}` : (b.start_time || "");
+  return `
+    <div class="pa-card" draggable="true" data-pa-id="${b.id}">
+      <button class="pa-del" data-del-pa="${b.id}">✕</button>
+      ${b.title ? `<div class="pa-title">${esc(b.title)}</div>` : ""}
+      ${time ? `<div class="pa-time">🕐 ${esc(time)}</div>` : ""}
+      ${b.link ? `<a class="pa-link" href="${esc(b.link)}" target="_blank" rel="noopener">🔗 Link</a>` : ""}
+    </div>`;
+}
+
+function renderTimeline() {
+  const items = personalBlocks.filter(b => b.start_time).sort((a,b) => a.start_time.localeCompare(b.start_time));
+  $("#timeline").innerHTML = items.length ? items.map(b => `
+    <div class="tl-row">
+      <div class="tl-time">${esc(b.start_time)}${b.end_time ? "–"+esc(b.end_time) : ""}</div>
+      <div class="tl-bar">${esc(b.title || "Blok")} ${b.link ? `<a href="${esc(b.link)}" target="_blank" rel="noopener">🔗</a>` : ""}</div>
+    </div>`).join("") : `<div class="tl-empty">Henüz zaman bloğu yok. Yukarıdan saat girerek ekleyebilirsin.</div>`;
 }
 
 /* ============================================================
-   DRAG & DROP
+   DRAG & DROP — Görev Panosu
    ============================================================ */
-let dragId = null;
-function wireDnD() {
+let dragTaskId = null;
+function wireBoardDnD() {
   $$(".card").forEach(card => {
     card.addEventListener("dragstart", e => {
-      dragId = card.dataset.id; card.classList.add("dragging");
-      e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", dragId);
+      dragTaskId = card.dataset.id; card.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", "task:"+dragTaskId);
     });
-    card.addEventListener("dragend", () => {
-      card.classList.remove("dragging"); dragId = null;
-      $$(".column").forEach(c => c.classList.remove("drag-over"));
-    });
+    card.addEventListener("dragend", () => { card.classList.remove("dragging"); dragTaskId = null; $$(".column").forEach(c=>c.classList.remove("drag-over")); });
   });
-  $$(".cards").forEach(zone => {
+  $$(".cards[data-drop]").forEach(zone => {
     const col = zone.closest(".column");
     zone.addEventListener("dragover", e => { e.preventDefault(); col.classList.add("drag-over"); });
     zone.addEventListener("dragleave", e => { if (!zone.contains(e.relatedTarget)) col.classList.remove("drag-over"); });
     zone.addEventListener("drop", async e => {
       e.preventDefault(); col.classList.remove("drag-over");
-      const id = dragId || e.dataTransfer.getData("text/plain");
+      const raw = e.dataTransfer.getData("text/plain");
       const newStatus = zone.dataset.drop;
+      if (raw.startsWith("note:")) {
+        const noteId = raw.slice(5);
+        await convertNoteToTask(noteId, newStatus);
+        return;
+      }
+      const id = raw.startsWith("task:") ? raw.slice(5) : dragTaskId;
       const task = tasks.find(t => t.id === id);
       if (!task || task.status === newStatus) return;
-      task.status = newStatus;                     // iyimser güncelleme
-      render();
+      task.status = newStatus; render();
       const { error } = await sb.from("tasks").update({ status:newStatus }).eq("id", id);
-      if (error) { toast("Güncellenemedi: " + error.message); reloadAndRender(); return; }
+      if (error) { toast("Hata: " + error.message); reloadAndRender(); return; }
       if (newStatus === "done") toast("Görev tamamlandı 🎉");
+    });
+  });
+}
+
+let dragNoteId = null;
+function wireInboxDnD() {
+  $$(".inbox-note").forEach(n => {
+    n.addEventListener("dragstart", e => {
+      dragNoteId = n.dataset.noteId; n.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", "note:"+dragNoteId);
+    });
+    n.addEventListener("dragend", () => { n.classList.remove("dragging"); dragNoteId = null; });
+  });
+}
+
+async function convertNoteToTask(noteId, status) {
+  const note = inboxNotes.find(n => n.id === noteId);
+  if (!note) return;
+  const { error: e1 } = await sb.from("tasks").insert({ user_id: me.id, title: note.text, status, priority: "normal" });
+  if (e1) { toast("Hata: " + e1.message); return; }
+  const { error: e2 } = await sb.from("inbox_notes").delete().eq("id", noteId);
+  if (e2) { toast("Hata: " + e2.message); }
+  toast("Not göreve dönüştürüldü ✅");
+  reloadAndRender();
+}
+
+/* ---------- Kişisel alan DnD ---------- */
+function wirePersonalDnD() {
+  $$(".pa-card").forEach(card => {
+    card.addEventListener("dragstart", e => {
+      card.classList.add("dragging"); e.dataTransfer.setData("text/plain", card.dataset.paId);
+    });
+    card.addEventListener("dragend", () => card.classList.remove("dragging"));
+  });
+  $$(".pa-cards[data-pa-drop]").forEach(zone => {
+    const col = zone.closest(".pa-col");
+    zone.addEventListener("dragover", e => { e.preventDefault(); col.classList.add("drag-over"); });
+    zone.addEventListener("dragleave", e => { if (!zone.contains(e.relatedTarget)) col.classList.remove("drag-over"); });
+    zone.addEventListener("drop", async e => {
+      e.preventDefault(); col.classList.remove("drag-over");
+      const id = e.dataTransfer.getData("text/plain");
+      const newStatus = zone.dataset.paDrop;
+      const b = personalBlocks.find(x => x.id === id);
+      if (!b || b.status === newStatus) return;
+      b.status = newStatus; renderPersonalBoard();
+      const { error } = await sb.from("personal_blocks").update({ status:newStatus }).eq("id", id);
+      if (error) { toast("Hata: " + error.message); reloadAndRender(); }
     });
   });
 }
@@ -608,10 +971,22 @@ async function deleteTask(id) {
   if (error) { toast("Silinemedi: " + error.message); return; }
   toast("Görev silindi"); reloadAndRender();
 }
-
-/* ---------- Modal ---------- */
-const openM  = el => el.classList.add("open");
-const closeM = el => { el.classList.remove("open"); $$(".form-error", el).forEach(e => e.classList.remove("show")); };
+async function deleteCategory(id) {
+  if (!confirm("Bu kategori silinsin mi? Görevlerdeki ataması kaldırılır.")) return;
+  const { error } = await sb.from("categories").delete().eq("id", id);
+  if (error) { toast("Silinemedi: " + error.message); return; }
+  toast("Kategori silindi"); reloadAndRender();
+}
+async function deleteNote(id) {
+  const { error } = await sb.from("inbox_notes").delete().eq("id", id);
+  if (error) { toast("Hata: " + error.message); return; }
+  reloadAndRender();
+}
+async function deletePersonalBlock(id) {
+  const { error } = await sb.from("personal_blocks").delete().eq("id", id);
+  if (error) { toast("Hata: " + error.message); return; }
+  reloadAndRender();
+}
 
 /* ============================================================
    GOOGLE SHEETS EXPORT
@@ -622,27 +997,24 @@ async function exportToSheets() {
   if (!list.length) { toast("Aktarılacak görev yok"); return; }
   const rows = list.map(t => {
     const p = profiles[t.user_id] || {};
-    return [ t.title, t.descr||"", p.name||"", p.role||"", STATUS_LABEL[t.status]||t.status, t.due||"",
-             new Date(t.created_at).toLocaleString("tr-TR") ];
+    const cat = categories.find(c => c.id === t.category_id);
+    return [ t.title, t.descr||"", p.name||"", p.role||"", STATUS_LABEL[t.status]||t.status, PRIORITY_LABEL[t.priority]||"", cat?.name||"", t.due||"", new Date(t.created_at).toLocaleString("tr-TR") ];
   });
   const btn = $("#exportBtn"); btn.disabled = true; toast("Sheets'e aktarılıyor...");
   try {
     const res = await fetch(SHEETS_WEBAPP_URL, {
-      method:"POST",
-      headers:{ "Content-Type":"text/plain;charset=utf-8" }, // preflight'ı önlemek için
+      method:"POST", headers:{ "Content-Type":"text/plain;charset=utf-8" },
       body: JSON.stringify({ rows, mode:"replace", sheet:"Görevler" }),
     });
     const out = await res.json();
     toast(out.ok ? `✅ ${out.count} görev Sheets'e aktarıldı` : "Hata: " + (out.error||"bilinmiyor"));
-  } catch (err) {
-    toast("Aktarım başarısız: " + err.message);
-  } finally { btn.disabled = false; }
+  } catch (err) { toast("Aktarım başarısız: " + err.message); }
+  finally { btn.disabled = false; }
 }
 
 /* ============================================================
    OLAY BAĞLAMA
    ============================================================ */
-/* Auth sekmeleri */
 $("#tabLogin").addEventListener("click", () => switchAuth("login"));
 $("#tabSignup").addEventListener("click", () => switchAuth("signup"));
 function switchAuth(which) {
@@ -675,20 +1047,10 @@ $("#signupForm").addEventListener("submit", async e => {
   $("#suBtn").disabled = false;
   if (error) return authMsg("Kayıt başarısız: " + error.message);
   if (!data.session) authMsg("Kayıt alındı ✅ E-postana gelen onay linkine tıkla, sonra giriş yap.", true);
-  // Oturum döndüyse onAuthStateChange otomatik içeri alır.
 });
 
-/* Sidebar (mobil) */
-function toggleSidebar(force) {
-  const sb2 = $("#sidebar"), sc = $("#scrim");
-  const open = force !== undefined ? force : !sb2.classList.contains("open");
-  sb2.classList.toggle("open", open); sc.classList.toggle("open", open);
-}
-$("#hamburger").addEventListener("click", () => toggleSidebar());
-$("#scrim").addEventListener("click", () => toggleSidebar(false));
 $("#logoutBtn").addEventListener("click", async () => { await sb.auth.signOut(); });
 
-/* Görünüm toggle (admin) */
 $("#viewToggle").addEventListener("click", e => {
   const b = e.target.closest("[data-view]"); if (!b) return;
   view = b.dataset.view;
@@ -696,44 +1058,125 @@ $("#viewToggle").addEventListener("click", e => {
   render();
 });
 
-/* Görev modal */
-$("#addTaskBtn").addEventListener("click", () => {
-  $("#taskForm").reset();
-  if (profile.is_admin) {
-    const opts = Object.keys(profiles).map(id =>
-      `<option value="${id}" ${id===me.id?"selected":""}>${esc(profiles[id].name)} — ${esc(profiles[id].role||"Lider")}</option>`).join("");
-    $("#taskLeader").innerHTML = opts;
-  }
-  openM($("#taskOverlay"));
-  setTimeout(() => $("#taskTitle").focus(), 120);
-  toggleSidebar(false);
+$("#priorityFilters").addEventListener("click", e => {
+  const b = e.target.closest(".pf-btn"); if (!b) return;
+  priorityFilter = b.dataset.pri;
+  $$(".pf-btn").forEach(x => x.classList.toggle("active", x === b));
+  renderBoard();
 });
-$$("[data-close-task]").forEach(b => b.addEventListener("click", () => closeM($("#taskOverlay"))));
 
-$("#taskForm").addEventListener("submit", async e => {
-  e.preventDefault();
-  const title = $("#taskTitle").value.trim();
-  if (!title) { $("#taskTitleErr").classList.add("show"); return; }
-  const assignId = profile.is_admin ? ($("#taskLeader").value || me.id) : me.id;
-  $("#taskSubmit").disabled = true;
-  const { error } = await sb.from("tasks").insert({
-    user_id: assignId, title, descr: $("#taskDesc").value.trim(), due: $("#taskDue").value || null, status:"todo",
-  });
-  $("#taskSubmit").disabled = false;
+$("#searchInput").addEventListener("input", e => { searchQuery = e.target.value.trim().toLowerCase(); renderBoard(); });
+
+/* Hızlı görev ekleme */
+$("#qaAddBtn").addEventListener("click", async () => {
+  const title = $("#qaTitle").value.trim();
+  if (!title) { toast("Başlık gerekli"); return; }
+  const catId = $("#qaCategory").value || null;
+  const priority = $("#qaPriority").value;
+  const assignId = profile.is_admin ? ($("#qaAssignee").value || me.id) : me.id;
+  const { error } = await sb.from("tasks").insert({ user_id: assignId, title, category_id: catId, priority, status:"todo" });
   if (error) { toast("Eklenemedi: " + error.message); return; }
-  closeM($("#taskOverlay")); toast("Görev eklendi"); reloadAndRender();
+  $("#qaTitle").value = "";
+  toast("Görev eklendi"); reloadAndRender();
+});
+$("#qaTitle").addEventListener("keydown", e => { if (e.key === "Enter") $("#qaAddBtn").click(); });
+
+/* Kategori modal */
+function renderSwatches() {
+  $("#colorSwatches").innerHTML = SWATCHES.map(c => `<div class="swatch ${c===selectedSwatch?'sel':''}" style="background:${c}" data-swatch="${c}"></div>`).join("");
+}
+$("#addCatBtn").addEventListener("click", () => {
+  $("#catForm").reset(); selectedSwatch = SWATCHES[0]; renderSwatches();
+  openM($("#catOverlay")); setTimeout(()=>$("#catName").focus(),100);
+});
+$("#catCancelBtn").addEventListener("click", () => closeM($("#catOverlay")));
+$("#colorSwatches").addEventListener("click", e => {
+  const sw = e.target.closest(".swatch"); if (!sw) return;
+  selectedSwatch = sw.dataset.swatch; renderSwatches();
+});
+$("#catForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const name = $("#catName").value.trim();
+  if (!name) return;
+  const { error } = await sb.from("categories").insert({ name, color: selectedSwatch, sort_order: categories.length + 1 });
+  if (error) { toast("Eklenemedi: " + error.message); return; }
+  closeM($("#catOverlay")); toast("Kategori eklendi"); reloadAndRender();
 });
 
+/* Fikir Havuzu */
+$("#inboxAddBtn").addEventListener("click", async () => {
+  const text = $("#inboxInput").value.trim();
+  if (!text) return;
+  const { error } = await sb.from("inbox_notes").insert({ user_id: me.id, text });
+  if (error) { toast("Hata: " + error.message); return; }
+  $("#inboxInput").value = "";
+  reloadAndRender();
+});
+
+/* Kişisel Alan toggle */
+$("#personalToggleBtn").addEventListener("click", () => {
+  personalAreaOpen = !personalAreaOpen;
+  $("#teamArea").style.display = personalAreaOpen ? "none" : "";
+  $("#personalArea").classList.toggle("on", personalAreaOpen);
+  $("#personalToggleBtn").textContent = personalAreaOpen ? "📋 Takım Panosu" : "📋 Kişisel Alan";
+  $("#viewToggle").style.display = personalAreaOpen ? "none" : (profile.is_admin ? "flex" : "none");
+  if (personalAreaOpen) { renderPersonalBoard(); renderTimeline(); }
+});
+
+$("#paAddBtn").addEventListener("click", async () => {
+  const title = $("#paTitle").value.trim();
+  const link = $("#paLink").value.trim();
+  const start = $("#paStart").value;
+  const end = $("#paEnd").value;
+  if (!title && !link) { toast("Başlık veya link gerekli"); return; }
+  const { error } = await sb.from("personal_blocks").insert({
+    user_id: me.id, title, link: link || null, start_time: start || null, end_time: end || null, status: "fikir",
+  });
+  if (error) { toast("Hata: " + error.message); return; }
+  $("#paTitle").value = ""; $("#paLink").value = ""; $("#paStart").value = ""; $("#paEnd").value = "";
+  toast("Blok eklendi"); reloadAndRender();
+});
+
+/* Sidebar (mobil) */
+function toggleSidebar() { document.body.classList.toggle("sidebar-open"); }
+$("#hamburger").addEventListener("click", toggleSidebar);
+
+/* Export */
 $("#exportBtn").addEventListener("click", exportToSheets);
 
 /* Delege tıklamalar */
 document.addEventListener("click", e => {
   const tog = e.target.closest("[data-toggle]"); if (tog) return toggleTask(tog.dataset.toggle);
   const del = e.target.closest("[data-del-task]"); if (del) return deleteTask(del.dataset.delTask);
+  const delCat = e.target.closest("[data-del-cat]"); if (delCat) return deleteCategory(delCat.dataset.delCat);
+  const delNote = e.target.closest("[data-del-note]"); if (delNote) return deleteNote(delNote.dataset.delNote);
+  const delPa = e.target.closest("[data-del-pa]"); if (delPa) return deletePersonalBlock(delPa.dataset.delPa);
 });
 $$(".overlay").forEach(ov => ov.addEventListener("click", e => { if (e.target === ov) closeM(ov); }));
-document.addEventListener("keydown", e => { if (e.key === "Escape") $$(".overlay.open").forEach(closeM); });
-$("#searchInput").addEventListener("input", e => { searchQuery = e.target.value.trim().toLowerCase(); renderBoard(); });
+
+/* Shift+Space hızlı yakalama */
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { $$(".overlay.open").forEach(closeM); $("#captureOverlay").classList.remove("on"); }
+  if (e.shiftKey && e.code === "Space" && document.activeElement.tagName !== "TEXTAREA" && document.activeElement.tagName !== "INPUT") {
+    e.preventDefault();
+    $("#captureOverlay").classList.add("on");
+    setTimeout(() => $("#captureInput").focus(), 50);
+  }
+});
+$("#captureOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove("on"); });
+$("#captureInput").addEventListener("keydown", async e => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    const text = $("#captureInput").value.trim();
+    if (!text) return;
+    const { error } = await sb.from("inbox_notes").insert({ user_id: me.id, text });
+    if (error) { toast("Hata: " + error.message); return; }
+    $("#captureInput").value = "";
+    $("#captureOverlay").classList.remove("on");
+    toast("Fikir Havuzuna eklendi 💡");
+    reloadAndRender();
+  }
+});
 
 boot();
 </script>
