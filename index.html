@@ -588,6 +588,7 @@ const initials = n => (n||"?").trim().split(/\s+/).slice(0,2).map(w=>w[0]).join(
 const colorFor = id => { let h=0; for(const c of String(id)) h=(h*31+c.charCodeAt(0))>>>0; return AVATAR_PALETTE[h%AVATAR_PALETTE.length]; };
 const esc = (s="") => String(s).replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
 const configured = () => !SUPABASE_URL.includes("YOUR-PROJECT") && !SUPABASE_ANON_KEY.includes("YOUR-ANON-KEY");
+const todayStr = () => new Date().toISOString().slice(0,10);
 
 function dueMeta(dateStr, done) {
   if (!dateStr) return { show:false };
@@ -637,6 +638,7 @@ async function enterApp(user) {
   subscribeRealtime();
   renderMe();
   render();
+  $("#qaDue").value = todayStr();
 }
 
 async function ensureProfile() {
@@ -803,9 +805,8 @@ function renderInbox() {
 
 /* ---------- Zaman Çizelgesi (admin, bugüne ait kendi görevleri) ---------- */
 function renderTimeline() {
-  const todayStr = new Date().toISOString().slice(0,10);
   const items = tasks
-    .filter(t => t.user_id === me.id && t.due === todayStr)
+    .filter(t => t.user_id === me.id && t.due === todayStr())
     .sort((a,b) => (a.start_time || "99:99").localeCompare(b.start_time || "99:99"));
   $("#timeline").innerHTML = items.length ? items.map(t => `
     <div class="tl-row">
@@ -995,7 +996,7 @@ $("#qaAddBtn").addEventListener("click", async () => {
   }
   const { error } = await sb.from("tasks").insert(payload);
   if (error) { toast("Eklenemedi: " + error.message); return; }
-  $("#qaTitle").value = ""; $("#qaDue").value = "";
+  $("#qaTitle").value = ""; $("#qaDue").value = todayStr();
   if (profile.is_admin) { $("#qaStart").value = ""; $("#qaEnd").value = ""; $("#qaLink").value = ""; }
   toast("Görev eklendi"); reloadAndRender();
 });
