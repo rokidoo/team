@@ -436,6 +436,7 @@
               </div>
               <span class="admin-pill" id="mePill" style="display:none">ADMIN</span>
             </div>
+            <button class="btn btn-ghost full" id="notifyBtn" style="margin-top:8px">🔔 Bildirimleri Aç</button>
             <button class="btn btn-ghost full logout-btn" id="logoutBtn">Çıkış Yap</button>
           </div>
 
@@ -561,6 +562,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL      = "https://drbkiuxnwmixuhfiybsm.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_3lMIgCXnZwrRGXLlr63gLg_4GhCKtsP";
 const SHEETS_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzOfv2NX3k_KjYcVgly7BvnGcXNRN_hEYmaD0ehd74z5FCDdjwEYDA92TFX8nBZZyaSVA/exec";
+const VAPID_PUBLIC_KEY  = "BDvlTbg4VotfnOwp-NaDM8aI0PVZKKZ0NJkIycUkyR-NzfDFBDUUl1bnkZkeTKhLfBZ2egpvW6Y2bE583XT08ik";
 /* ============================================================ */
 
 const $  = (s, r=document) => r.querySelector(s);
@@ -980,6 +982,36 @@ $("#signupForm").addEventListener("submit", async e => {
 });
 
 $("#logoutBtn").addEventListener("click", async () => { await sb.auth.signOut(); });
+
+/* Push bildirimleri */
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+$("#notifyBtn").addEventListener("click", async () => {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    toast("Tarayıcın bildirim desteklemiyor"); return;
+  }
+  try {
+    const reg = await navigator.serviceWorker.register("service-worker.js");
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted") { toast("Bildirim izni verilmedi"); return; }
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+    const s = sub.toJSON();
+    const { error } = await sb.from("push_subscriptions").upsert({
+      user_id: me.id, endpoint: s.endpoint, p256dh: s.keys.p256dh, auth: s.keys.auth,
+    }, { onConflict: "endpoint" });
+    if (error) { toast("Kayıt hatası: " + error.message); return; }
+    toast("Bildirimler açıldı 🔔");
+  } catch (err) {
+    toast("Hata: " + err.message);
+  }
+});
 
 $("#viewToggle").addEventListener("click", e => {
   const b = e.target.closest("[data-view]"); if (!b) return;
