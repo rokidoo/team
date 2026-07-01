@@ -520,6 +520,10 @@
           <label>Renk</label>
           <div class="swatches" id="colorSwatches"></div>
         </div>
+        <div class="field" style="display:flex; align-items:center; gap:9px; margin-top:2px">
+          <input type="checkbox" id="catPersonal" style="width:18px; height:18px; accent-color:var(--cobalt)" />
+          <label for="catPersonal" style="margin:0; text-transform:none; font-weight:600; font-size:12.5px; color:var(--ink)">🔒 Sadece bana özel (ekip göremez)</label>
+        </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="catCancelBtn">Vazgeç</button>
           <button type="submit" class="btn btn-primary">Ekle</button>
@@ -721,7 +725,7 @@ function renderCategories() {
   $("#catList").innerHTML = categories.map(c => `
     <div class="cat-row">
       <span class="cat-dot" style="background:${c.color}"></span>
-      <span class="cat-name">${esc(c.name)}</span>
+      <span class="cat-name">${c.owner_id ? "🔒 " : ""}${esc(c.name)}</span>
       ${profile.is_admin ? `<button class="cat-del" data-del-cat="${c.id}" title="Sil">✕</button>` : ""}
     </div>`).join("") || `<div class="inbox-empty">Henüz kategori yok</div>`;
 }
@@ -1014,9 +1018,10 @@ $("#catForm").addEventListener("submit", async e => {
   e.preventDefault();
   const name = $("#catName").value.trim();
   if (!name) return;
-  const { error } = await sb.from("categories").insert({ name, color: selectedSwatch, sort_order: categories.length + 1 });
+  const isPersonal = $("#catPersonal").checked;
+  const { error } = await sb.from("categories").insert({ name, color: selectedSwatch, sort_order: categories.length + 1, owner_id: isPersonal ? me.id : null });
   if (error) { toast("Eklenemedi: " + error.message); return; }
-  closeM($("#catOverlay")); toast("Kategori eklendi"); reloadAndRender();
+  closeM($("#catOverlay")); toast(isPersonal ? "Özel kategori eklendi 🔒" : "Kategori eklendi"); reloadAndRender();
 });
 
 /* Fikir Havuzu */
