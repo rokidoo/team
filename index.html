@@ -347,9 +347,9 @@
     .left-col, .mid-col, .right-col { display: contents; }
     .panel + .panel { margin-top: 0; }
     .panel { margin-bottom: 18px; }
-    #profilePanel   { order: 1; }
+    #inboxPanel     { order: 1; }
     #sprintPanel    { order: 2; }
-    #inboxPanel     { order: 3; }
+    #profilePanel   { order: 3; }
     #timelinePanel  { order: 4; }
     #categoriesPanel{ order: 5; }
     #metricsPanel   { order: 6; margin-bottom: 0; }
@@ -701,8 +701,15 @@ function renderMe() {
   $("#qaPersonalRow").style.display = profile.is_admin ? "flex" : "none";
 }
 
+function scopedTasks() {
+  if (!profile.is_admin) return tasks.slice();
+  return view === "mine"
+    ? tasks.filter(t => t.user_id === me.id)
+    : tasks.filter(t => t.user_id !== me.id);
+}
+
 function visibleTasks() {
-  let list = (profile.is_admin && view === "mine") ? tasks.filter(t => t.user_id === me.id) : tasks.slice();
+  let list = scopedTasks();
   if (priorityFilter !== "all") list = list.filter(t => t.priority === priorityFilter);
   if (searchQuery) {
     list = list.filter(t => {
@@ -725,7 +732,7 @@ function render() {
 }
 
 function renderMetrics() {
-  const list = profile.is_admin && view === "mine" ? tasks.filter(t=>t.user_id===me.id) : tasks;
+  const list = scopedTasks();
   $("#metricTotal").textContent = list.length;
   $("#metricDone").textContent = list.filter(t=>t.status==="done").length;
   const scope = (profile.is_admin && view === "all") ? "tüm ekip" : "";
