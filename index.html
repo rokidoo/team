@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>TeamFlow · Görev Yönetim Paneli</title>
+<title>Remaks Ekip · Görev Yönetim Paneli</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -316,9 +316,10 @@
   .tl-empty { text-align: center; font-size: 12px; color: var(--ink-mute); font-weight: 600; padding: 16px 8px; border: 2px dashed var(--ink-mute); border-radius: var(--radius-sm); line-height: 1.5; }
 
   /* ---------- MODAL (Kategori Ekle) ---------- */
-  .overlay { position: fixed; inset: 0; background: rgba(18,18,18,.5); backdrop-filter: blur(4px); z-index: 100; display: grid; place-items: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity .25s var(--ease-soft); }
+  html body.modal-lock { overflow: hidden; height: 100%; }
+  .overlay { position: fixed; inset: 0; background: rgba(18,18,18,.5); backdrop-filter: blur(4px); z-index: 100; display: grid; place-items: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity .25s var(--ease-soft); overscroll-behavior: contain; }
   .overlay.open { opacity: 1; pointer-events: auto; }
-  .modal { background: var(--card); border: var(--border); border-radius: var(--radius-lg); width: 100%; max-width: 400px; box-shadow: var(--shadow-card); padding: 24px; transform: translateY(14px) scale(.97); transition: transform .28s var(--ease-spring); }
+  .modal { background: var(--card); border: var(--border); border-radius: var(--radius-lg); width: 100%; max-width: 400px; box-shadow: var(--shadow-card); padding: 24px; transform: translateY(14px) scale(.97); transition: transform .28s var(--ease-spring); max-height: 88vh; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
   .overlay.open .modal { transform: none; }
   .modal h3 { font-size: 16px; margin-bottom: 16px; }
   .swatches { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
@@ -365,6 +366,8 @@
   }
   @media (max-width: 640px) {
     .quickadd input[type=text] { flex: 1 1 100%; }
+    .modal { padding: 18px; max-height: 92vh; }
+    .field.row { flex-direction: column; gap: 12px !important; }
   }
 </style>
 </head>
@@ -388,8 +391,8 @@
   <div class="auth-wrap" id="authWrap" style="display:none">
     <div class="auth-card">
       <div class="brand-row">
-        <div class="logo">T</div>
-        <div><h1>TeamFlow</h1><p>Takım Lideri Görev Paneli</p></div>
+        <div class="logo">R</div>
+        <div><h1>Remaks Ekip</h1><p>Takım Lideri Görev Paneli</p></div>
       </div>
       <div class="tabs">
         <button id="tabLogin" class="active">Giriş Yap</button>
@@ -416,8 +419,8 @@
     <header class="topbar">
       <button class="btn btn-icon hamburger" id="hamburger">☰</button>
       <div class="brand-row">
-        <div class="logo">T</div>
-        <div><h1 style="font-size:16px">TeamFlow</h1><p style="font-size:11px;color:var(--ink-soft);font-weight:600">Görev Yönetim Paneli</p></div>
+        <div class="logo">R</div>
+        <div><h1 style="font-size:16px">Remaks Ekip</h1><p style="font-size:11px;color:var(--ink-soft);font-weight:600">Görev Yönetim Paneli</p></div>
       </div>
       <div class="spacer"></div>
       <div class="search-box">
@@ -533,7 +536,10 @@
   <!-- ===================== MODAL: Kategori ===================== -->
   <div class="overlay" id="catOverlay">
     <div class="modal">
-      <h3>Yeni Kategori Ekle</h3>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px">
+        <h3 style="margin:0">Yeni Kategori Ekle</h3>
+        <button type="button" class="btn btn-icon" id="catCloseXBtn" style="width:32px; height:32px; flex-shrink:0">✕</button>
+      </div>
       <form id="catForm">
         <div class="field"><label>Kategori Adı</label><input type="text" id="catName" placeholder="Örn. Pazarlama" /></div>
         <div class="field">
@@ -555,7 +561,10 @@
   <!-- ===================== MODAL: Görev Düzenle ===================== -->
   <div class="overlay" id="taskEditOverlay">
     <div class="modal" style="max-width:480px">
-      <h3>Görevi Düzenle</h3>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px">
+        <h3 style="margin:0">Görevi Düzenle</h3>
+        <button type="button" class="btn btn-icon" id="teCloseBtn" style="width:32px; height:32px; flex-shrink:0">✕</button>
+      </div>
       <form id="taskEditForm">
         <div class="field"><label>Başlık</label><input type="text" id="teTitle" /></div>
         <div class="field"><label>Açıklama</label><textarea id="teDesc" style="min-height:60px"></textarea></div>
@@ -673,8 +682,8 @@ function toast(msg) {
   const t = $("#toast"); t.textContent = msg; t.classList.add("show");
   clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove("show"), 2400);
 }
-const openM  = el => el.classList.add("open");
-const closeM = el => el.classList.remove("open");
+const openM  = el => { el.classList.add("open"); document.body.classList.add("modal-lock"); };
+const closeM = el => { el.classList.remove("open"); if (!$$(".overlay.open").length) document.body.classList.remove("modal-lock"); };
 
 /* ============================================================
    BAŞLANGIÇ
@@ -1040,6 +1049,7 @@ function renderComments(comments) {
 }
 
 $("#teCancelBtn").addEventListener("click", () => { closeM($("#taskEditOverlay")); editingTaskId = null; });
+$("#teCloseBtn").addEventListener("click", () => { closeM($("#taskEditOverlay")); editingTaskId = null; });
 
 $("#taskEditForm").addEventListener("submit", async e => {
   e.preventDefault();
@@ -1218,6 +1228,7 @@ $("#addCatBtn").addEventListener("click", () => {
   openM($("#catOverlay")); setTimeout(()=>$("#catName").focus(),100);
 });
 $("#catCancelBtn").addEventListener("click", () => closeM($("#catOverlay")));
+$("#catCloseXBtn").addEventListener("click", () => closeM($("#catOverlay")));
 $("#colorSwatches").addEventListener("click", e => {
   const sw = e.target.closest(".swatch"); if (!sw) return;
   selectedSwatch = sw.dataset.swatch; renderSwatches();
@@ -1261,15 +1272,20 @@ document.addEventListener("click", e => {
 $$(".overlay").forEach(ov => ov.addEventListener("click", e => { if (e.target === ov) closeM(ov); }));
 
 /* Shift+Space hızlı yakalama */
+function closeCaptureOverlay() {
+  $("#captureOverlay").classList.remove("on");
+  if (!$$(".overlay.open").length) document.body.classList.remove("modal-lock");
+}
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape") { $$(".overlay.open").forEach(closeM); $("#captureOverlay").classList.remove("on"); }
+  if (e.key === "Escape") { $$(".overlay.open").forEach(closeM); closeCaptureOverlay(); }
   if (e.shiftKey && e.code === "Space" && document.activeElement.tagName !== "TEXTAREA" && document.activeElement.tagName !== "INPUT") {
     e.preventDefault();
     $("#captureOverlay").classList.add("on");
+    document.body.classList.add("modal-lock");
     setTimeout(() => $("#captureInput").focus(), 50);
   }
 });
-$("#captureOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove("on"); });
+$("#captureOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) closeCaptureOverlay(); });
 $("#captureInput").addEventListener("keydown", async e => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
@@ -1278,7 +1294,7 @@ $("#captureInput").addEventListener("keydown", async e => {
     const { error } = await sb.from("inbox_notes").insert({ user_id: me.id, text });
     if (error) { toast("Hata: " + error.message); return; }
     $("#captureInput").value = "";
-    $("#captureOverlay").classList.remove("on");
+    closeCaptureOverlay();
     toast("Fikir Havuzuna eklendi 💡");
     reloadAndRender();
   }

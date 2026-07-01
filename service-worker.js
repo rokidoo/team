@@ -1,8 +1,8 @@
 self.addEventListener('push', event => {
-  let data = { title: 'TeamFlow', body: 'Yeni bir bildirim var.' };
+  let data = { title: 'Remaks Ekip', body: 'Yeni bir bildirim var.' };
   try { data = event.data.json(); } catch (e) {}
   event.waitUntil(
-    self.registration.showNotification(data.title || 'TeamFlow', {
+    self.registration.showNotification(data.title || 'Remaks Ekip', {
       body: data.body || '',
       tag: data.tag || 'teamflow-task',
     })
