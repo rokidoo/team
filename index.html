@@ -208,6 +208,8 @@
   .quickadd { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
   .quickadd input[type=text] { flex: 2; min-width: 160px; }
   .quickadd select { flex: 1; min-width: 110px; }
+  .quickadd input[type=date], .quickadd input[type=time] { flex: 0 0 128px; }
+  .quickadd input[type=url] { flex: 2; min-width: 160px; }
   .quickadd .btn { flex-shrink: 0; }
 
   .priority-filters { display: flex; gap: 7px; margin-bottom: 16px; flex-wrap: wrap; }
@@ -272,7 +274,8 @@
   .assignee { display: flex; align-items: center; gap: 6px; }
   .mini-avatar { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--ink); display: grid; place-items: center; font-size: 9px; font-weight: 800; color: #fff; }
   .a-name { font-size: 11px; font-weight: 600; color: var(--ink-soft); }
-  .due { margin-left: auto; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 20px; background: var(--cream-2); border: 1.5px solid var(--ink); }
+  .due { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 20px; background: var(--cream-2); border: 1.5px solid var(--ink); text-decoration: none; color: var(--ink); white-space: nowrap; }
+  .card-badges-right { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
   .due.soon { background: var(--mustard-soft); border-color: var(--mustard); }
   .due.overdue { background: var(--red-soft); border-color: var(--red); color: var(--red); }
 
@@ -304,40 +307,13 @@
   .inbox-empty { text-align: center; font-size: 11.5px; color: var(--ink-mute); font-weight: 600; padding: 18px 8px; border: 2px dashed var(--ink-mute); border-radius: var(--radius-sm); }
   .inbox-hint { font-size: 10.5px; color: var(--ink-mute); font-weight: 600; margin-top: 10px; text-align: center; line-height: 1.5; }
 
-  /* ============ KİŞİSEL ALAN ============ */
-  #personalArea { display: none; }
-  #personalArea.on { display: block; }
-  .pa-board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; padding: 0 26px 20px; }
-  .pa-col { background: var(--cream-2); border: var(--border-thin); border-radius: var(--radius-md); padding: 10px; min-height: 140px; }
-  .pa-col.drag-over { background: var(--mustard-soft); border-color: var(--mustard); }
-  .pa-col-head { font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
-  .pa-cards { display: flex; flex-direction: column; gap: 8px; min-height: 40px; }
-  .pa-card {
-    background: var(--card-2); border: var(--border-thin); border-radius: var(--radius-sm);
-    padding: 10px; cursor: grab; box-shadow: var(--shadow-brutal-sm); position: relative;
-    transition: transform .2s var(--ease-spring);
-  }
-  .pa-card:hover { transform: translate(-2px,-2px); box-shadow: 4px 4px 0px var(--ink); }
-  .pa-card.dragging { opacity: .5; }
-  .pa-card .pa-title { font-size: 12px; font-weight: 700; margin-bottom: 4px; }
-  .pa-card .pa-time { font-size: 10px; font-family: var(--font-mono); font-weight: 700; color: var(--ink-soft); }
-  .pa-card .pa-link { font-size: 10.5px; color: var(--cobalt); font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 3px; margin-top: 4px; }
-  .pa-card .pa-del { position: absolute; top: 6px; right: 6px; border: none; background: none; cursor: pointer; opacity: 0; font-size: 12px; color: var(--ink-mute); }
-  .pa-card:hover .pa-del { opacity: 1; }
-
-  .pa-timeline-wrap { padding: 0 26px 26px; }
-  .timeline-panel { background: var(--card); border: var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); padding: 20px; }
-  .timeline { position: relative; margin-top: 14px; }
-  .tl-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1.5px dashed var(--cream-2); }
-  .tl-time { font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; width: 92px; flex-shrink: 0; color: var(--ink-soft); }
-  .tl-bar { flex: 1; background: var(--cobalt-soft); border: var(--border-thin); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 12.5px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  /* ============ ZAMAN ÇİZELGESİ (admin, kendi görevleri) ============ */
+  .timeline { position: relative; margin-top: 4px; }
+  .tl-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1.5px dashed var(--cream-2); }
+  .tl-time { font-family: var(--font-mono); font-size: 11px; font-weight: 700; width: 82px; flex-shrink: 0; color: var(--ink-soft); }
+  .tl-bar { flex: 1; background: var(--cobalt-soft); border: var(--border-thin); border-radius: var(--radius-sm); padding: 7px 11px; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
   .tl-bar a { color: var(--cobalt); }
-  .tl-empty { text-align: center; font-size: 12.5px; color: var(--ink-mute); font-weight: 600; padding: 20px; }
-
-  .pa-quickadd { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 26px 16px; }
-  .pa-quickadd input[type=text] { flex: 2; min-width: 160px; }
-  .pa-quickadd input[type=url] { flex: 2; min-width: 150px; }
-  .pa-quickadd input[type=time] { width: 110px; }
+  .tl-empty { text-align: center; font-size: 12px; color: var(--ink-mute); font-weight: 600; padding: 16px 8px; border: 2px dashed var(--ink-mute); border-radius: var(--radius-sm); line-height: 1.5; }
 
   /* ---------- MODAL (Kategori Ekle) ---------- */
   .overlay { position: fixed; inset: 0; background: rgba(18,18,18,.5); backdrop-filter: blur(4px); z-index: 100; display: grid; place-items: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity .25s var(--ease-soft); }
@@ -367,7 +343,6 @@
   @media (max-width: 1100px) {
     .bento { grid-template-columns: 1fr; }
     .board { grid-template-columns: 1fr; }
-    .pa-board { grid-template-columns: repeat(2,1fr); }
   }
   @media (max-width: 640px) {
     .quickadd input[type=text] { flex: 1 1 100%; }
@@ -434,7 +409,6 @@
         <button data-view="mine" class="active">Görevlerim</button>
         <button data-view="all">Tüm Ekip</button>
       </div>
-      <button class="btn btn-mustard" id="personalToggleBtn" style="display:none">📋 Kişisel Alan</button>
       <button class="btn btn-ghost" id="exportBtn">📤 Sheets'e Aktar</button>
     </header>
 
@@ -491,7 +465,13 @@
                 <option value="dusuk">Düşük</option>
               </select>
               <select id="qaAssignee" style="display:none"></select>
+              <input type="date" id="qaDue" title="Son teslim tarihi" />
               <button class="btn btn-mustard" id="qaAddBtn">Ekle</button>
+            </div>
+            <div class="quickadd" id="qaPersonalRow" style="display:none">
+              <input type="time" id="qaStart" title="Başlangıç saati" />
+              <input type="time" id="qaEnd" title="Bitiş saati" />
+              <input type="url" id="qaLink" placeholder="🔗 Link (opsiyonel, sadece sana özel)" style="flex:2" />
             </div>
 
             <div class="priority-filters" id="priorityFilters">
@@ -520,24 +500,11 @@
             <div class="inbox-list" id="inboxList"></div>
             <div class="inbox-hint">Notları sürükleyip panodaki bir sütuna bırak → görev kartına dönüşsün.<br><b>Shift + Space</b> ile hızlı yakala.</div>
           </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- ============ KİŞİSEL ALAN ============ -->
-    <div id="personalArea">
-      <div class="pa-quickadd">
-        <input type="text" id="paTitle" placeholder="Zaman bloğu / görev başlığı..." />
-        <input type="url" id="paLink" placeholder="https:// (opsiyonel link)" />
-        <input type="time" id="paStart" />
-        <input type="time" id="paEnd" />
-        <button class="btn btn-mustard" id="paAddBtn">+ Blok Ekle</button>
-      </div>
-      <div class="pa-board" id="paBoard"></div>
-      <div class="pa-timeline-wrap">
-        <div class="timeline-panel">
-          <h3 class="font-head" style="font-size:14px; text-transform:uppercase; letter-spacing:.4px">🕐 Bugünün Zaman Çizelgesi</h3>
-          <div class="timeline" id="timeline"></div>
+          <div class="panel" id="timelinePanel" style="display:none">
+            <div class="panel-head"><h3>🕐 Bugünün Zaman Çizelgesi</h3></div>
+            <div class="timeline" id="timeline"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -597,14 +564,6 @@ const PRIORITY_ORDER = { kritik:0, yuksek:1, normal:2, dusuk:3 };
 const PRIORITY_COLOR = { kritik:"var(--pri-kritik)", yuksek:"var(--pri-yuksek)", normal:"var(--pri-normal)", dusuk:"var(--pri-dusuk)" };
 const PRIORITY_ICON = { kritik:"🔴", yuksek:"🟠", normal:"🔵", dusuk:"⚪" };
 
-const PA_COLUMNS = [
-  { id:"fikir",     title:"Fikir" },
-  { id:"yapilacak", title:"Yapılacak" },
-  { id:"yapiliyor", title:"Yapılıyor" },
-  { id:"yapildi",   title:"Yapıldı" },
-  { id:"arsiv",     title:"Arşiv" },
-];
-
 const SWATCHES = ["#E8402A","#2F5DFF","#22C55E","#A855F7","#FFC53D","#0EA5E9","#EC4899","#84CC16","#FB923C","#6366F1","#121212","#9AA0A6"];
 
 /* ---------- Durum ---------- */
@@ -615,13 +574,11 @@ let profiles = {};
 let categories = [];
 let tasks = [];
 let inboxNotes = [];
-let personalBlocks = [];
 let view = "mine";
 let priorityFilter = "all";
 let searchQuery = "";
 let selectedSwatch = SWATCHES[0];
 let channel = null;
-let personalAreaOpen = false;
 
 const initials = n => (n||"?").trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase();
 const colorFor = id => { let h=0; for(const c of String(id)) h=(h*31+c.charCodeAt(0))>>>0; return AVATAR_PALETTE[h%AVATAR_PALETTE.length]; };
@@ -689,18 +646,16 @@ async function ensureProfile() {
 }
 
 async function reloadAll() {
-  const [p, c, t, ib, pb] = await Promise.all([
+  const [p, c, t, ib] = await Promise.all([
     sb.from("profiles").select("*"),
     sb.from("categories").select("*").order("sort_order"),
     sb.from("tasks").select("*").order("created_at", { ascending:true }),
     sb.from("inbox_notes").select("*").eq("user_id", me.id).order("created_at", { ascending:false }),
-    profile?.is_admin ? sb.from("personal_blocks").select("*").eq("user_id", me.id).order("created_at", { ascending:true }) : Promise.resolve({ data: [] }),
   ]);
   profiles = {}; (p.data||[]).forEach(x => profiles[x.id] = x);
   categories = c.data || [];
   tasks = t.data || [];
   inboxNotes = ib.data || [];
-  personalBlocks = pb.data || [];
 }
 
 async function reloadAndRender() { await reloadAll(); render(); }
@@ -712,7 +667,6 @@ function subscribeRealtime() {
     .on("postgres_changes", { event:"*", schema:"public", table:"profiles" }, reloadAndRender)
     .on("postgres_changes", { event:"*", schema:"public", table:"categories" }, reloadAndRender)
     .on("postgres_changes", { event:"*", schema:"public", table:"inbox_notes" }, reloadAndRender)
-    .on("postgres_changes", { event:"*", schema:"public", table:"personal_blocks" }, reloadAndRender)
     .subscribe();
 }
 
@@ -728,7 +682,7 @@ function renderMe() {
   $("#viewToggle").style.display = profile.is_admin ? "flex" : "none";
   $("#addCatBtn").style.display = profile.is_admin ? "" : "none";
   $("#qaAssignee").style.display = profile.is_admin ? "" : "none";
-  $("#personalToggleBtn").style.display = profile.is_admin ? "" : "none";
+  $("#qaPersonalRow").style.display = profile.is_admin ? "flex" : "none";
 }
 
 function visibleTasks() {
@@ -750,7 +704,8 @@ function render() {
   renderBoard();
   renderMetrics();
   renderInbox();
-  if (profile.is_admin) { renderPersonalBoard(); renderTimeline(); }
+  $("#timelinePanel").style.display = profile.is_admin ? "" : "none";
+  if (profile.is_admin) renderTimeline();
 }
 
 function renderMetrics() {
@@ -813,6 +768,12 @@ function cardHTML(t) {
   const due = d.show
     ? `<span class="due ${d.cls||''}">${esc(d.label)}</span>` : "";
 
+  const isMineAdmin = profile.is_admin && t.user_id === me.id;
+  const timeBadge = (isMineAdmin && t.start_time)
+    ? `<span class="due" style="background:var(--cobalt-soft); border-color:var(--cobalt)">🕐 ${esc(t.start_time)}${t.end_time ? "–"+esc(t.end_time) : ""}</span>` : "";
+  const linkBadge = (isMineAdmin && t.link)
+    ? `<a class="due" href="${esc(t.link)}" target="_blank" rel="noopener" style="background:var(--mustard-soft); border-color:var(--mustard)">🔗 Link</a>` : "";
+
   return `
     <div class="card ${done?"done":""}" draggable="true" data-id="${t.id}">
       <button class="card-del" data-del-task="${t.id}" title="Sil">✕</button>
@@ -822,7 +783,7 @@ function cardHTML(t) {
       </div>
       ${t.descr ? `<div class="card-desc">${esc(t.descr)}</div>` : ""}
       <div class="card-tags">${catTag}${priTag}</div>
-      <div class="card-foot">${assignee}${due}</div>
+      <div class="card-foot">${assignee}<div class="card-badges-right">${due}${timeBadge}${linkBadge}</div></div>
     </div>`;
 }
 
@@ -836,39 +797,17 @@ function renderInbox() {
   wireInboxDnD();
 }
 
-/* ---------- Kişisel Alan render ---------- */
-function renderPersonalBoard() {
-  $("#paBoard").innerHTML = PA_COLUMNS.map(col => {
-    const items = personalBlocks.filter(b => b.status === col.id);
-    return `
-      <div class="pa-col" data-pa-col="${col.id}">
-        <div class="pa-col-head">${col.title} <span class="mono" style="margin-left:auto;font-size:10px">${items.length}</span></div>
-        <div class="pa-cards" data-pa-drop="${col.id}">
-          ${items.map(paCardHTML).join("")}
-        </div>
-      </div>`;
-  }).join("");
-  wirePersonalDnD();
-}
-
-function paCardHTML(b) {
-  const time = (b.start_time && b.end_time) ? `${b.start_time}–${b.end_time}` : (b.start_time || "");
-  return `
-    <div class="pa-card" draggable="true" data-pa-id="${b.id}">
-      <button class="pa-del" data-del-pa="${b.id}">✕</button>
-      ${b.title ? `<div class="pa-title">${esc(b.title)}</div>` : ""}
-      ${time ? `<div class="pa-time">🕐 ${esc(time)}</div>` : ""}
-      ${b.link ? `<a class="pa-link" href="${esc(b.link)}" target="_blank" rel="noopener">🔗 Link</a>` : ""}
-    </div>`;
-}
-
+/* ---------- Zaman Çizelgesi (admin, bugüne ait kendi görevleri) ---------- */
 function renderTimeline() {
-  const items = personalBlocks.filter(b => b.start_time).sort((a,b) => a.start_time.localeCompare(b.start_time));
-  $("#timeline").innerHTML = items.length ? items.map(b => `
+  const todayStr = new Date().toISOString().slice(0,10);
+  const items = tasks
+    .filter(t => t.user_id === me.id && t.due === todayStr)
+    .sort((a,b) => (a.start_time || "99:99").localeCompare(b.start_time || "99:99"));
+  $("#timeline").innerHTML = items.length ? items.map(t => `
     <div class="tl-row">
-      <div class="tl-time">${esc(b.start_time)}${b.end_time ? "–"+esc(b.end_time) : ""}</div>
-      <div class="tl-bar">${esc(b.title || "Blok")} ${b.link ? `<a href="${esc(b.link)}" target="_blank" rel="noopener">🔗</a>` : ""}</div>
-    </div>`).join("") : `<div class="tl-empty">Henüz zaman bloğu yok. Yukarıdan saat girerek ekleyebilirsin.</div>`;
+      <div class="tl-time">${t.start_time ? esc(t.start_time) + (t.end_time ? "–"+esc(t.end_time) : "") : "Bugün"}</div>
+      <div class="tl-bar">${esc(t.title)} ${t.link ? `<a href="${esc(t.link)}" target="_blank" rel="noopener">🔗</a>` : ""}</div>
+    </div>`).join("") : `<div class="tl-empty">Bugün için görev yok. Görev eklerken tarih olarak bugünü ve isterse saat aralığını seç.</div>`;
 }
 
 /* ============================================================
@@ -929,31 +868,6 @@ async function convertNoteToTask(noteId, status) {
   reloadAndRender();
 }
 
-/* ---------- Kişisel alan DnD ---------- */
-function wirePersonalDnD() {
-  $$(".pa-card").forEach(card => {
-    card.addEventListener("dragstart", e => {
-      card.classList.add("dragging"); e.dataTransfer.setData("text/plain", card.dataset.paId);
-    });
-    card.addEventListener("dragend", () => card.classList.remove("dragging"));
-  });
-  $$(".pa-cards[data-pa-drop]").forEach(zone => {
-    const col = zone.closest(".pa-col");
-    zone.addEventListener("dragover", e => { e.preventDefault(); col.classList.add("drag-over"); });
-    zone.addEventListener("dragleave", e => { if (!zone.contains(e.relatedTarget)) col.classList.remove("drag-over"); });
-    zone.addEventListener("drop", async e => {
-      e.preventDefault(); col.classList.remove("drag-over");
-      const id = e.dataTransfer.getData("text/plain");
-      const newStatus = zone.dataset.paDrop;
-      const b = personalBlocks.find(x => x.id === id);
-      if (!b || b.status === newStatus) return;
-      b.status = newStatus; renderPersonalBoard();
-      const { error } = await sb.from("personal_blocks").update({ status:newStatus }).eq("id", id);
-      if (error) { toast("Hata: " + error.message); reloadAndRender(); }
-    });
-  });
-}
-
 /* ============================================================
    EYLEMLER
    ============================================================ */
@@ -982,12 +896,6 @@ async function deleteNote(id) {
   if (error) { toast("Hata: " + error.message); return; }
   reloadAndRender();
 }
-async function deletePersonalBlock(id) {
-  const { error } = await sb.from("personal_blocks").delete().eq("id", id);
-  if (error) { toast("Hata: " + error.message); return; }
-  reloadAndRender();
-}
-
 /* ============================================================
    GOOGLE SHEETS EXPORT
    ============================================================ */
@@ -1073,10 +981,18 @@ $("#qaAddBtn").addEventListener("click", async () => {
   if (!title) { toast("Başlık gerekli"); return; }
   const catId = $("#qaCategory").value || null;
   const priority = $("#qaPriority").value;
+  const due = $("#qaDue").value || null;
   const assignId = profile.is_admin ? ($("#qaAssignee").value || me.id) : me.id;
-  const { error } = await sb.from("tasks").insert({ user_id: assignId, title, category_id: catId, priority, status:"todo" });
+  const payload = { user_id: assignId, title, category_id: catId, priority, status:"todo", due };
+  if (profile.is_admin) {
+    payload.start_time = $("#qaStart").value || null;
+    payload.end_time = $("#qaEnd").value || null;
+    payload.link = $("#qaLink").value.trim() || null;
+  }
+  const { error } = await sb.from("tasks").insert(payload);
   if (error) { toast("Eklenemedi: " + error.message); return; }
-  $("#qaTitle").value = "";
+  $("#qaTitle").value = ""; $("#qaDue").value = "";
+  if (profile.is_admin) { $("#qaStart").value = ""; $("#qaEnd").value = ""; $("#qaLink").value = ""; }
   toast("Görev eklendi"); reloadAndRender();
 });
 $("#qaTitle").addEventListener("keydown", e => { if (e.key === "Enter") $("#qaAddBtn").click(); });
@@ -1113,30 +1029,6 @@ $("#inboxAddBtn").addEventListener("click", async () => {
   reloadAndRender();
 });
 
-/* Kişisel Alan toggle */
-$("#personalToggleBtn").addEventListener("click", () => {
-  personalAreaOpen = !personalAreaOpen;
-  $("#teamArea").style.display = personalAreaOpen ? "none" : "";
-  $("#personalArea").classList.toggle("on", personalAreaOpen);
-  $("#personalToggleBtn").textContent = personalAreaOpen ? "📋 Takım Panosu" : "📋 Kişisel Alan";
-  $("#viewToggle").style.display = personalAreaOpen ? "none" : (profile.is_admin ? "flex" : "none");
-  if (personalAreaOpen) { renderPersonalBoard(); renderTimeline(); }
-});
-
-$("#paAddBtn").addEventListener("click", async () => {
-  const title = $("#paTitle").value.trim();
-  const link = $("#paLink").value.trim();
-  const start = $("#paStart").value;
-  const end = $("#paEnd").value;
-  if (!title && !link) { toast("Başlık veya link gerekli"); return; }
-  const { error } = await sb.from("personal_blocks").insert({
-    user_id: me.id, title, link: link || null, start_time: start || null, end_time: end || null, status: "fikir",
-  });
-  if (error) { toast("Hata: " + error.message); return; }
-  $("#paTitle").value = ""; $("#paLink").value = ""; $("#paStart").value = ""; $("#paEnd").value = "";
-  toast("Blok eklendi"); reloadAndRender();
-});
-
 /* Sidebar (mobil) */
 function toggleSidebar() { document.body.classList.toggle("sidebar-open"); }
 $("#hamburger").addEventListener("click", toggleSidebar);
@@ -1150,7 +1042,6 @@ document.addEventListener("click", e => {
   const del = e.target.closest("[data-del-task]"); if (del) return deleteTask(del.dataset.delTask);
   const delCat = e.target.closest("[data-del-cat]"); if (delCat) return deleteCategory(delCat.dataset.delCat);
   const delNote = e.target.closest("[data-del-note]"); if (delNote) return deleteNote(delNote.dataset.delNote);
-  const delPa = e.target.closest("[data-del-pa]"); if (delPa) return deletePersonalBlock(delPa.dataset.delPa);
 });
 $$(".overlay").forEach(ov => ov.addEventListener("click", e => { if (e.target === ov) closeM(ov); }));
 
