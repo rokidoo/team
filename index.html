@@ -491,6 +491,10 @@
               <input type="date" id="qaDue" title="Son teslim tarihi" />
               <button class="btn btn-mustard" id="qaAddBtn">Ekle</button>
             </div>
+            <div class="field" id="qaExtraRow" style="display:none">
+              <label>+ Ek Kişiler (opsiyonel, birden fazla seçilebilir)</label>
+              <select id="qaExtraAssignees" multiple style="min-height:74px"></select>
+            </div>
             <div class="quickadd" id="qaPersonalRow" style="display:none">
               <input type="time" id="qaStart" title="Başlangıç saati" />
               <input type="time" id="qaEnd" title="Bitiş saati" />
@@ -581,8 +585,12 @@
           </div>
         </div>
         <div class="field row" style="display:flex; gap:10px">
-          <div style="flex:1" id="teAssigneeWrap"><label>Atanan Kişi</label><select id="teAssignee"></select></div>
+          <div style="flex:1" id="teAssigneeWrap"><label>Ana Sorumlu</label><select id="teAssignee"></select></div>
           <div style="flex:1"><label>Son Teslim Tarihi</label><input type="date" id="teDue" /></div>
+        </div>
+        <div class="field" id="teExtraWrap" style="display:none">
+          <label>+ Ek Kişiler (opsiyonel)</label>
+          <select id="teExtraAssignees" multiple style="min-height:74px"></select>
         </div>
         <div class="field row" id="tePersonalWrap" style="display:none; gap:10px">
           <div style="flex:1"><label>Başlangıç Saati</label><input type="time" id="teStart" /></div>
@@ -659,6 +667,7 @@ let searchQuery = "";
 let selectedSwatch = SWATCHES[0];
 let channel = null;
 let editingTaskId = null;
+let taskAssigneesMap = {}; // { task_id: [user_id, ...] } -- ek atananlar
 
 const initials = n => (n||"?").trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase();
 const colorFor = id => { let h=0; for(const c of String(id)) h=(h*31+c.charCodeAt(0))>>>0; return AVATAR_PALETTE[h%AVATAR_PALETTE.length]; };
@@ -728,16 +737,21 @@ async function ensureProfile() {
 }
 
 async function reloadAll() {
-  const [p, c, t, ib] = await Promise.all([
+  const [p, c, t, ib, ta] = await Promise.all([
     sb.from("profiles").select("*"),
     sb.from("categories").select("*").order("sort_order"),
     sb.from("tasks").select("*").order("created_at", { ascending:true }),
     sb.from("inbox_notes").select("*").eq("user_id", me.id).order("created_at", { ascending:false }),
+    sb.from("task_assignees").select("*"),
   ]);
   profiles = {}; (p.data||[]).forEach(x => profiles[x.id] = x);
   categories = c.data || [];
   tasks = t.data || [];
   inboxNotes = ib.data || [];
+  taskAssigneesMap = {};
+  (ta.data||[]).forEach(row => {
+    (taskAssigneesMap[row.task_id] ||= []).push(row.user_id);
+  });
 }
 
 async function reloadAndRender() { await reloadAll(); render(); }
@@ -749,7 +763,13 @@ function subscribeRealtime() {
     .on("postgres_changes", { event:"*", schema:"public", table:"profiles" }, reloadAndRender)
     .on("postgres_changes", { event:"*", schema:"public", table:"categories" }, reloadAndRender)
     .on("postgres_changes", { event:"*", schema:"public", table:"inbox_notes" }, reloadAndRender)
+    .on("postgres_changes", { event:"*", schema:"public", table:"task_assignees" }, reloadAndRender)
     .subscribe();
+}
+
+function extraAssignees(taskId) { return taskAssigneesMap[taskId] || []; }
+function isAssignedToMe(t) {
+  return t.user_id === me.id || extraAssignees(t.id).includes(me.id);
 }
 
 /* ============================================================
@@ -764,14 +784,15 @@ function renderMe() {
   $("#viewToggle").style.display = profile.is_admin ? "flex" : "none";
   $("#addCatBtn").style.display = profile.is_admin ? "" : "none";
   $("#qaAssignee").style.display = profile.is_admin ? "" : "none";
+  $("#qaExtraRow").style.display = profile.is_admin ? "" : "none";
   $("#qaPersonalRow").style.display = profile.is_admin ? "flex" : "none";
 }
 
 function scopedTasks() {
   if (!profile.is_admin) return tasks.slice();
   return view === "mine"
-    ? tasks.filter(t => t.user_id === me.id)
-    : tasks.filter(t => t.user_id !== me.id);
+    ? tasks.filter(t => isAssignedToMe(t))
+    : tasks.filter(t => !isAssignedToMe(t));
 }
 
 function visibleTasks() {
@@ -821,6 +842,7 @@ function renderQuickaddOptions() {
   if (profile.is_admin) {
     const aSel = $("#qaAssignee");
     aSel.innerHTML = Object.keys(profiles).map(id => `<option value="${id}" ${id===me.id?"selected":""}>${esc(profiles[id].name)}</option>`).join("");
+    $("#qaExtraAssignees").innerHTML = Object.keys(profiles).map(id => `<option value="${id}">${esc(profiles[id].name)}</option>`).join("");
   }
 }
 
@@ -850,8 +872,15 @@ function cardHTML(t) {
   const catTag = cat ? `<span class="tag" style="background:${cat.color}; color:#fff">${esc(cat.name)}</span>` : "";
   const priTag = `<span class="pri-badge" style="background:${PRIORITY_COLOR[pri]}"><span class="pri-dot"></span>${PRIORITY_LABEL[pri]}</span>`;
 
+  const extraIds = extraAssignees(t.id);
+  const extraAvatars = extraIds.map(id => {
+    const p = profiles[id];
+    if (!p) return "";
+    return `<span class="mini-avatar" title="${esc(p.name)}" style="background:${colorFor(id)}; margin-left:-8px; border-color:var(--card-2)">${esc(initials(p.name))}</span>`;
+  }).join("");
+
   const assignee = leader
-    ? `<div class="assignee"><span class="mini-avatar" style="background:${colorFor(t.user_id)}">${esc(initials(leader.name))}</span><span class="a-name">${esc(leader.name)}</span></div>`
+    ? `<div class="assignee"><span class="mini-avatar" style="background:${colorFor(t.user_id)}">${esc(initials(leader.name))}</span>${extraAvatars}<span class="a-name">${esc(leader.name)}${extraIds.length ? " +"+extraIds.length : ""}</span></div>`
     : `<div class="assignee"><span class="a-name">—</span></div>`;
 
   const due = d.show
@@ -1011,8 +1040,13 @@ async function openTaskEdit(taskId) {
     assigneeWrap.style.display = "";
     $("#teAssignee").innerHTML = Object.keys(profiles).map(id =>
       `<option value="${id}" ${id===t.user_id?"selected":""}>${esc(profiles[id].name)}</option>`).join("");
+    $("#teExtraWrap").style.display = "";
+    const currentExtras = extraAssignees(t.id);
+    $("#teExtraAssignees").innerHTML = Object.keys(profiles).filter(id => id !== t.user_id).map(id =>
+      `<option value="${id}" ${currentExtras.includes(id)?"selected":""}>${esc(profiles[id].name)}</option>`).join("");
   } else {
     assigneeWrap.style.display = "none";
+    $("#teExtraWrap").style.display = "none";
   }
 
   const isMineAdmin = profile.is_admin && t.user_id === me.id;
@@ -1066,8 +1100,10 @@ $("#taskEditForm").addEventListener("submit", async e => {
     due: $("#teDue").value || null,
   };
   if (!payload.title) { toast("Başlık gerekli"); return; }
+  let newPrimary = t.user_id;
   if (profile.is_admin) {
-    payload.user_id = $("#teAssignee").value || t.user_id;
+    newPrimary = $("#teAssignee").value || t.user_id;
+    payload.user_id = newPrimary;
   }
   if (profile.is_admin && t.user_id === me.id) {
     payload.start_time = $("#teStart").value || null;
@@ -1076,6 +1112,20 @@ $("#taskEditForm").addEventListener("submit", async e => {
   }
   const { error } = await sb.from("tasks").update(payload).eq("id", editingTaskId);
   if (error) { toast("Kaydedilemedi: " + error.message); return; }
+
+  if (profile.is_admin) {
+    const before = extraAssignees(editingTaskId);
+    const after = [...$("#teExtraAssignees").selectedOptions].map(o => o.value).filter(id => id !== newPrimary);
+    const toAdd = after.filter(id => !before.includes(id));
+    const toRemove = before.filter(id => !after.includes(id));
+    if (toRemove.length) {
+      await sb.from("task_assignees").delete().eq("task_id", editingTaskId).in("user_id", toRemove);
+    }
+    if (toAdd.length) {
+      await sb.from("task_assignees").insert(toAdd.map(id => ({ task_id: editingTaskId, user_id: id })));
+    }
+  }
+
   closeM($("#taskEditOverlay")); editingTaskId = null;
   toast("Görev güncellendi"); reloadAndRender();
 });
@@ -1100,7 +1150,8 @@ async function exportToSheets() {
   const rows = list.map(t => {
     const p = profiles[t.user_id] || {};
     const cat = categories.find(c => c.id === t.category_id);
-    return [ t.title, t.descr||"", p.name||"", p.role||"", STATUS_LABEL[t.status]||t.status, PRIORITY_LABEL[t.priority]||"", cat?.name||"", t.due||"", new Date(t.created_at).toLocaleString("tr-TR") ];
+    const extraNames = extraAssignees(t.id).map(id => profiles[id]?.name).filter(Boolean).join(", ");
+    return [ t.title, t.descr||"", p.name||"", extraNames, p.role||"", STATUS_LABEL[t.status]||t.status, PRIORITY_LABEL[t.priority]||"", cat?.name||"", t.due||"", new Date(t.created_at).toLocaleString("tr-TR") ];
   });
   const btn = $("#exportBtn"); btn.disabled = true; toast("Sheets'e aktarılıyor...");
   try {
@@ -1213,8 +1264,15 @@ $("#qaAddBtn").addEventListener("click", async () => {
     payload.end_time = $("#qaEnd").value || null;
     payload.link = $("#qaLink").value.trim() || null;
   }
-  const { error } = await sb.from("tasks").insert(payload);
+  const { data: newTask, error } = await sb.from("tasks").insert(payload).select().single();
   if (error) { toast("Eklenemedi: " + error.message); return; }
+  if (profile.is_admin) {
+    const extraIds = [...$("#qaExtraAssignees").selectedOptions].map(o => o.value).filter(id => id !== assignId);
+    if (extraIds.length) {
+      await sb.from("task_assignees").insert(extraIds.map(id => ({ task_id: newTask.id, user_id: id })));
+    }
+    $("#qaExtraAssignees").selectedIndex = -1;
+  }
   $("#qaTitle").value = ""; $("#qaDue").value = todayStr();
   if (profile.is_admin) { $("#qaStart").value = ""; $("#qaEnd").value = ""; $("#qaLink").value = ""; }
   toast("Görev eklendi"); reloadAndRender();
