@@ -863,9 +863,11 @@ function cardHTML(t) {
   const linkBadge = (isMineAdmin && t.link)
     ? `<a class="due" href="${esc(t.link)}" target="_blank" rel="noopener" style="background:var(--mustard-soft); border-color:var(--mustard)">🔗 Link</a>` : "";
 
+  const canDelete = profile.is_admin || (t.user_id === me.id && (t.assigned_by === me.id || !t.assigned_by));
+
   return `
     <div class="card ${done?"done":""}" draggable="true" data-id="${t.id}">
-      <button class="card-del" data-del-task="${t.id}" title="Sil">✕</button>
+      ${canDelete ? `<button class="card-del" data-del-task="${t.id}" title="Sil">✕</button>` : ""}
       <div class="card-top">
         <button class="check" data-toggle="${t.id}">✓</button>
         <div class="card-title">${esc(t.title)}</div>
