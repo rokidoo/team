@@ -362,7 +362,8 @@
     #timelinePanel  { order: 3; }
     #categoriesPanel{ order: 4; }
     #metricsPanel   { order: 5; }
-    #profilePanel   { order: 6; margin-bottom: 0; }
+    #teamPanel      { order: 6; }
+    #profilePanel   { order: 7; margin-bottom: 0; }
   }
   @media (max-width: 640px) {
     .quickadd input[type=text] { flex: 1 1 100%; }
@@ -414,6 +415,21 @@
     </div>
   </div>
 
+  <!-- ===================== ONAY BEKLENİYOR ===================== -->
+  <div class="auth-wrap" id="pendingWrap" style="display:none">
+    <div class="auth-card" style="text-align:center">
+      <div class="brand-row" style="justify-content:center">
+        <div class="logo">R</div>
+        <div style="text-align:left"><h1>Remaks Ekip</h1><p>Onay Bekleniyor</p></div>
+      </div>
+      <p style="font-size:13.5px; color:var(--ink-soft); line-height:1.6; margin:16px 0">
+        Hesabın oluşturuldu ✅ Panele erişebilmen için yöneticinin seni onaylaması gerekiyor.
+        Onaylandığında bu sayfayı yenileyip tekrar giriş yap.
+      </p>
+      <button class="btn btn-ghost full" id="pendingLogoutBtn">Çıkış Yap</button>
+    </div>
+  </div>
+
   <!-- ===================== APP ===================== -->
   <div id="app">
     <header class="topbar">
@@ -450,6 +466,14 @@
             </div>
             <button class="btn btn-ghost full" id="notifyBtn" style="margin-top:8px">🔔 Bildirimleri Aç</button>
             <button class="btn btn-ghost full logout-btn" id="logoutBtn">Çıkış Yap</button>
+          </div>
+
+          <div class="panel" id="teamPanel" style="display:none">
+            <div class="panel-head">
+              <h3>Takım Liderleri</h3>
+              <span class="count-chip" id="teamCount">0</span>
+            </div>
+            <div class="cat-list" id="teamList"></div>
           </div>
 
           <div class="panel" id="categoriesPanel">
@@ -711,14 +735,22 @@ async function boot() {
 
 function showAuth() {
   $("#app").classList.remove("on");
+  $("#pendingWrap").style.display = "none";
   $("#authWrap").style.display = "grid";
 }
 
 async function enterApp(user) {
   me = user;
   $("#authWrap").style.display = "none";
-  $("#app").classList.add("on");
   await ensureProfile();
+
+  if (!profile.is_admin && !profile.is_approved) {
+    $("#app").classList.remove("on");
+    $("#pendingWrap").style.display = "grid";
+    return;
+  }
+  $("#pendingWrap").style.display = "none";
+  $("#app").classList.add("on");
   await reloadAll();
   subscribeRealtime();
   renderMe();
@@ -786,6 +818,7 @@ function renderMe() {
   $("#qaAssignee").style.display = profile.is_admin ? "" : "none";
   $("#qaExtraRow").style.display = profile.is_admin ? "" : "none";
   $("#qaPersonalRow").style.display = profile.is_admin ? "flex" : "none";
+  $("#teamPanel").style.display = profile.is_admin ? "" : "none";
 }
 
 function scopedTasks() {
@@ -815,7 +848,26 @@ function render() {
   renderMetrics();
   renderInbox();
   $("#timelinePanel").style.display = profile.is_admin ? "" : "none";
-  if (profile.is_admin) renderTimeline();
+  if (profile.is_admin) { renderTimeline(); renderTeamList(); }
+}
+
+function renderTeamList() {
+  const others = Object.keys(profiles).filter(id => id !== me.id);
+  $("#teamCount").textContent = others.length;
+  $("#teamList").innerHTML = others.map(id => {
+    const p = profiles[id];
+    const pending = !p.is_approved;
+    return `
+      <div class="cat-row" style="align-items:center; gap:8px">
+        <span class="mini-avatar" style="background:${colorFor(id)}; flex-shrink:0">${esc(initials(p.name))}</span>
+        <span class="cat-name" style="flex:1; min-width:0">
+          ${esc(p.name)}
+          ${pending ? `<br><span style="color:var(--pri-yuksek); font-weight:800; font-size:10px">Onay bekliyor</span>` : ""}
+        </span>
+        ${pending ? `<button type="button" class="btn btn-mustard" data-approve-user="${id}" style="padding:4px 9px; font-size:10.5px; flex-shrink:0">Onayla</button>` : ""}
+        <button type="button" class="cat-del" data-del-user="${id}" title="Kalıcı sil" style="opacity:1">✕</button>
+      </div>`;
+  }).join("") || `<div class="inbox-empty">Başka üye yok</div>`;
 }
 
 function renderMetrics() {
@@ -1010,6 +1062,21 @@ async function deleteCategory(id) {
   if (error) { toast("Silinemedi: " + error.message); return; }
   toast("Kategori silindi"); reloadAndRender();
 }
+
+async function approveUser(id) {
+  const { error } = await sb.from("profiles").update({ is_approved: true }).eq("id", id);
+  if (error) { toast("Hata: " + error.message); return; }
+  toast("Onaylandı ✅"); reloadAndRender();
+}
+
+async function deleteUser(id) {
+  const p = profiles[id];
+  if (!confirm(`${p?.name || "Bu kullanıcı"} kalıcı olarak silinsin mi? Tüm görevleri, yorumları ve verileri de silinecek. Bu işlem geri alınamaz.`)) return;
+  const { data, error } = await sb.functions.invoke("admin-delete-user", { body: { targetUserId: id } });
+  if (error) { toast("Silinemedi: " + (error.message || "bilinmeyen hata")); return; }
+  if (data && data.ok === false) { toast("Silinemedi: " + data.error); return; }
+  toast("Kullanıcı silindi"); reloadAndRender();
+}
 async function deleteNote(id) {
   const { error } = await sb.from("inbox_notes").delete().eq("id", id);
   if (error) { toast("Hata: " + error.message); return; }
@@ -1203,6 +1270,7 @@ $("#signupForm").addEventListener("submit", async e => {
 });
 
 $("#logoutBtn").addEventListener("click", async () => { await sb.auth.signOut(); });
+$("#pendingLogoutBtn").addEventListener("click", async () => { await sb.auth.signOut(); });
 
 /* Push bildirimleri */
 function urlBase64ToUint8Array(base64String) {
@@ -1326,6 +1394,8 @@ document.addEventListener("click", e => {
   const del = e.target.closest("[data-del-task]"); if (del) return deleteTask(del.dataset.delTask);
   const delCat = e.target.closest("[data-del-cat]"); if (delCat) return deleteCategory(delCat.dataset.delCat);
   const delNote = e.target.closest("[data-del-note]"); if (delNote) return deleteNote(delNote.dataset.delNote);
+  const approve = e.target.closest("[data-approve-user]"); if (approve) return approveUser(approve.dataset.approveUser);
+  const delUser = e.target.closest("[data-del-user]"); if (delUser) return deleteUser(delUser.dataset.delUser);
   if (e.target.closest("a")) return;
   const card = e.target.closest(".card"); if (card) return openTaskEdit(card.dataset.id);
 });
