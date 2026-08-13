@@ -1132,22 +1132,24 @@ function ideaGroup(code, entries, isWinner){
       <span style="flex:1"></span>
       <button class="addbtn" data-iadd="${esc(code)}" style="padding:5px 12px;font-size:.68rem">＋ fikir / hook ekle</button>
     </div>
-    ${entries.length? entries.map(ideaEntry).join("") : `<div style="padding:11px 14px;font-size:.74rem;color:var(--mut);font-weight:600">Henüz fikir yok — ilk ekleyen sen ol.</div>`}
+    <div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px 12px;align-items:flex-start">
+    ${entries.length? entries.map(ideaEntry).join("") : `<div style="font-size:.74rem;color:var(--mut);font-weight:600;padding:2px">Henüz fikir yok — ilk ekleyen sen ol.</div>`}
+    </div>
   </div>`;
 }
 function ideaEntry(x){
   const t = TURS[x.tur]||TURS.FIKIR;
   const hooks = Array.isArray(x.hooks)?x.hooks:[];
-  return `<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 14px;border-bottom:2px solid var(--cream2)">
-    ${chip(t.l, t.s)}
-    <div style="flex:1;min-width:0">
-      <div style="display:flex;flex-wrap:wrap;gap:6px">
-        ${hooks.map(h=>`<span style="display:inline-block;background:var(--cream2);border:2px solid var(--ink);border-radius:9px;padding:4px 10px;font-size:.78rem;font-weight:700;line-height:1.4">${esc(h)}</span>`).join("")}
+  return `<div style="display:inline-flex;align-items:flex-start;gap:7px;padding:7px 9px;border:2px solid var(--ink);border-radius:12px;background:${t.s};max-width:100%">
+    ${chip(t.l, "var(--card)")}
+    <div style="min-width:0">
+      <div style="display:flex;flex-wrap:wrap;gap:5px">
+        ${hooks.map(h=>`<span style="display:inline-block;background:var(--card);border:2px solid var(--ink);border-radius:8px;padding:3px 9px;font-size:.76rem;font-weight:700;line-height:1.35">${esc(h)}</span>`).join("")}
       </div>
-      ${x.note?`<div style="font-size:.74rem;color:var(--mut);font-weight:600;margin-top:6px">${esc(x.note)}</div>`:""}
+      ${x.note?`<div style="font-size:.7rem;color:var(--ink-soft);font-weight:600;margin-top:4px">${esc(x.note)}</div>`:""}
+      ${x.created_name?`<div class="mono" style="font-size:.58rem;color:var(--mut);margin-top:3px">${esc(x.created_name)}</div>`:""}
     </div>
-    ${x.created_name?`<span class="mono" style="font-size:.6rem;color:var(--mut);white-space:nowrap;padding-top:4px">${esc(x.created_name)}</span>`:""}
-    <button class="editbtn" data-iedit="${esc(x.id)}" title="Düzenle">✏️</button>
+    <button class="editbtn" data-iedit="${esc(x.id)}" title="Düzenle" style="min-width:22px;height:22px;font-size:.58rem">✏️</button>
   </div>`;
 }
 function pipeCard(p){
