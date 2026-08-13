@@ -699,8 +699,15 @@ async function boot(){
   }
   const {data:{session}} = await sb.auth.getSession();
   if(!session){ showAuth(); return; }
-  const {data:prof} = await sb.from("profiles").select("*").eq("id",session.user.id).single();
-  if(!prof){ showAuth("Profil bulunamadı — tekrar kayıt olmayı dene.",true); await sb.auth.signOut(); return; }
+  let {data:prof} = await sb.from("profiles").select("*").eq("id",session.user.id).maybeSingle();
+  if(!prof){
+    // e-posta doğrulamalı kayıtta profil oluşmamış olabilir — ilk girişte tamamla
+    const md = session.user.user_metadata||{};
+    const row = {id:session.user.id, name: md.name || session.user.email.split("@")[0], initial: md.initial||null};
+    const {data:ins,error} = await sb.from("profiles").insert(row).select().single();
+    if(error){ showAuth("Profil oluşturulamadı: "+error.message, true); await sb.auth.signOut(); return; }
+    prof = ins;
+  }
   S.profile=prof;
   await loadAll();
   await showApp();
@@ -722,7 +729,8 @@ $("btnSignup").onclick = async ()=>{
   const name=$("suName").value.trim();
   if(!name){ showAuth("Ad Soyad gerekli.",true); return; }
   $("btnSignup").disabled=true;
-  const {data,error} = await sb.auth.signUp({email:$("suEmail").value.trim(), password:$("suPass").value});
+  const {data,error} = await sb.auth.signUp({email:$("suEmail").value.trim(), password:$("suPass").value,
+    options:{data:{name, initial:$("suInitial").value||null}}});
   if(error){ $("btnSignup").disabled=false; showAuth("Kayıt başarısız: "+error.message, true); return; }
   if(data.user){
     await sb.from("profiles").insert({id:data.user.id, name, initial:$("suInitial").value||null});
