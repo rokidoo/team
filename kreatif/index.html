@@ -3,231 +3,290 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#0d0f14">
+<meta name="theme-color" content="#F4F2EC">
 <title>uzbionik · Kreatif Performans Merkezi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0d0f14; --card:#151923; --card2:#1b202c; --line:#242b3a;
-    --txt:#e8ecf4; --mut:#8b93a7; --dim:#5a6275;
-    --brand:#f59e0b; --green:#22c55e; --red:#ef4444; --blue:#3b82f6;
-    --amber:#fbbf24; --orange:#fb923c; --purple:#a78bfa; --gray:#6b7280;
-    --r:14px;
+    --cream:#F4F2EC; --cream2:#EAE7E1; --card:#FFFDF9;
+    --ink:#121212; --ink-soft:#4A4A46; --mut:#8A867E;
+    --cobalt:#2F5DFF; --cobalt-s:#E4EBFF;
+    --green:#22C55E;  --green-s:#DFF6E7;
+    --mustard:#FFC53D;--mustard-s:#FFF3D6;
+    --red:#E8402A;    --red-s:#FDE4DF;
+    --purple:#A855F7; --purple-s:#F1E4FE;
+    --orange:#FF8A00; --orange-s:#FFE9D1;
+    --gray-s:#ECEAE4;
+    --fh:'Space Grotesk','Plus Jakarta Sans',sans-serif;
+    --fb:'Plus Jakarta Sans',sans-serif;
+    --fm:'JetBrains Mono',monospace;
+    --b:3px solid var(--ink); --b2:2px solid var(--ink);
+    --sh:6px 6px 0 var(--ink); --sh-sm:4px 4px 0 var(--ink);
+    --r:16px; --r-lg:24px;
+    --sidew:236px; --sidew-c:74px;
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html{font-size:16px}
   body{
-    background:var(--bg); color:var(--txt); min-height:100dvh;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-    padding-bottom:calc(76px + env(safe-area-inset-bottom));
+    background:var(--cream); color:var(--ink); min-height:100dvh; font-family:var(--fb);
+    padding-bottom:calc(80px + env(safe-area-inset-bottom));
   }
+  h1,h2,h3{font-family:var(--fh); letter-spacing:-.02em}
   .hidden{display:none!important}
+  .mono{font-family:var(--fm)}
 
-  /* ---------- top bar ---------- */
-  header{
-    position:sticky; top:0; z-index:40; background:rgba(13,15,20,.92);
-    backdrop-filter:blur(12px); border-bottom:1px solid var(--line);
-    padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
-    display:flex; align-items:center; gap:10px;
+  /* ================= SIDEBAR (masaüstü) ================= */
+  aside{
+    display:none; position:fixed; z-index:50; inset:0 auto 0 0; width:var(--sidew);
+    background:var(--card); border-right:var(--b); padding:20px 14px;
+    flex-direction:column; gap:6px; transition:width .18s ease;
   }
-  header .logo{font-weight:800; font-size:1.02rem; letter-spacing:-.02em}
-  header .logo span{color:var(--brand)}
+  aside .brand{
+    font-family:var(--fh); font-weight:700; font-size:1.15rem; padding:6px 10px 18px;
+    white-space:nowrap; overflow:hidden;
+  }
+  aside .brand b{color:var(--cobalt)}
+  aside .navbtn{
+    display:flex; align-items:center; gap:12px; width:100%;
+    background:none; border:var(--b2); border-color:transparent; border-radius:12px;
+    padding:11px 12px; font-family:var(--fb); font-weight:700; font-size:.9rem;
+    color:var(--ink-soft); cursor:pointer; white-space:nowrap; overflow:hidden;
+  }
+  aside .navbtn .ic{font-size:1.15rem; line-height:1; width:24px; text-align:center; flex-shrink:0}
+  aside .navbtn:hover{background:var(--cream2)}
+  aside .navbtn.on{
+    background:var(--mustard); border:var(--b2); color:var(--ink); box-shadow:var(--sh-sm);
+  }
+  aside .sp{flex:1}
+  aside .user{
+    display:flex; align-items:center; gap:10px; padding:10px 8px; border-top:var(--b2);
+    white-space:nowrap; overflow:hidden;
+  }
+  aside .user .nm{font-weight:800; font-size:.82rem}
+  aside .user .rl{font-size:.68rem; color:var(--mut); font-weight:600}
+  aside .collapse{
+    position:absolute; top:18px; right:-16px; width:32px; height:32px;
+    background:var(--card); border:var(--b2); border-radius:50%; cursor:pointer;
+    font-weight:800; font-family:var(--fm); box-shadow:var(--sh-sm); z-index:51;
+  }
+  @media(min-width:960px){
+    aside{display:flex}
+    body{padding-left:var(--sidew); padding-bottom:24px}
+    nav.bottom{display:none}
+    header .mlogo{display:none}
+    html.collapsed aside{width:var(--sidew-c)}
+    html.collapsed body{padding-left:var(--sidew-c)}
+    html.collapsed aside .brand{font-size:0}
+    html.collapsed aside .brand::first-letter{font-size:1.15rem}
+    html.collapsed aside .navbtn span.lbl, html.collapsed aside .user div{display:none}
+  }
+
+  /* ================= TOP BAR ================= */
+  header{
+    position:sticky; top:0; z-index:40; background:var(--cream);
+    border-bottom:var(--b); padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+    display:flex; align-items:center; gap:12px;
+  }
+  header .mlogo{font-family:var(--fh); font-weight:700; font-size:1.05rem}
+  header .mlogo b{color:var(--cobalt)}
   header .sp{flex:1}
   .weekpick{
-    background:var(--card2); border:1px solid var(--line); color:var(--txt);
-    border-radius:10px; padding:7px 10px; font-size:.82rem; font-weight:600;
-    appearance:none; -webkit-appearance:none;
+    background:var(--card); border:var(--b2); color:var(--ink); border-radius:12px;
+    padding:9px 12px; font-size:.82rem; font-weight:700; font-family:var(--fb);
+    max-width:170px; box-shadow:var(--sh-sm); cursor:pointer;
   }
   .avatar{
-    width:34px;height:34px;border-radius:50%;background:var(--card2);
-    border:1px solid var(--line); display:flex;align-items:center;justify-content:center;
-    font-weight:800;font-size:.8rem;color:var(--brand); cursor:pointer;
+    width:38px;height:38px;border-radius:50%;background:var(--mustard);
+    border:var(--b2); display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:.85rem; cursor:pointer; box-shadow:var(--sh-sm); flex-shrink:0;
   }
 
-  /* ---------- bottom nav ---------- */
-  nav{
-    position:fixed; bottom:0; left:0; right:0; z-index:40;
-    background:rgba(13,15,20,.94); backdrop-filter:blur(12px);
-    border-top:1px solid var(--line);
-    display:flex; padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+  /* ================= BOTTOM NAV (mobil) ================= */
+  nav.bottom{
+    position:fixed; bottom:0; left:0; right:0; z-index:50;
+    background:var(--card); border-top:var(--b);
+    display:flex; padding:8px 6px calc(8px + env(safe-area-inset-bottom));
   }
-  nav button{
-    flex:1; background:none; border:none; color:var(--dim); cursor:pointer;
+  nav.bottom button{
+    flex:1; background:none; border:none; color:var(--mut); cursor:pointer;
     display:flex; flex-direction:column; align-items:center; gap:3px;
-    font-size:.62rem; font-weight:700; padding:6px 0; border-radius:10px;
-    font-family:inherit;
+    font-size:.62rem; font-weight:800; padding:6px 2px; border-radius:12px; font-family:var(--fb);
   }
-  nav button .ic{font-size:1.15rem; line-height:1}
-  nav button.on{color:var(--brand)}
+  nav.bottom button .ic{font-size:1.2rem; line-height:1}
+  nav.bottom button.on{color:var(--ink); background:var(--mustard); border:var(--b2); box-shadow:var(--sh-sm)}
+  @media(min-width:960px){ nav.bottom{display:none} }
 
-  /* ---------- generic ---------- */
-  main{padding:16px; max-width:860px; margin:0 auto}
-  h2{font-size:1.15rem; letter-spacing:-.02em; margin-bottom:4px}
-  .sub{color:var(--mut); font-size:.8rem; margin-bottom:16px}
-  .sect{margin-bottom:22px}
+  /* ================= GENEL ================= */
+  main{padding:20px 16px; max-width:1060px; margin:0 auto}
+  @media(min-width:960px){main{padding:28px 32px}}
+  h2{font-size:1.35rem; margin-bottom:4px}
+  .sub{color:var(--mut); font-size:.82rem; font-weight:600; margin-bottom:18px}
+  .sect{margin-bottom:26px}
   .sect h3{
-    font-size:.72rem; text-transform:uppercase; letter-spacing:.08em;
-    color:var(--mut); margin-bottom:10px; display:flex; align-items:center; gap:8px;
+    font-size:.78rem; text-transform:uppercase; letter-spacing:.09em;
+    margin-bottom:12px; display:flex; align-items:center; gap:8px;
   }
   .sect h3 .cnt{
-    background:var(--card2); border:1px solid var(--line); color:var(--txt);
-    border-radius:99px; padding:1px 8px; font-size:.68rem;
+    background:var(--ink); color:var(--card); border-radius:99px; padding:1px 9px;
+    font-size:.68rem; font-family:var(--fm);
   }
+  .cards{display:grid; gap:14px}
+  @media(min-width:1100px){.cards{grid-template-columns:1fr 1fr}}
   .card{
-    background:var(--card); border:1px solid var(--line); border-radius:var(--r);
-    padding:14px; margin-bottom:10px;
+    background:var(--card); border:var(--b); border-radius:var(--r);
+    padding:16px; box-shadow:var(--sh);
   }
   .chip{
-    display:inline-flex; align-items:center; gap:5px; border-radius:99px;
-    padding:3px 9px; font-size:.68rem; font-weight:700; border:1px solid;
+    display:inline-flex; align-items:center; border-radius:99px;
+    padding:4px 11px; font-size:.68rem; font-weight:800; border:var(--b2); color:var(--ink);
+    white-space:nowrap;
   }
   .own{
-    width:26px;height:26px;border-radius:8px; display:inline-flex;
-    align-items:center;justify-content:center; font-weight:800; font-size:.78rem;
-    flex-shrink:0;
+    width:28px;height:28px;border-radius:9px; display:inline-flex; border:var(--b2);
+    align-items:center;justify-content:center; font-weight:800; font-size:.8rem; flex-shrink:0;
   }
-  .mrow{display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:10px}
-  .m{font-size:.78rem; color:var(--mut)}
-  .m b{color:var(--txt); font-weight:700}
+  .mrow{display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:12px}
+  .m{font-size:.78rem; color:var(--ink-soft); font-weight:600}
+  .m b{font-family:var(--fm); font-weight:700}
   .empty{
-    text-align:center; color:var(--dim); font-size:.85rem; padding:28px 12px;
-    border:1px dashed var(--line); border-radius:var(--r);
+    text-align:center; color:var(--mut); font-size:.85rem; font-weight:600; padding:30px 12px;
+    border:2px dashed var(--mut); border-radius:var(--r); background:var(--cream2);
   }
+  .cards .empty{grid-column:1/-1}
 
-  /* creative card */
-  .ccard .top{display:flex; gap:10px; align-items:flex-start}
-  .ccard .code{font-size:.78rem; font-weight:700; word-break:break-all; line-height:1.35}
-  .ccard .meta{font-size:.7rem; color:var(--mut); margin-top:2px}
+  /* kreatif kartı */
+  .ccard .top{display:flex; gap:12px; align-items:flex-start}
+  .ccard .code{font-family:var(--fm); font-size:.72rem; font-weight:700; word-break:break-all; line-height:1.4}
+  .ccard .meta{font-size:.72rem; color:var(--mut); font-weight:600; margin-top:4px; display:flex; align-items:center; gap:6px}
   .ccard .thumb{
-    width:52px;height:52px;border-radius:10px; background:var(--card2);
-    border:1px solid var(--line); flex-shrink:0; object-fit:cover;
-    display:flex;align-items:center;justify-content:center; font-size:1.3rem;
+    width:54px;height:54px;border-radius:12px; background:var(--cream2); border:var(--b2);
+    flex-shrink:0; object-fit:cover; display:flex;align-items:center;justify-content:center; font-size:1.35rem;
   }
   .ccard .hook{
-    margin-top:10px; font-size:.82rem; background:var(--card2);
-    border-left:3px solid var(--brand); padding:8px 10px; border-radius:0 8px 8px 0;
-    color:var(--txt);
+    margin-top:12px; font-size:.85rem; font-weight:600; background:var(--mustard-s);
+    border:var(--b2); border-left-width:6px; padding:9px 11px; border-radius:10px;
   }
-  .ccard .reason{margin-top:8px; font-size:.72rem; color:var(--mut); font-style:italic}
+  .ccard .reason{margin-top:9px; font-size:.74rem; color:var(--mut); font-weight:600; font-style:italic}
 
-  /* filter chips */
-  .filters{display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; margin-bottom:14px; scrollbar-width:none}
+  /* filtre çipleri */
+  .filters{display:flex; gap:8px; overflow-x:auto; padding:4px 2px 8px; margin-bottom:10px; scrollbar-width:none}
   .filters::-webkit-scrollbar{display:none}
   .fchip{
-    flex-shrink:0; background:var(--card); border:1px solid var(--line); color:var(--mut);
-    border-radius:99px; padding:6px 13px; font-size:.75rem; font-weight:700; cursor:pointer;
-    font-family:inherit;
+    flex-shrink:0; background:var(--card); border:var(--b2); color:var(--ink-soft);
+    border-radius:99px; padding:7px 14px; font-size:.75rem; font-weight:800; cursor:pointer; font-family:var(--fb);
   }
-  .fchip.on{background:var(--brand); border-color:var(--brand); color:#14100a}
+  .fchip.on{background:var(--ink); border-color:var(--ink); color:var(--card); box-shadow:var(--sh-sm)}
 
-  /* team */
+  /* ekip */
   .trow{display:flex; align-items:center; gap:12px}
-  .trow .bar{flex:1; height:8px; background:var(--card2); border-radius:99px; overflow:hidden}
-  .trow .bar i{display:block; height:100%; border-radius:99px}
-  .tstats{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:12px}
-  .tstat{background:var(--card2); border-radius:10px; padding:8px 6px; text-align:center}
-  .tstat b{display:block; font-size:1.05rem}
-  .tstat span{font-size:.62rem; color:var(--mut); font-weight:600}
+  .trow .nm{font-family:var(--fh); font-size:1rem; font-weight:700}
+  .trow .bar{flex:1; height:12px; background:var(--cream2); border:var(--b2); border-radius:99px; overflow:hidden}
+  .trow .bar i{display:block; height:100%}
+  .trow .wn{font-family:var(--fm); font-weight:700; font-size:1.05rem}
+  .tstats{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:14px}
+  .tstat{background:var(--cream2); border:var(--b2); border-radius:12px; padding:10px 6px; text-align:center}
+  .tstat b{display:block; font-size:1.15rem; font-family:var(--fm)}
+  .tstat span{font-size:.62rem; color:var(--ink-soft); font-weight:700}
 
-  /* finance table */
-  .tblwrap{overflow-x:auto; border:1px solid var(--line); border-radius:var(--r); background:var(--card)}
-  table{border-collapse:collapse; width:100%; font-size:.76rem; min-width:560px}
-  th,td{padding:9px 10px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap}
+  /* finans */
+  .tblwrap{overflow-x:auto; border:var(--b); border-radius:var(--r); background:var(--card); box-shadow:var(--sh)}
+  table{border-collapse:collapse; width:100%; font-size:.78rem; min-width:600px}
+  th,td{padding:10px 12px; text-align:right; border-bottom:var(--b2); white-space:nowrap}
   th:first-child,td:first-child{text-align:left; position:sticky; left:0; background:var(--card)}
-  th{color:var(--mut); font-size:.66rem; text-transform:uppercase; letter-spacing:.05em}
+  th{font-size:.66rem; text-transform:uppercase; letter-spacing:.06em; background:var(--mustard-s)}
+  td{font-family:var(--fm); font-weight:500}
+  td:first-child{font-family:var(--fb); font-weight:700}
   tr:last-child td{border-bottom:none}
-  .kpis{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:16px}
-  @media(min-width:600px){.kpis{grid-template-columns:repeat(4,1fr)}}
-  .kpi{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:12px}
-  .kpi b{display:block; font-size:1.25rem; letter-spacing:-.02em}
-  .kpi span{font-size:.68rem; color:var(--mut); font-weight:600}
+  .kpis{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:20px}
+  @media(min-width:700px){.kpis{grid-template-columns:repeat(4,1fr)}}
+  .kpi{background:var(--card); border:var(--b); border-radius:var(--r); padding:14px; box-shadow:var(--sh-sm)}
+  .kpi b{display:block; font-size:1.35rem; font-family:var(--fm)}
+  .kpi span{font-size:.68rem; color:var(--mut); font-weight:800; text-transform:uppercase; letter-spacing:.05em}
 
-  /* forms / login */
-  .auth{max-width:380px; margin:10vh auto 0; padding:0 20px}
-  .auth .logo{font-size:1.5rem; font-weight:800; text-align:center; margin-bottom:6px}
-  .auth .logo span{color:var(--brand)}
-  .auth p{color:var(--mut); text-align:center; font-size:.85rem; margin-bottom:26px}
+  /* form / giriş */
+  .auth{max-width:400px; margin:8vh auto 0; padding:0 20px}
+  .authcard{background:var(--card); border:var(--b); border-radius:var(--r-lg); padding:26px 22px; box-shadow:var(--sh)}
+  .auth .logo{font-family:var(--fh); font-size:1.45rem; font-weight:700; text-align:center; margin-bottom:4px}
+  .auth .logo b{color:var(--cobalt)}
+  .auth p{color:var(--mut); text-align:center; font-size:.85rem; font-weight:600; margin-bottom:22px}
   input,textarea,select{
-    width:100%; background:var(--card); border:1px solid var(--line); color:var(--txt);
-    border-radius:12px; padding:13px 14px; font-size:.95rem; margin-bottom:10px;
-    font-family:inherit;
+    width:100%; background:var(--card); border:var(--b2); color:var(--ink);
+    border-radius:12px; padding:13px 14px; font-size:.95rem; margin-bottom:12px; font-family:var(--fb); font-weight:600;
   }
-  input:focus,textarea:focus{outline:none; border-color:var(--brand)}
+  input:focus,textarea:focus{outline:none; border-color:var(--cobalt); box-shadow:var(--sh-sm)}
   .btn{
-    width:100%; background:var(--brand); color:#14100a; border:none; border-radius:12px;
-    padding:14px; font-size:.95rem; font-weight:800; cursor:pointer; font-family:inherit;
+    width:100%; background:var(--cobalt); color:#fff; border:var(--b2); border-radius:12px;
+    padding:14px; font-size:.95rem; font-weight:800; cursor:pointer; font-family:var(--fb); box-shadow:var(--sh-sm);
   }
-  .btn.sec{background:var(--card2); color:var(--txt); border:1px solid var(--line)}
+  .btn:active{transform:translate(2px,2px); box-shadow:none}
   .btn:disabled{opacity:.5}
-  .authmsg{font-size:.8rem; text-align:center; margin-top:12px; color:var(--mut)}
+  .authmsg{font-size:.8rem; font-weight:700; text-align:center; margin-top:12px; color:var(--mut)}
   .authmsg.err{color:var(--red)}
-  .switch{
-    text-align:center; margin-top:16px; font-size:.82rem; color:var(--mut);
-  }
-  .switch a{color:var(--brand); font-weight:700; cursor:pointer; text-decoration:none}
+  .switch{text-align:center; margin-top:16px; font-size:.82rem; font-weight:600; color:var(--mut)}
+  .switch a{color:var(--cobalt); font-weight:800; cursor:pointer; text-decoration:none}
 
   /* import */
-  textarea.json{min-height:220px; font-family:ui-monospace,Menlo,monospace; font-size:.75rem}
+  textarea.json{min-height:230px; font-family:var(--fm); font-size:.74rem; font-weight:500}
   .implog{
-    font-family:ui-monospace,Menlo,monospace; font-size:.72rem; color:var(--mut);
-    background:var(--card); border:1px solid var(--line); border-radius:12px;
-    padding:12px; margin-top:12px; white-space:pre-wrap; max-height:220px; overflow:auto;
+    font-family:var(--fm); font-size:.72rem; background:var(--ink); color:#DFF6E7;
+    border-radius:12px; padding:14px; margin-top:14px; white-space:pre-wrap; max-height:240px; overflow:auto;
   }
 
-  /* demo banner + role switch */
+  /* demo bar */
   .demo{
-    background:#2a1f0a; border:1px solid #6b5416; color:#fbd38d; font-size:.72rem;
-    padding:8px 12px; border-radius:10px; margin-bottom:14px; display:flex; align-items:center; gap:8px;
-    flex-wrap:wrap;
+    background:var(--mustard-s); border:var(--b2); font-size:.74rem; font-weight:700;
+    padding:9px 13px; border-radius:12px; margin-bottom:16px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;
   }
-  .demo select{width:auto; margin:0; padding:4px 8px; font-size:.72rem; border-radius:8px}
-
-  /* modal */
-  .modal{
-    position:fixed; inset:0; z-index:60; background:rgba(0,0,0,.6);
-    display:flex; align-items:flex-end; justify-content:center;
-  }
-  @media(min-width:600px){.modal{align-items:center}}
-  .modal .box{
-    background:var(--card); border:1px solid var(--line); width:100%; max-width:480px;
-    border-radius:20px 20px 0 0; padding:20px 18px calc(20px + env(safe-area-inset-bottom));
-    max-height:85dvh; overflow:auto;
-  }
-  @media(min-width:600px){.modal .box{border-radius:20px}}
+  .demo select{width:auto; margin:0; padding:5px 9px; font-size:.74rem; border-radius:9px}
 </style>
 </head>
 <body>
 
 <!-- ==================== GİRİŞ ==================== -->
 <div id="vAuth" class="auth hidden">
-  <div class="logo">uzbionik <span>·</span> kreatif merkezi</div>
-  <p>Ekip performans paneli</p>
-  <div id="authLogin">
-    <input id="liEmail" type="email" placeholder="E-posta" autocomplete="email">
-    <input id="liPass" type="password" placeholder="Şifre" autocomplete="current-password">
-    <button class="btn" id="btnLogin">Giriş Yap</button>
-    <div class="switch">Hesabın yok mu? <a id="goSignup">Kayıt ol</a></div>
+  <div class="authcard">
+    <div class="logo">uzbionik <b>·</b> kreatif</div>
+    <p>Ekip performans paneli</p>
+    <div id="authLogin">
+      <input id="liEmail" type="email" placeholder="E-posta" autocomplete="email">
+      <input id="liPass" type="password" placeholder="Şifre" autocomplete="current-password">
+      <button class="btn" id="btnLogin">Giriş Yap</button>
+      <div class="switch">Hesabın yok mu? <a id="goSignup">Kayıt ol</a></div>
+    </div>
+    <div id="authSignup" class="hidden">
+      <input id="suName" type="text" placeholder="Ad Soyad">
+      <select id="suInitial">
+        <option value="">Kreatif harfin (yoksa boş bırak)</option>
+        <option value="C">C · Çağdaş</option>
+        <option value="İ">İ · İnka</option>
+        <option value="E">E · Erdem</option>
+        <option value="M">M · Mustafa</option>
+      </select>
+      <input id="suEmail" type="email" placeholder="E-posta" autocomplete="email">
+      <input id="suPass" type="password" placeholder="Şifre (en az 6 karakter)" autocomplete="new-password">
+      <button class="btn" id="btnSignup">Kayıt Ol</button>
+      <div class="switch">Zaten hesabın var mı? <a id="goLogin">Giriş yap</a></div>
+    </div>
+    <div id="authMsg" class="authmsg"></div>
   </div>
-  <div id="authSignup" class="hidden">
-    <input id="suName" type="text" placeholder="Ad Soyad">
-    <select id="suInitial">
-      <option value="">Kreatif harfin (yoksa boş bırak)</option>
-      <option value="C">C · Çağdaş</option>
-      <option value="İ">İ · İnka</option>
-      <option value="E">E · Erdem</option>
-      <option value="M">M · Mustafa</option>
-    </select>
-    <input id="suEmail" type="email" placeholder="E-posta" autocomplete="email">
-    <input id="suPass" type="password" placeholder="Şifre (en az 6 karakter)" autocomplete="new-password">
-    <button class="btn" id="btnSignup">Kayıt Ol</button>
-    <div class="switch">Zaten hesabın var mı? <a id="goLogin">Giriş yap</a></div>
-  </div>
-  <div id="authMsg" class="authmsg"></div>
 </div>
 
 <!-- ==================== UYGULAMA ==================== -->
 <div id="vApp" class="hidden">
+  <aside id="side">
+    <button class="collapse" id="btnCollapse" title="Menüyü daralt">‹</button>
+    <div class="brand">uzbionik <b>kreatif</b></div>
+    <div id="sideNav"></div>
+    <div class="sp"></div>
+    <div class="user">
+      <div class="avatar" id="avatarSide" title="Çıkış yap">?</div>
+      <div><div class="nm" id="userName"></div><div class="rl" id="userRole"></div></div>
+    </div>
+  </aside>
+
   <header>
-    <div class="logo">uzbionik <span>kreatif</span></div>
+    <div class="mlogo">uzbionik <b>kreatif</b></div>
     <div class="sp"></div>
     <select id="weekPick" class="weekpick"></select>
     <div class="avatar" id="avatar" title="Çıkış yap">?</div>
@@ -252,15 +311,11 @@
     <div id="tabImport" class="hidden"></div>
   </main>
 
-  <nav id="nav"></nav>
+  <nav class="bottom" id="nav"></nav>
 </div>
 
-<div id="modalHost"></div>
-
 <script type="module">
-/* ================= AYARLAR =================
-   Supabase projesi oluşturunca doldur.
-   Boş bırakılırsa uygulama DEMO modunda örnek veriyle açılır. */
+/* ================= AYARLAR ================= */
 const SUPABASE_URL      = "https://ciwpxeqqrwfsuoggdync.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpd3B4ZXFxcndmc3VvZ2dkeW5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MjI4ODQsImV4cCI6MjEwMjE5ODg4NH0.S_vgxYMAjQ9RtkRHxyMJs0NG9aj94_Jn2FfaGszzTOI";
 /* =========================================== */
@@ -274,28 +329,27 @@ if(!DEMO){
 
 /* ---------- sözlükler ---------- */
 const ST = {
-  yeni:          {l:"Yeni",           c:"#8b93a7"},
-  testte:        {l:"Testte",         c:"#3b82f6"},
-  yetersiz_veri: {l:"Yetersiz Veri",  c:"#a78bfa"},
-  winner_adayi:  {l:"Winner Adayı",   c:"#fbbf24"},
-  onayli_winner: {l:"Onaylı Winner",  c:"#22c55e"},
-  yorulma_riski: {l:"Yorulma Riski",  c:"#fb923c"},
-  loser:         {l:"Loser",          c:"#ef4444"},
-  arsiv:         {l:"Arşiv",          c:"#6b7280"},
+  yeni:          {l:"Yeni",           c:"#8A867E", s:"#ECEAE4"},
+  testte:        {l:"Testte",         c:"#2F5DFF", s:"#E4EBFF"},
+  yetersiz_veri: {l:"Yetersiz Veri",  c:"#A855F7", s:"#F1E4FE"},
+  winner_adayi:  {l:"Winner Adayı",   c:"#FFC53D", s:"#FFF3D6"},
+  onayli_winner: {l:"Onaylı Winner",  c:"#22C55E", s:"#DFF6E7"},
+  yorulma_riski: {l:"Yorulma Riski",  c:"#FF8A00", s:"#FFE9D1"},
+  loser:         {l:"Loser",          c:"#E8402A", s:"#FDE4DF"},
+  arsiv:         {l:"Arşiv",          c:"#9AA0A6", s:"#EFEFEF"},
 };
 const HST = {
-  tutan:        {l:"Tutan",                  c:"#22c55e"},
-  negatif:      {l:"Negatif Sinyalli",       c:"#ef4444"},
-  yeniden_test: {l:"Yeniden Test Edilebilir",c:"#fbbf24"},
-  testte:       {l:"Testte",                 c:"#3b82f6"},
+  tutan:        {l:"Tutan",                  s:"#DFF6E7"},
+  negatif:      {l:"Negatif Sinyalli",       s:"#FDE4DF"},
+  yeniden_test: {l:"Yeniden Test Edilebilir",s:"#FFF3D6"},
+  testte:       {l:"Testte",                 s:"#E4EBFF"},
 };
 const OWNERS = {
-  "C":{name:"Çağdaş",  c:"#f59e0b"},
-  "İ":{name:"İnka",    c:"#38bdf8"},
-  "E":{name:"Erdem",   c:"#a78bfa"},
-  "M":{name:"Mustafa", c:"#34d399"},
+  "C":{name:"Çağdaş",  c:"#FFC53D", s:"#FFF3D6"},
+  "İ":{name:"İnka",    c:"#2F5DFF", s:"#E4EBFF"},
+  "E":{name:"Erdem",   c:"#A855F7", s:"#F1E4FE"},
+  "M":{name:"Mustafa", c:"#22C55E", s:"#DFF6E7"},
 };
-const FMT = {video:"🎬 Video", gorsel:"🖼 Görsel", carousel:"🧩 Carousel"};
 
 /* ---------- durum ---------- */
 const S = {
@@ -315,8 +369,8 @@ const nf2 = new Intl.NumberFormat("tr-TR",{maximumFractionDigits:2});
 const tl  = v => v==null ? "—" : "₺"+nf.format(Math.round(v));
 const pct = v => v==null ? "—" : nf1.format(v*100)+"%";
 const trDate = d => new Date(d+"T00:00:00").toLocaleDateString("tr-TR",{day:"numeric",month:"long"});
-const chip = (label,color)=>`<span class="chip" style="color:${color};border-color:${color}44;background:${color}14">${esc(label)}</span>`;
-const ownBadge = o => { const w = OWNERS[o]||{name:o,c:"#8b93a7"}; return `<span class="own" style="background:${w.c}22;color:${w.c}" title="${esc(w.name)}">${esc(o)}</span>`; };
+const chip = (label,soft)=>`<span class="chip" style="background:${soft}">${esc(label)}</span>`;
+const ownBadge = o => { const w = OWNERS[o]||{name:o,s:"#ECEAE4"}; return `<span class="own" style="background:${w.s}" title="${esc(w.name)}">${esc(o)}</span>`; };
 
 const resFor  = code => S.results.find(r=>r.creative_code===code && r.week===S.week);
 const finFor  = code => S.fins.find(r=>r.creative_code===code && r.week===S.week);
@@ -436,9 +490,9 @@ function creativeCard(c){
       ${thumb}
       <div style="flex:1;min-width:0">
         <div class="code">${esc(c.code)}</div>
-        <div class="meta">${ownBadge(c.owner_initial)} &nbsp;${esc(c.family||"")} · ${esc(c.tur||"")}${c.attribution==="belirsiz"?" · <span style='color:var(--purple)'>atıf belirsiz</span>":""}</div>
+        <div class="meta">${ownBadge(c.owner_initial)} <span>${esc(c.family||"")} · ${esc(c.tur||"")}${c.attribution==="belirsiz"?" · <b style='color:var(--purple)'>atıf belirsiz</b>":""}</span></div>
       </div>
-      ${chip(st.l, st.c)}
+      ${chip(st.l, st.s)}
     </div>
     ${c.hook_text?`<div class="hook">${esc(c.hook_code?c.hook_code+" · ":"")}${esc(c.hook_text)}</div>`:""}
     ${metricRow(c)}
@@ -450,7 +504,7 @@ function renderBoard(){
   const wk = S.weeks.find(w=>w.week===S.week);
   const act = S.creatives.filter(c=>statusAtWeek(c)!=="arsiv");
   const grp = keys => act.filter(c=>keys.includes(statusAtWeek(c)));
-  const sec = (title,arr,emptyTxt)=> `<div class="sect"><h3>${title} <span class="cnt">${arr.length}</span></h3>${arr.length?arr.map(creativeCard).join(""):`<div class="empty">${emptyTxt}</div>`}</div>`;
+  const sec = (title,arr,emptyTxt)=> `<div class="sect"><h3>${title} <span class="cnt">${arr.length}</span></h3><div class="cards">${arr.length?arr.map(creativeCard).join(""):`<div class="empty">${emptyTxt}</div>`}</div></div>`;
   $("tabBoard").innerHTML = `
     <h2>Haftalık Board</h2>
     <div class="sub">${S.week?trDate(S.week)+" haftası":"Henüz veri yok"}${wk?.note?` · ${esc(wk.note)}`:""}</div>
@@ -475,7 +529,7 @@ function renderGallery(){
     <div class="sub">${list.length} kreatif</div>
     <div class="filters">${ochips}</div>
     <div class="filters">${schips}</div>
-    ${list.length?list.map(creativeCard).join(""):`<div class="empty">Filtreye uyan kreatif yok</div>`}
+    <div class="cards">${list.length?list.map(creativeCard).join(""):`<div class="empty">Filtreye uyan kreatif yok</div>`}</div>
   `;
   $("tabGallery").querySelectorAll("[data-fo]").forEach(b=>b.onclick=()=>{S.galFilter.owner=b.dataset.fo;renderGallery();});
   $("tabGallery").querySelectorAll("[data-fs]").forEach(b=>b.onclick=()=>{S.galFilter.status=b.dataset.fs;renderGallery();});
@@ -487,14 +541,14 @@ function renderHooks(){
     <div style="display:flex;gap:10px;align-items:flex-start">
       ${h.owner_initial?ownBadge(h.owner_initial):""}
       <div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:.88rem;line-height:1.4">${esc(h.text)}</div>
-        <div style="font-size:.7rem;color:var(--mut);margin-top:3px">${esc(h.code)}${h.first_week?" · "+trDate(h.first_week):""}</div>
+        <div style="font-weight:800;font-size:.9rem;line-height:1.45">${esc(h.text)}</div>
+        <div class="mono" style="font-size:.68rem;color:var(--mut);margin-top:4px">${esc(h.code)}${h.first_week?" · "+trDate(h.first_week):""}</div>
       </div>
-      ${chip(HST[h.status]?.l||h.status, HST[h.status]?.c||"#8b93a7")}
+      ${chip(HST[h.status]?.l||h.status, HST[h.status]?.s||"#ECEAE4")}
     </div>
-    ${h.note?`<div class="reason" style="margin-top:8px;font-size:.74rem;color:var(--mut);font-style:italic">${esc(h.note)}</div>`:""}
+    ${h.note?`<div class="reason" style="margin-top:9px;font-size:.74rem;color:var(--mut);font-weight:600;font-style:italic">${esc(h.note)}</div>`:""}
   </div>`;
-  const sec=(t,arr)=>`<div class="sect"><h3>${t} <span class="cnt">${arr.length}</span></h3>${arr.length?arr.map(hookCard).join(""):`<div class="empty">Boş</div>`}</div>`;
+  const sec=(t,arr)=>`<div class="sect"><h3>${t} <span class="cnt">${arr.length}</span></h3><div class="cards">${arr.length?arr.map(hookCard).join(""):`<div class="empty">Boş</div>`}</div></div>`;
   $("tabHooks").innerHTML = `
     <h2>Hook Bankası</h2>
     <div class="sub">Tutan, negatif sinyalli ve yeniden test edilebilir hook'lar</div>
@@ -519,14 +573,15 @@ function renderTeam(){
   $("tabTeam").innerHTML = `
     <h2>Ekip Skoru</h2>
     <div class="sub">Üretim ve winner sayısı ayrı gösterilir; küçük örneklemde oran "ön sinyal"dir</div>
+    <div class="cards">
     ${rows.map(r=>{
       const w=OWNERS[r.o];
       return `<div class="card">
         <div class="trow">
           ${ownBadge(r.o)}
-          <b style="font-size:.9rem">${esc(w.name)}</b>
+          <span class="nm">${esc(w.name)}</span>
           <div class="bar"><i style="width:${(r.win/maxWin)*100}%;background:${w.c}"></i></div>
-          <b style="color:${w.c}">${r.win}</b>
+          <span class="wn">${r.win}</span>
         </div>
         <div class="tstats">
           <div class="tstat"><b>${r.teslim}</b><span>Teslim</span></div>
@@ -534,9 +589,10 @@ function renderTeam(){
           <div class="tstat"><b>${r.win}</b><span>Winner</span></div>
           <div class="tstat"><b>${r.rate==null?"—":pct(r.rate)}</b><span>Winner Oranı${r.evald<4?" *":""}</span></div>
         </div>
-        ${r.evald<4?`<div class="reason" style="margin-top:8px;font-size:.68rem;color:var(--dim)">* Örneklem küçük (${r.evald} değerlendirilebilir) — ön sinyal.</div>`:""}
+        ${r.evald<4?`<div class="reason" style="margin-top:9px;font-size:.68rem;color:var(--mut);font-weight:600">* Örneklem küçük (${r.evald} değerlendirilebilir) — ön sinyal.</div>`:""}
       </div>`;
     }).join("")}
+    </div>
   `;
 }
 
@@ -552,7 +608,7 @@ function renderFinance(){
     const c=S.creatives.find(x=>x.code===f.creative_code);
     const r=S.results.find(x=>x.creative_code===f.creative_code && x.week===S.week);
     return `<tr>
-      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis" title="${esc(f.creative_code)}">${c?ownBadge(c.owner_initial):""} ${esc((f.creative_code||"").split("_").slice(2,5).join("_"))}</td>
+      <td style="max-width:230px;overflow:hidden;text-overflow:ellipsis" title="${esc(f.creative_code)}">${c?ownBadge(c.owner_initial):""} ${esc((f.creative_code||"").split("_").slice(2,5).join("_"))}</td>
       <td>${tl(f.spend)}</td><td>${tl(f.revenue)}</td><td>${nf.format(r?.sales??0)}</td>
       <td>${f.roas!=null?nf2.format(f.roas):"—"}</td><td>${tl(f.gpt)}</td>
       <td>${f.rel_gpt!=null?nf2.format(f.rel_gpt):"—"}</td>
@@ -569,9 +625,9 @@ function renderFinance(){
     </div>
     <div class="tblwrap"><table>
       <thead><tr><th>Kreatif</th><th>Harcama</th><th>Ciro</th><th>Satış</th><th>ROAS</th><th>GPT</th><th>rGPT</th></tr></thead>
-      <tbody>${rows||`<tr><td colspan="7" style="text-align:center;color:var(--dim)">Bu hafta finansal kayıt yok</td></tr>`}</tbody>
+      <tbody>${rows||`<tr><td colspan="7" style="text-align:center;color:var(--mut)">Bu hafta finansal kayıt yok</td></tr>`}</tbody>
     </table></div>
-    <div class="reason" style="margin-top:10px;font-size:.7rem;color:var(--dim)">GPT = CPR × (ROAS − 1). Meta verisinden hesaplanan karar metriğidir; muhasebe kârı değildir.</div>
+    <div class="reason" style="margin-top:12px;font-size:.7rem;color:var(--mut);font-weight:600">GPT = CPR × (ROAS − 1). Meta verisinden hesaplanan karar metriğidir; muhasebe kârı değildir.</div>
   `;
 }
 
@@ -595,7 +651,9 @@ function renderNav(){
   if(isAdmin()) tabs.push(["import","📥","Aktar"]);
   $("nav").innerHTML = tabs.map(([id,ic,l])=>
     `<button data-tab="${id}" class="${S.tab===id?"on":""}"><span class="ic">${ic}</span>${l}</button>`).join("");
-  $("nav").querySelectorAll("button").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab; renderAll();});
+  $("sideNav").innerHTML = tabs.map(([id,ic,l])=>
+    `<button data-tab="${id}" class="navbtn ${S.tab===id?"on":""}"><span class="ic">${ic}</span><span class="lbl">${l}</span></button>`).join("");
+  document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab; renderAll();});
 }
 
 function renderWeeks(){
@@ -611,7 +669,10 @@ function renderAll(){
   if((S.tab==="finance"&&!canFin())||(S.tab==="import"&&!isAdmin())) S.tab="board";
   $("tab"+map[S.tab]).classList.remove("hidden");
   renderBoard(); renderGallery(); renderHooks(); renderTeam(); renderFinance(); renderImport();
-  $("avatar").textContent = (S.profile?.initial || S.profile?.name?.[0] || "?").toUpperCase();
+  const ini = (S.profile?.initial || S.profile?.name?.[0] || "?").toUpperCase();
+  $("avatar").textContent = ini; $("avatarSide").textContent = ini;
+  $("userName").textContent = S.profile?.name || "";
+  $("userRole").textContent = S.profile?.role==="admin"?"Yönetici":S.profile?.role==="partner"?"Ortak":"Kreatif Ekip";
 }
 
 /* ================= IMPORT ================= */
@@ -643,7 +704,6 @@ async function doImport(){
       });
       const {error} = await sb.from("weekly_results").upsert(rows,{onConflict:"creative_code,week"});
       if(error) throw error;
-      // durumları kreatif kartına da yansıt
       for(const r of rows){
         if(r.status_at_week) await sb.from("creatives").update({status:r.status_at_week, updated_at:new Date().toISOString()}).eq("code", r.creative_code);
       }
@@ -701,7 +761,6 @@ async function boot(){
   if(!session){ showAuth(); return; }
   let {data:prof} = await sb.from("profiles").select("*").eq("id",session.user.id).maybeSingle();
   if(!prof){
-    // e-posta doğrulamalı kayıtta profil oluşmamış olabilir — ilk girişte tamamla
     const md = session.user.user_metadata||{};
     const row = {id:session.user.id, name: md.name || session.user.email.split("@")[0], initial: md.initial||null};
     const {data:ins,error} = await sb.from("profiles").insert(row).select().single();
@@ -732,17 +791,23 @@ $("btnSignup").onclick = async ()=>{
   const {data,error} = await sb.auth.signUp({email:$("suEmail").value.trim(), password:$("suPass").value,
     options:{data:{name, initial:$("suInitial").value||null}}});
   if(error){ $("btnSignup").disabled=false; showAuth("Kayıt başarısız: "+error.message, true); return; }
-  if(data.user){
+  if(data.session){
     await sb.from("profiles").insert({id:data.user.id, name, initial:$("suInitial").value||null});
   }
   $("btnSignup").disabled=false;
   boot();
 };
-$("avatar").onclick = async ()=>{
-  if(DEMO){ alert("Demo modundasın. Supabase bağlanınca burası çıkış butonu olur."); return; }
+const logout = async ()=>{
+  if(DEMO){ alert("Demo modundasın."); return; }
   if(confirm("Çıkış yapılsın mı?")){ await sb.auth.signOut(); location.reload(); }
 };
+$("avatar").onclick = logout;
+$("avatarSide").onclick = logout;
 $("weekPick").onchange = e=>{ S.week=e.target.value; renderAll(); };
+$("btnCollapse").onclick = ()=>{
+  document.documentElement.classList.toggle("collapsed");
+  $("btnCollapse").textContent = document.documentElement.classList.contains("collapsed") ? "›" : "‹";
+};
 
 boot();
 </script>
