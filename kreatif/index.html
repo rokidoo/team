@@ -164,7 +164,7 @@
     flex-shrink:0; object-fit:cover; display:flex;align-items:center;justify-content:center; font-size:1.35rem;
   }
   .ccard .hook{
-    margin-top:12px; font-size:.85rem; font-weight:600; background:var(--mustard-s);
+    margin-top:12px; font-size:.85rem; font-weight:600; background:var(--card);
     border:var(--b2); border-left-width:6px; padding:9px 11px; border-radius:10px;
   }
   .ccard .reason{margin-top:9px; font-size:.74rem; color:var(--mut); font-weight:600; font-style:italic}
@@ -558,7 +558,7 @@ function creativeCard(c, mini){
   const thumb = c.thumb_url
     ? `<img class="thumb" src="${esc(c.thumb_url)}" alt="">`
     : `<div class="thumb">${fmtIc}</div>`;
-  return `<div class="card ccard${mini?" mini":""}" data-code="${esc(c.code)}">
+  return `<div class="card ccard${mini?" mini":""}" data-code="${esc(c.code)}" style="background:${st.s}">
     <div class="top">
       ${thumb}
       <div style="flex:1;min-width:0">
@@ -566,7 +566,7 @@ function creativeCard(c, mini){
         <div class="meta">${ownBadge(c.owner_initial)} <span>${esc(c.family||"")} · ${esc(c.tur||"")}${c.attribution==="belirsiz"?" · <b style='color:var(--purple)'>atıf belirsiz</b>":""}</span></div>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-        ${chip(st.l, st.s)}
+        ${chip(st.l, "var(--card)")}
         ${isAdmin()?`<button class="editbtn" data-edit="${esc(c.code)}" title="Düzenle">✏️</button>`:""}
       </div>
     </div>
