@@ -406,6 +406,7 @@ const ST = {
   arsiv:         {l:"Arşiv",          c:"#9AA0A6", s:"#EFEFEF"},
 };
 const HST = {
+  yillik:       {l:"Yıllık Tutan",           s:"#DFF6E7"},
   tutan:        {l:"Tutan",                  s:"#DFF6E7"},
   negatif:      {l:"Negatif Sinyalli",       s:"#FDE4DF"},
   yeniden_test: {l:"Yeniden Test Edilebilir",s:"#FFF3D6"},
@@ -425,7 +426,7 @@ const S = {
   profile:null, weeks:[], week:null,
   creatives:[], results:[], fins:[], hooks:[],
   tab:"board", galFilter:{owner:"", status:"", format:""},
-  boardFmt:"", teamTable:true,
+  boardFmt:"", hookFilter:{format:"", status:""}, teamTable:true,
 };
 const canFin = () => S.profile && (S.profile.role==="admin" || S.profile.role==="partner");
 const isAdmin = () => S.profile && S.profile.role==="admin";
@@ -504,7 +505,8 @@ function demoData(){
     {creative_code:S.creatives[5].code, week:w2, spend:900,   revenue:1700,  roas:1.89, cpr:900,  gpt:800,  rel_gpt:0.67},
   ];
   S.hooks=[
-    {code:"HK023", text:"Çocuğunuz sebzeye dokunmuyorsa bu 10 saniyeyi izleyin", owner_initial:"C", status:"tutan", first_week:w1, note:"CF012 ailesinin ana hook'u. Sorun-farkında."},
+    {code:"YT01", text:"İADE POLİTİKAMIZ BASİT! ÇOCUĞUNUZUN GERİ KALAN GELİŞİMİNİ İADE EDİYORUZ!", status:"yillik", format:"gorsel", note:"Yılın şampiyonu — mizahi iade garantisi."},
+    {code:"HK023", text:"Çocuğunuz sebzeye dokunmuyorsa bu 10 saniyeyi izleyin", owner_initial:"C", status:"tutan", format:"video", first_week:w1, note:"CF012 ailesinin ana hook'u. Sorun-farkında."},
     {code:"HK031", text:"Kaşık savaşları bitti — annelerin yeni taktiği", owner_initial:"C", status:"testte", first_week:w2, note:"HK023 varyasyonu."},
     {code:"HK015", text:"3 çocuk annesi anlatıyor: sabah rutinimiz değişti", owner_initial:"E", status:"tutan", first_week:w1, note:"UGC formatında güçlü, kurguda yorulma sinyali."},
     {code:"HK029", text:"Bu şekeri çocuğunuza vermeyin (şaka değil)", owner_initial:"M", status:"negatif", first_week:w2, note:"Negatif açı bu üründe ters tepti; farklı gövdeyle yeniden denenebilir."},
@@ -673,27 +675,45 @@ function renderGallery(){
 }
 
 function renderHooks(){
-  const grp = st => S.hooks.filter(h=>h.status===st);
-  const hookCard = h => `<div class="card">
+  const f = S.hookFilter;
+  let list = S.hooks.slice();
+  if(f.format) list = list.filter(h=>(h.format||"")===f.format);
+  const grp = st => list.filter(h=>h.status===st);
+  const fmtIc = h => h.format==="video"?"🎬 ":h.format==="gorsel"?"🖼 ":"";
+  const hookCard = h => `<div class="card" style="background:${HST[h.status]?.s||"var(--card)"}">
     <div style="display:flex;gap:10px;align-items:flex-start">
       ${h.owner_initial?ownBadge(h.owner_initial):""}
       <div style="flex:1;min-width:0">
         <div style="font-weight:800;font-size:.9rem;line-height:1.45">${esc(h.text)}</div>
-        <div class="mono" style="font-size:.68rem;color:var(--mut);margin-top:4px">${esc(h.code)}${h.first_week?" · "+trDate(h.first_week):""}</div>
+        <div class="mono" style="font-size:.68rem;color:var(--mut);margin-top:4px">${fmtIc(h)}${esc(h.code)}${h.first_week?" · "+trDate(h.first_week):""}</div>
       </div>
-      ${chip(HST[h.status]?.l||h.status, HST[h.status]?.s||"#ECEAE4")}
+      ${chip(HST[h.status]?.l||h.status, "var(--card)")}
     </div>
     ${h.note?`<div class="reason" style="margin-top:9px;font-size:.74rem;color:var(--mut);font-weight:600;font-style:italic">${esc(h.note)}</div>`:""}
   </div>`;
-  const sec=(t,arr)=>`<div class="sect"><h3>${t} <span class="cnt">${arr.length}</span></h3><div class="cards">${arr.length?arr.map(hookCard).join(""):`<div class="empty">Boş</div>`}</div></div>`;
+  const sec=(st,t)=>{
+    if(f.status && f.status!==st) return "";
+    const arr = grp(st);
+    return `<div class="sect"><h3>${t} <span class="cnt">${arr.length}</span></h3><div class="cards">${arr.length?arr.map(hookCard).join(""):`<div class="empty">Boş</div>`}</div></div>`;
+  };
+  const fchips = [["","Tüm formatlar"],["gorsel","🖼 Görsel"],["video","🎬 Video"]].map(([v,l])=>
+    `<button class="fchip ${f.format===v?"on":""}" data-hf="${v}">${l}</button>`).join("");
+  const schips = [["","Tümü"],["yillik","🏆 Yıllık"],["tutan","✅ Tutan"],["testte","🧪 Testte"],["yeniden_test","🔄 Yeniden Test"],["negatif","🚫 Negatif"]].map(([v,l])=>
+    `<button class="fchip ${f.status===v?"on":""}" data-hs="${v}">${l}</button>`).join("");
   $("tabHooks").innerHTML = `
     <h2>Hook Bankası</h2>
-    <div class="sub">Tutan, negatif sinyalli ve yeniden test edilebilir hook'lar</div>
-    ${sec("✅ Tutan Hook'lar", grp("tutan"))}
-    ${sec("🧪 Testte", grp("testte"))}
-    ${sec("🔄 Yeniden Test Edilebilir", grp("yeniden_test"))}
-    ${sec("🚫 Negatif Sinyalli", grp("negatif"))}
+    <div class="sub">Yıllık tutanlar sabittir; haftalık güncellemeler diğer bölümleri besler</div>
+    <div class="filters">${fchips}</div>
+    <div class="filters">${schips}</div>
+    ${sec("yillik","🏆 1 Yılda En Çok Tutanlar (sabit)")}
+    ${sec("tutan","✅ Tutan Hook'lar")}
+    ${sec("testte","🧪 Testte")}
+    ${sec("yeniden_test","🔄 Yeniden Test Edilebilir")}
+    ${sec("negatif","🚫 Negatif Sinyalli")}
   `;
+  const el = $("tabHooks");
+  el.querySelectorAll("[data-hf]").forEach(b=>b.onclick=()=>{S.hookFilter.format=b.dataset.hf; renderHooks();});
+  el.querySelectorAll("[data-hs]").forEach(b=>b.onclick=()=>{S.hookFilter.status=b.dataset.hs; renderHooks();});
 }
 
 function renderTeam(){

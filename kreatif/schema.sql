@@ -173,3 +173,6 @@ insert into public.team_members (initial, name, color, sort) values
   ('C','Çağdaş','#FFC53D',1), ('İ','İnka','#2F5DFF',2),
   ('E','Erdem','#A855F7',3), ('M','Mustafa','#22C55E',4)
 on conflict (initial) do nothing;
+
+-- v1.2: hook formatı (görsel/video filtresi için)
+alter table public.hooks add column if not exists format text;
