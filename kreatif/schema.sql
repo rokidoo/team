@@ -155,3 +155,21 @@ create policy "fin_write"  on public.weekly_financials for all
 --   update public.profiles set role = 'partner'
 --   where id = (select id from auth.users where email = 'ORTAK_EMAIL');
 -- ============================================================
+
+-- ============================================================
+-- EKİP ÜYELERİ (v1.1 eklentisi — yönetici düzenler, herkes okur)
+-- ============================================================
+create table if not exists public.team_members (
+  initial text primary key,
+  name    text not null,
+  color   text default '#FFC53D',
+  sort    integer default 0
+);
+alter table public.team_members enable row level security;
+create policy "tm_select" on public.team_members for select using (auth.uid() is not null);
+create policy "tm_write"  on public.team_members for all
+  using (public.is_admin()) with check (public.is_admin());
+insert into public.team_members (initial, name, color, sort) values
+  ('C','Çağdaş','#FFC53D',1), ('İ','İnka','#2F5DFF',2),
+  ('E','Erdem','#A855F7',3), ('M','Mustafa','#22C55E',4)
+on conflict (initial) do nothing;

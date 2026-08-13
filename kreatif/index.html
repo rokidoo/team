@@ -204,6 +204,48 @@
   .kpi b{display:block; font-size:1.35rem; font-family:var(--fm)}
   .kpi span{font-size:.68rem; color:var(--mut); font-weight:800; text-transform:uppercase; letter-spacing:.05em}
 
+  /* board kanban */
+  .board{display:flex; gap:14px; overflow-x:auto; padding:4px 2px 14px; scroll-snap-type:x mandatory; align-items:flex-start}
+  .bcol{
+    flex:0 0 84vw; scroll-snap-align:start; border:var(--b); border-radius:var(--r);
+    background:var(--card); box-shadow:var(--sh); display:flex; flex-direction:column;
+  }
+  @media(min-width:1080px){ .board{display:grid; grid-template-columns:repeat(4,1fr); overflow:visible} .bcol{flex:auto} }
+  .bcol .bhead{
+    display:flex; align-items:center; gap:8px; padding:12px 13px; border-bottom:var(--b);
+    border-radius:13px 13px 0 0; font-family:var(--fh); font-weight:700; font-size:.85rem;
+  }
+  .bcol .bhead .cnt{margin-left:auto; background:var(--ink); color:var(--card); border-radius:99px; padding:1px 9px; font-size:.68rem; font-family:var(--fm)}
+  .bcol .bbody{padding:10px; display:flex; flex-direction:column; gap:10px; min-height:110px; flex:1}
+  .bcol.dragover{outline:3px dashed var(--ink); outline-offset:-6px}
+  .bcol .card{box-shadow:var(--sh-sm)}
+  .bcol .empty{padding:16px 8px; font-size:.72rem}
+  .addbtn{
+    background:none; border:2px dashed var(--mut); color:var(--ink-soft); border-radius:10px;
+    padding:9px; font-weight:800; cursor:pointer; font-family:var(--fb); font-size:.75rem;
+  }
+  .editbtn{
+    background:var(--cream2); border:var(--b2); border-radius:8px; min-width:28px; height:28px;
+    cursor:pointer; font-size:.75rem; flex-shrink:0; font-family:inherit;
+  }
+  [draggable="true"]{cursor:grab}
+
+  /* modal */
+  .modal{position:fixed; inset:0; z-index:80; background:rgba(18,18,18,.55); display:flex; align-items:flex-end; justify-content:center}
+  @media(min-width:640px){.modal{align-items:center; padding:20px}}
+  .modal .box{
+    background:var(--card); border:var(--b); width:100%; max-width:540px; box-shadow:var(--sh);
+    border-radius:20px 20px 0 0; padding:20px 18px calc(24px + env(safe-area-inset-bottom));
+    max-height:88dvh; overflow:auto;
+  }
+  @media(min-width:640px){.modal .box{border-radius:20px}}
+  .modal h3{font-size:1.05rem; margin-bottom:14px}
+  .frow{display:grid; grid-template-columns:1fr 1fr; gap:0 10px}
+  .flabel{font-size:.66rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); margin:2px 0 4px}
+  .btn.danger{background:var(--red)}
+  .btn.ghost{background:var(--card); color:var(--ink)}
+  .btnrow{display:flex; gap:10px; margin-top:8px}
+
   /* form / giriş */
   .auth{max-width:400px; margin:8vh auto 0; padding:0 20px}
   .authcard{background:var(--card); border:var(--b); border-radius:var(--r-lg); padding:26px 22px; box-shadow:var(--sh)}
@@ -314,6 +356,8 @@
   <nav class="bottom" id="nav"></nav>
 </div>
 
+<div id="modalHost"></div>
+
 <script type="module">
 /* ================= AYARLAR ================= */
 const SUPABASE_URL      = "https://ciwpxeqqrwfsuoggdync.supabase.co";
@@ -344,18 +388,21 @@ const HST = {
   yeniden_test: {l:"Yeniden Test Edilebilir",s:"#FFF3D6"},
   testte:       {l:"Testte",                 s:"#E4EBFF"},
 };
-const OWNERS = {
-  "C":{name:"Çağdaş",  c:"#FFC53D", s:"#FFF3D6"},
-  "İ":{name:"İnka",    c:"#2F5DFF", s:"#E4EBFF"},
-  "E":{name:"Erdem",   c:"#A855F7", s:"#F1E4FE"},
-  "M":{name:"Mustafa", c:"#22C55E", s:"#DFF6E7"},
+const PALETTE = ["#FFC53D","#2F5DFF","#A855F7","#22C55E","#FF8A00","#E8402A","#0EA5E9","#EC4899"];
+const mkOwner = (name,color)=>({name, c:color, s:color+"26"});
+let OWNERS = {
+  "C": mkOwner("Çağdaş","#FFC53D"),
+  "İ": mkOwner("İnka","#2F5DFF"),
+  "E": mkOwner("Erdem","#A855F7"),
+  "M": mkOwner("Mustafa","#22C55E"),
 };
 
 /* ---------- durum ---------- */
 const S = {
   profile:null, weeks:[], week:null,
   creatives:[], results:[], fins:[], hooks:[],
-  tab:"board", galFilter:{owner:"", status:""},
+  tab:"board", galFilter:{owner:"", status:"", format:""},
+  boardFmt:"", teamTable:true,
 };
 const canFin = () => S.profile && (S.profile.role==="admin" || S.profile.role==="partner");
 const isAdmin = () => S.profile && S.profile.role==="admin";
@@ -445,13 +492,16 @@ function demoData(){
 
 /* ================= SUPABASE VERİ ================= */
 async function loadAll(){
-  const [w,c,r,h] = await Promise.all([
+  const [w,c,r,h,t] = await Promise.all([
     sb.from("weeks").select("*").order("week",{ascending:false}),
     sb.from("creatives").select("*").order("created_at",{ascending:false}),
     sb.from("weekly_results").select("*"),
     sb.from("hooks").select("*").order("updated_at",{ascending:false}),
+    sb.from("team_members").select("*").order("sort"),
   ]);
   S.weeks=w.data||[]; S.creatives=c.data||[]; S.results=r.data||[]; S.hooks=h.data||[];
+  if(t.error){ S.teamTable=false; }
+  else { S.teamTable=true; if(t.data?.length) OWNERS = Object.fromEntries(t.data.map(m=>[m.initial, mkOwner(m.name, m.color||"#FFC53D")])); }
   S.fins=[];
   if(canFin()){
     const f = await sb.from("weekly_financials").select("*");
@@ -492,27 +542,82 @@ function creativeCard(c){
         <div class="code">${esc(c.code)}</div>
         <div class="meta">${ownBadge(c.owner_initial)} <span>${esc(c.family||"")} · ${esc(c.tur||"")}${c.attribution==="belirsiz"?" · <b style='color:var(--purple)'>atıf belirsiz</b>":""}</span></div>
       </div>
-      ${chip(st.l, st.s)}
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        ${chip(st.l, st.s)}
+        ${isAdmin()?`<button class="editbtn" data-edit="${esc(c.code)}" title="Düzenle">✏️</button>`:""}
+      </div>
     </div>
     ${c.hook_text?`<div class="hook">${esc(c.hook_code?c.hook_code+" · ":"")}${esc(c.hook_text)}</div>`:""}
     ${metricRow(c)}
     ${c.status_reason?`<div class="reason">${esc(c.status_reason)}</div>`:""}
   </div>`;
 }
+function bindEditButtons(root){
+  root.querySelectorAll("[data-edit]").forEach(b=>b.onclick=e=>{e.stopPropagation(); openCreativeModal(b.dataset.edit);});
+}
 
+const BOARD_COLS = [
+  {key:"win",  title:"🏆 Kazananlar",  statuses:["onayli_winner","winner_adayi"], color:"var(--green)",  soft:"var(--green-s)",  drop:"onayli_winner"},
+  {key:"test", title:"🧪 Testte",      statuses:["testte","yeni","yetersiz_veri"], color:"var(--cobalt)", soft:"var(--cobalt-s)", drop:"testte"},
+  {key:"lose", title:"❌ Kaybedenler", statuses:["loser"],                        color:"var(--red)",    soft:"var(--red-s)",    drop:"loser"},
+  {key:"fatg", title:"⚠️ Yorulma",     statuses:["yorulma_riski"],                color:"var(--orange)", soft:"var(--orange-s)", drop:"yorulma_riski"},
+];
 function renderBoard(){
   const wk = S.weeks.find(w=>w.week===S.week);
-  const act = S.creatives.filter(c=>statusAtWeek(c)!=="arsiv");
-  const grp = keys => act.filter(c=>keys.includes(statusAtWeek(c)));
-  const sec = (title,arr,emptyTxt)=> `<div class="sect"><h3>${title} <span class="cnt">${arr.length}</span></h3><div class="cards">${arr.length?arr.map(creativeCard).join(""):`<div class="empty">${emptyTxt}</div>`}</div></div>`;
-  $("tabBoard").innerHTML = `
+  let act = S.creatives.filter(c=>statusAtWeek(c)!=="arsiv");
+  if(S.boardFmt) act = act.filter(c=>(c.format||"video")===S.boardFmt);
+  const fchips = [["","Tümü"],["gorsel","🖼 Görsel"],["video","🎬 Video"]].map(([v,l])=>
+    `<button class="fchip ${S.boardFmt===v?"on":""}" data-bf="${v}">${l}</button>`).join("");
+  const cols = BOARD_COLS.map(col=>{
+    const arr = act.filter(c=>col.statuses.includes(statusAtWeek(c)));
+    return `<div class="bcol" data-drop="${col.drop}">
+      <div class="bhead" style="background:${col.soft}"><span style="color:${col.color}">●</span> ${col.title} <span class="cnt">${arr.length}</span></div>
+      <div class="bbody">
+        ${arr.map(creativeCard).join("")||`<div class="empty">Boş</div>`}
+        ${isAdmin()?`<button class="addbtn" data-add="${col.drop}">＋ Kreatif ekle</button>`:""}
+      </div>
+    </div>`;
+  }).join("");
+  const el = $("tabBoard");
+  el.innerHTML = `
     <h2>Haftalık Board</h2>
-    <div class="sub">${S.week?trDate(S.week)+" haftası":"Henüz veri yok"}${wk?.note?` · ${esc(wk.note)}`:""}</div>
-    ${sec("🏆 Kazananlar", grp(["onayli_winner","winner_adayi"]), "Bu hafta kazanan yok")}
-    ${sec("⚠️ Yorulma Riski", grp(["yorulma_riski"]), "Yorulma sinyali yok")}
-    ${sec("🧪 Testte", grp(["testte","yeni","yetersiz_veri"]), "Testte kreatif yok")}
-    ${sec("❌ Kaybedenler", grp(["loser"]), "Bu hafta kaybeden yok")}
+    <div class="sub">${S.week?trDate(S.week)+" haftası":"Henüz veri yok"}${wk?.note?` · ${esc(wk.note)}`:""}${isAdmin()?" · kartları sütunlar arası sürükleyebilirsin":""}</div>
+    <div class="filters">${fchips}</div>
+    <div class="board">${cols}</div>
   `;
+  el.querySelectorAll("[data-bf]").forEach(b=>b.onclick=()=>{S.boardFmt=b.dataset.bf; renderBoard(); bindBoard();});
+  bindBoard();
+}
+function bindBoard(){
+  const el = $("tabBoard");
+  bindEditButtons(el);
+  if(!isAdmin()) return;
+  el.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openCreativeModal(null, b.dataset.add));
+  el.querySelectorAll(".ccard").forEach(card=>{
+    card.setAttribute("draggable","true");
+    card.addEventListener("dragstart", e=>{ e.dataTransfer.setData("text/plain", card.dataset.code); e.dataTransfer.effectAllowed="move"; });
+  });
+  el.querySelectorAll(".bcol").forEach(col=>{
+    col.addEventListener("dragover", e=>{ e.preventDefault(); col.classList.add("dragover"); });
+    col.addEventListener("dragleave", ()=>col.classList.remove("dragover"));
+    col.addEventListener("drop", e=>{
+      e.preventDefault(); col.classList.remove("dragover");
+      const code = e.dataTransfer.getData("text/plain");
+      if(code) setStatus(code, col.dataset.drop, "Manuel taşıma ("+new Date().toLocaleDateString("tr-TR")+")");
+    });
+  });
+}
+async function setStatus(code, status, reason){
+  const c = S.creatives.find(x=>x.code===code); if(!c) return;
+  if(c.status===status && (resFor(code)?.status_at_week??c.status)===status) return;
+  c.status = status; if(reason) c.status_reason = reason;
+  const r = S.results.find(x=>x.creative_code===code && x.week===S.week);
+  if(r) r.status_at_week = status;
+  if(!DEMO){
+    await sb.from("creatives").update({status, status_reason:c.status_reason, updated_at:new Date().toISOString()}).eq("code", code);
+    if(r) await sb.from("weekly_results").update({status_at_week:status}).eq("creative_code", code).eq("week", S.week);
+  }
+  renderAll();
 }
 
 function renderGallery(){
@@ -520,19 +625,28 @@ function renderGallery(){
   let list = S.creatives.slice();
   if(f.owner) list = list.filter(c=>c.owner_initial===f.owner);
   if(f.status) list = list.filter(c=>c.status===f.status);
+  if(f.format) list = list.filter(c=>(c.format||"video")===f.format);
   const ochips = ["",...Object.keys(OWNERS)].map(o=>
     `<button class="fchip ${f.owner===o?"on":""}" data-fo="${o}">${o?o+" · "+OWNERS[o].name:"Herkes"}</button>`).join("");
   const schips = ["",...Object.keys(ST)].map(s=>
     `<button class="fchip ${f.status===s?"on":""}" data-fs="${s}">${s?ST[s].l:"Tüm durumlar"}</button>`).join("");
+  const fchips = [["","Tüm formatlar"],["gorsel","🖼 Görsel"],["video","🎬 Video"],["carousel","🧩 Carousel"]].map(([v,l])=>
+    `<button class="fchip ${f.format===v?"on":""}" data-ff="${v}">${l}</button>`).join("");
   $("tabGallery").innerHTML = `
     <h2>Kreatif Galerisi</h2>
     <div class="sub">${list.length} kreatif</div>
+    <div class="filters">${fchips}</div>
     <div class="filters">${ochips}</div>
     <div class="filters">${schips}</div>
+    ${isAdmin()?`<div style="margin-bottom:12px"><button class="addbtn" id="galAdd" style="width:100%">＋ Yeni kreatif</button></div>`:""}
     <div class="cards">${list.length?list.map(creativeCard).join(""):`<div class="empty">Filtreye uyan kreatif yok</div>`}</div>
   `;
-  $("tabGallery").querySelectorAll("[data-fo]").forEach(b=>b.onclick=()=>{S.galFilter.owner=b.dataset.fo;renderGallery();});
-  $("tabGallery").querySelectorAll("[data-fs]").forEach(b=>b.onclick=()=>{S.galFilter.status=b.dataset.fs;renderGallery();});
+  const el = $("tabGallery");
+  el.querySelectorAll("[data-fo]").forEach(b=>b.onclick=()=>{S.galFilter.owner=b.dataset.fo;renderGallery();});
+  el.querySelectorAll("[data-fs]").forEach(b=>b.onclick=()=>{S.galFilter.status=b.dataset.fs;renderGallery();});
+  el.querySelectorAll("[data-ff]").forEach(b=>b.onclick=()=>{S.galFilter.format=b.dataset.ff;renderGallery();});
+  if(isAdmin() && $("galAdd")) $("galAdd").onclick=()=>openCreativeModal(null);
+  bindEditButtons(el);
 }
 
 function renderHooks(){
@@ -570,9 +684,13 @@ function renderTeam(){
     return {o, teslim, evald, win, rate};
   }).sort((a,b)=>(b.win-a.win)||(b.rate??0)-(a.rate??0));
   const maxWin = Math.max(1,...rows.map(r=>r.win));
+  const teamWarn = (isAdmin() && !DEMO && !S.teamTable)
+    ? `<div class="demo" style="margin-bottom:14px">Ekip düzenleme için Supabase'de <b>team_members</b> tablosu gerekli — Claude'un verdiği SQL'i bir kez çalıştır.</div>` : "";
   $("tabTeam").innerHTML = `
     <h2>Ekip Skoru</h2>
     <div class="sub">Üretim ve winner sayısı ayrı gösterilir; küçük örneklemde oran "ön sinyal"dir</div>
+    ${teamWarn}
+    ${isAdmin()?`<div style="margin-bottom:12px"><button class="addbtn" id="teamAdd" style="width:100%">＋ Ekip üyesi ekle</button></div>`:""}
     <div class="cards">
     ${rows.map(r=>{
       const w=OWNERS[r.o];
@@ -582,6 +700,7 @@ function renderTeam(){
           <span class="nm">${esc(w.name)}</span>
           <div class="bar"><i style="width:${(r.win/maxWin)*100}%;background:${w.c}"></i></div>
           <span class="wn">${r.win}</span>
+          ${isAdmin()?`<button class="editbtn" data-tedit="${esc(r.o)}" title="Düzenle">✏️</button>`:""}
         </div>
         <div class="tstats">
           <div class="tstat"><b>${r.teslim}</b><span>Teslim</span></div>
@@ -594,6 +713,146 @@ function renderTeam(){
     }).join("")}
     </div>
   `;
+  if(isAdmin()){
+    if($("teamAdd")) $("teamAdd").onclick=()=>openTeamModal(null);
+    $("tabTeam").querySelectorAll("[data-tedit]").forEach(b=>b.onclick=()=>openTeamModal(b.dataset.tedit));
+  }
+}
+
+/* ================= MODALLAR (sadece yönetici) ================= */
+function closeModal(){ $("modalHost").innerHTML=""; }
+function modal(html){
+  $("modalHost").innerHTML = `<div class="modal" id="mBack"><div class="box">${html}</div></div>`;
+  $("mBack").addEventListener("click", e=>{ if(e.target.id==="mBack") closeModal(); });
+}
+const opt = (v,l,cur)=>`<option value="${esc(v)}" ${v===cur?"selected":""}>${esc(l)}</option>`;
+
+function openCreativeModal(code, presetStatus){
+  if(!isAdmin()) return;
+  const c = code ? S.creatives.find(x=>x.code===code) : null;
+  const isNew = !c;
+  const v = c || {code:"", owner_initial:Object.keys(OWNERS)[0]||"?", family:"", format:"gorsel", tur:"YENI",
+    hook_code:"", hook_text:"", status:presetStatus||"yeni", status_reason:"", thumb_url:"", attribution:"dogrulanmis"};
+  modal(`
+    <h3>${isNew?"Yeni Kreatif":"Kreatifi Düzenle"}</h3>
+    <div class="flabel">Kod / İsim</div>
+    <input id="cmCode" value="${esc(v.code)}" ${isNew?"":"disabled"} placeholder="UZB_C_CF012_VIDEO_HK023_VAR_V01_20260813">
+    <div class="frow">
+      <div><div class="flabel">Sahip</div>
+        <select id="cmOwner">${Object.keys(OWNERS).map(o=>opt(o, o+" · "+OWNERS[o].name, v.owner_initial)).join("")}${OWNERS[v.owner_initial]?"":opt(v.owner_initial||"?", v.owner_initial||"?", v.owner_initial)}</select></div>
+      <div><div class="flabel">Format</div>
+        <select id="cmFormat">${opt("gorsel","🖼 Görsel",v.format)}${opt("video","🎬 Video",v.format)}${opt("carousel","🧩 Carousel",v.format)}</select></div>
+    </div>
+    <div class="frow">
+      <div><div class="flabel">Aile</div><input id="cmFamily" value="${esc(v.family||"")}" placeholder="CF012 / 301"></div>
+      <div><div class="flabel">Tür</div>
+        <select id="cmTur">${opt("YENI","Yeni",v.tur)}${opt("VAR","Varyasyon",v.tur)}${opt("ITER","İterasyon",v.tur)}</select></div>
+    </div>
+    <div class="frow">
+      <div><div class="flabel">Hook Kodu</div><input id="cmHookCode" value="${esc(v.hook_code||"")}" placeholder="HK023"></div>
+      <div><div class="flabel">Durum</div>
+        <select id="cmStatus">${Object.keys(ST).map(s=>opt(s, ST[s].l, v.status)).join("")}</select></div>
+    </div>
+    <div class="flabel">Hook Metni</div>
+    <input id="cmHookText" value="${esc(v.hook_text||"")}" placeholder="Reklamın açılış cümlesi">
+    <div class="flabel">Durum Gerekçesi</div>
+    <input id="cmReason" value="${esc(v.status_reason||"")}" placeholder="GPT 1.045 · 8 satış · kural v1">
+    <div class="flabel">Önizleme Görseli (URL, opsiyonel)</div>
+    <input id="cmThumb" value="${esc(v.thumb_url||"")}" placeholder="https://...">
+    <div class="btnrow">
+      <button class="btn" id="cmSave">Kaydet</button>
+      ${isNew?"":`<button class="btn danger" id="cmDel" style="width:auto;padding:14px 18px">Sil</button>`}
+      <button class="btn ghost" id="cmCancel" style="width:auto;padding:14px 18px">Vazgeç</button>
+    </div>
+  `);
+  $("cmCancel").onclick = closeModal;
+  $("cmSave").onclick = async ()=>{
+    const row = {
+      code: isNew ? $("cmCode").value.trim() : v.code,
+      owner_initial: $("cmOwner").value, format: $("cmFormat").value,
+      family: $("cmFamily").value.trim()||null, tur: $("cmTur").value,
+      hook_code: $("cmHookCode").value.trim()||null, hook_text: $("cmHookText").value.trim()||null,
+      status: $("cmStatus").value, status_reason: $("cmReason").value.trim()||null,
+      thumb_url: $("cmThumb").value.trim()||null, attribution: v.attribution||"dogrulanmis",
+    };
+    if(!row.code){ alert("Kod / isim gerekli."); return; }
+    if(isNew && S.creatives.some(x=>x.code===row.code)){ alert("Bu kodla bir kreatif zaten var."); return; }
+    if(!DEMO){
+      const q = isNew
+        ? await sb.from("creatives").insert({...row, first_week:S.week||null})
+        : await sb.from("creatives").update({...row, updated_at:new Date().toISOString()}).eq("code", v.code);
+      if(q.error){ alert("Kaydedilemedi: "+q.error.message); return; }
+    }
+    if(isNew) S.creatives.unshift({...row, first_week:S.week||null});
+    else Object.assign(c, row);
+    const r = S.results.find(x=>x.creative_code===row.code && x.week===S.week);
+    if(r && r.status_at_week!==row.status){
+      r.status_at_week=row.status;
+      if(!DEMO) await sb.from("weekly_results").update({status_at_week:row.status}).eq("creative_code",row.code).eq("week",S.week);
+    }
+    closeModal(); renderAll();
+  };
+  if(!isNew) $("cmDel").onclick = async ()=>{
+    if(!confirm(`"${v.code}" silinsin mi? Haftalık sonuçları da silinir.`)) return;
+    if(!DEMO){
+      const q = await sb.from("creatives").delete().eq("code", v.code);
+      if(q.error){ alert("Silinemedi: "+q.error.message); return; }
+    }
+    S.creatives = S.creatives.filter(x=>x.code!==v.code);
+    S.results = S.results.filter(x=>x.creative_code!==v.code);
+    S.fins = S.fins.filter(x=>x.creative_code!==v.code);
+    closeModal(); renderAll();
+  };
+}
+
+function openTeamModal(initial){
+  if(!isAdmin()) return;
+  if(!DEMO && !S.teamTable){ alert("Önce team_members tablosunu oluşturmalısın — Claude'un verdiği SQL'i Supabase SQL Editor'de bir kez çalıştır."); return; }
+  const isNew = !initial;
+  const w = initial ? OWNERS[initial] : null;
+  modal(`
+    <h3>${isNew?"Ekip Üyesi Ekle":"Üyeyi Düzenle"}</h3>
+    <div class="frow">
+      <div><div class="flabel">Harf</div><input id="tmIni" value="${esc(initial||"")}" ${isNew?"":"disabled"} maxlength="2" placeholder="C"></div>
+      <div><div class="flabel">İsim</div><input id="tmName" value="${esc(w?.name||"")}" placeholder="Çağdaş"></div>
+    </div>
+    <div class="flabel">Renk</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px" id="tmColors">
+      ${PALETTE.map(p=>`<button data-col="${p}" style="width:36px;height:36px;border-radius:10px;border:${(w?.c||PALETTE[0])===p?"3px solid var(--ink)":"2px solid #ccc"};background:${p};cursor:pointer"></button>`).join("")}
+    </div>
+    <div class="btnrow">
+      <button class="btn" id="tmSave">Kaydet</button>
+      ${isNew?"":`<button class="btn danger" id="tmDel" style="width:auto;padding:14px 18px">Sil</button>`}
+      <button class="btn ghost" id="tmCancel" style="width:auto;padding:14px 18px">Vazgeç</button>
+    </div>
+  `);
+  let color = w?.c || PALETTE[0];
+  $("tmColors").querySelectorAll("[data-col]").forEach(b=>b.onclick=()=>{
+    color=b.dataset.col;
+    $("tmColors").querySelectorAll("[data-col]").forEach(x=>x.style.border = x.dataset.col===color?"3px solid var(--ink)":"2px solid #ccc");
+  });
+  $("tmCancel").onclick = closeModal;
+  $("tmSave").onclick = async ()=>{
+    const ini = isNew ? $("tmIni").value.trim() : initial;
+    const name = $("tmName").value.trim();
+    if(!ini || !name){ alert("Harf ve isim gerekli."); return; }
+    if(isNew && OWNERS[ini]){ alert("Bu harf zaten kullanılıyor."); return; }
+    if(!DEMO){
+      const q = await sb.from("team_members").upsert({initial:ini, name, color, sort:Object.keys(OWNERS).indexOf(ini)+1 || Object.keys(OWNERS).length+1});
+      if(q.error){ alert("Kaydedilemedi: "+q.error.message); return; }
+    }
+    OWNERS[ini] = mkOwner(name, color);
+    closeModal(); renderAll();
+  };
+  if(!isNew) $("tmDel").onclick = async ()=>{
+    if(!confirm(`${w?.name||initial} ekipten çıkarılsın mı? Kreatifleri silinmez, harfi görünmeye devam eder.`)) return;
+    if(!DEMO){
+      const q = await sb.from("team_members").delete().eq("initial", initial);
+      if(q.error){ alert("Silinemedi: "+q.error.message); return; }
+    }
+    delete OWNERS[initial];
+    closeModal(); renderAll();
+  };
 }
 
 function renderFinance(){
