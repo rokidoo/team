@@ -441,6 +441,7 @@ const S = {
   tab:"board", galFilter:{owner:"", status:"", format:""},
   boardFmt:"", hookFilter:{format:"", status:""}, teamTable:true,
   pipeline:[], ideas:[], prodView:"akis", prodTables:true,
+  ideaFilter:{tur:"", format:""},
 };
 const STAGES = [
   ["fikirler","FİKİRLER"],["hooklar","HOOKLAR"],["k_yapilacak","KREATİF YAPILACAKLAR"],
@@ -1051,18 +1052,35 @@ function renderProd(){
     }).join("");
     body = `<div class="board pboard">${cols}</div>`;
   } else {
+    const f = S.ideaFilter;
+    const fmtOf = code => {
+      const c = S.creatives.find(x=>x.code===code);
+      return c ? (c.format||"gorsel") : (code.toLowerCase().includes("video")?"video":"gorsel");
+    };
     const groups = {};
     S.ideas.forEach(x=>{ (groups[x.parent_code] = groups[x.parent_code]||[]).push(x); });
     const winnerCodes = S.creatives.filter(c=>["onayli_winner","winner_adayi"].includes(statusAtWeek(c))).map(c=>c.code);
     winnerCodes.forEach(w=>{ if(!groups[w]) groups[w]=[]; });
-    const keys = Object.keys(groups).sort((a,b)=>{
+    let keys = Object.keys(groups).sort((a,b)=>{
       const aw = winnerCodes.includes(a)?0:1, bw = winnerCodes.includes(b)?0:1;
       return aw-bw || a.localeCompare(b,"tr");
     });
+    if(f.format) keys = keys.filter(k=>fmtOf(k)===f.format);
+    const view = {};
+    keys.forEach(k=>{
+      view[k] = f.tur ? groups[k].filter(x=>(x.tur||"FIKIR")===f.tur) : groups[k];
+    });
+    if(f.tur) keys = keys.filter(k=>view[k].length);
+    const tchips = [["","Tüm etiketler"],...Object.keys(TURS).map(k=>[k,TURS[k].l])].map(([v,l])=>
+      `<button class="fchip ${f.tur===v?"on":""}" data-it="${v}">${l}</button>`).join("");
+    const fchips2 = [["","Tüm formatlar"],["gorsel","🖼 Görsel"],["video","🎬 Video"]].map(([v,l])=>
+      `<button class="fchip ${f.format===v?"on":""}" data-if="${v}">${l}</button>`).join("");
     body = `
+      <div class="filters">${fchips2}</div>
+      <div class="filters">${tchips}</div>
       <div style="margin-bottom:14px"><button class="addbtn" id="ideaAdd" style="width:100%">＋ Yeni kayıt — kreatifi seç, fikrini/hook'unu yaz, etiketle (herkes ekleyebilir)</button></div>
       <div style="display:flex;flex-direction:column;gap:14px">
-        ${keys.length? keys.map(k=>ideaGroup(k, groups[k], winnerCodes.includes(k))).join("") : `<div class="empty">Henüz kayıt yok — haftalık veri gelince winner'lar burada otomatik listelenir</div>`}
+        ${keys.length? keys.map(k=>ideaGroup(k, view[k], winnerCodes.includes(k))).join("") : `<div class="empty">Filtreye uyan kayıt yok</div>`}
       </div>
     `;
   }
@@ -1097,6 +1115,8 @@ function renderProd(){
     if($("ideaAdd")) $("ideaAdd").onclick=()=>openIdeaModal(null);
     el.querySelectorAll("[data-iadd]").forEach(b=>b.onclick=()=>openIdeaModal(null, b.dataset.iadd));
     el.querySelectorAll("[data-iedit]").forEach(b=>b.onclick=()=>openIdeaModal(b.dataset.iedit));
+    el.querySelectorAll("[data-it]").forEach(b=>b.onclick=()=>{S.ideaFilter.tur=b.dataset.it; renderProd();});
+    el.querySelectorAll("[data-if]").forEach(b=>b.onclick=()=>{S.ideaFilter.format=b.dataset.if; renderProd();});
   }
 }
 function ideaGroup(code, entries, isWinner){
@@ -1121,8 +1141,10 @@ function ideaEntry(x){
   return `<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 14px;border-bottom:2px solid var(--cream2)">
     ${chip(t.l, t.s)}
     <div style="flex:1;min-width:0">
-      ${hooks.map(h=>`<div style="font-size:.82rem;font-weight:700;line-height:1.5">${esc(h)}</div>`).join("")}
-      ${x.note?`<div style="font-size:.74rem;color:var(--mut);font-weight:600;margin-top:3px">${esc(x.note)}</div>`:""}
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${hooks.map(h=>`<span style="display:inline-block;background:var(--cream2);border:2px solid var(--ink);border-radius:9px;padding:4px 10px;font-size:.78rem;font-weight:700;line-height:1.4">${esc(h)}</span>`).join("")}
+      </div>
+      ${x.note?`<div style="font-size:.74rem;color:var(--mut);font-weight:600;margin-top:6px">${esc(x.note)}</div>`:""}
     </div>
     ${x.created_name?`<span class="mono" style="font-size:.6rem;color:var(--mut);white-space:nowrap;padding-top:4px">${esc(x.created_name)}</span>`:""}
     <button class="editbtn" data-iedit="${esc(x.id)}" title="Düzenle">✏️</button>
