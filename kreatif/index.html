@@ -253,6 +253,18 @@
   }
   [draggable="true"]{cursor:grab}
 
+  /* üretim panosu — tam genişlik, ince kolonlar */
+  main.wide{max-width:none}
+  @media(min-width:960px){
+    .pboard{gap:10px}
+    .pboard .bcol{flex:1 1 0; width:auto; min-width:150px; max-width:none}
+    .pboard .bhead{font-size:.6rem; padding:9px 8px; gap:5px; letter-spacing:0}
+    .pboard .bhead .cnt{font-size:.58rem; padding:1px 7px}
+    .pboard .bbody{padding:6px; gap:6px; max-height:70dvh}
+    .pboard .addbtn{font-size:.62rem; padding:6px}
+    .pboard .pcard{padding:8px 9px}
+  }
+
   /* modal */
   .modal{position:fixed; inset:0; z-index:80; background:rgba(18,18,18,.55); display:flex; align-items:flex-end; justify-content:center}
   @media(min-width:640px){.modal{align-items:center; padding:20px}}
@@ -1003,6 +1015,7 @@ function renderAll(){
   const map={board:"Board",gallery:"Gallery",hooks:"Hooks",prod:"Prod",team:"Team",finance:"Finance",import:"Import"};
   if((S.tab==="finance"&&!canFin())||(S.tab==="import"&&!isAdmin())) S.tab="board";
   $("tab"+map[S.tab]).classList.remove("hidden");
+  document.querySelector("main").classList.toggle("wide", S.tab==="prod");
   renderBoard(); renderGallery(); renderHooks(); renderProd(); renderTeam(); renderFinance(); renderImport();
   const ini = (S.profile?.initial || S.profile?.name?.[0] || "?").toUpperCase();
   $("avatar").textContent = ini; $("avatarSide").textContent = ini;
@@ -1022,15 +1035,15 @@ function renderProd(){
     const cols = STAGES.map(([key,label],i)=>{
       const c = STAGE_COLORS[i];
       const arr = S.pipeline.filter(p=>p.stage===key);
-      return `<div class="bcol" data-pdrop="${key}" style="flex-basis:min(86vw,270px);width:min(86vw,270px);max-width:min(86vw,270px)">
-        <div class="bhead" style="background:${c}22;font-size:.7rem"><span style="color:${c}">●</span> ${label} <span class="cnt">${arr.length}</span></div>
+      return `<div class="bcol" data-pdrop="${key}">
+        <div class="bhead" style="background:${c}22"><span style="color:${c}">●</span> ${label} <span class="cnt">${arr.length}</span></div>
         <div class="bbody">
           ${arr.map(pipeCard).join("")}
           <button class="addbtn" data-padd="${key}">＋ Ekle</button>
         </div>
       </div>`;
     }).join("");
-    body = `<div class="board">${cols}</div>`;
+    body = `<div class="board pboard">${cols}</div>`;
   } else {
     const grp = t => S.ideas.filter(x=>x.tur===t);
     const sec = (t,title) => {
