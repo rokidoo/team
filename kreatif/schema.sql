@@ -176,3 +176,51 @@ on conflict (initial) do nothing;
 
 -- v1.2: hook formatı (görsel/video filtresi için)
 alter table public.hooks add column if not exists format text;
+
+-- ============================================================
+-- v1.3: Facebook linki + Üretim Akışı + Varyasyon/İterasyon Havuzu
+-- ============================================================
+alter table public.creatives add column if not exists link text;
+
+-- Üretim akışı kartları (HERKES yazabilir — ortak çalışma alanı)
+create table if not exists public.pipeline_cards (
+  id            uuid primary key default gen_random_uuid(),
+  title         text not null,
+  note          text,
+  stage         text not null default 'fikirler',
+  format        text,                 -- video | gorsel
+  owner_initial text,
+  created_by    uuid references auth.users on delete set null,
+  created_name  text,
+  created_at    timestamptz default now(),
+  updated_at    timestamptz default now()
+);
+
+-- Varyasyon / iterasyon fikir havuzu (HERKES yazabilir)
+create table if not exists public.idea_pool (
+  id            uuid primary key default gen_random_uuid(),
+  parent_code   text not null,        -- hangi video/görsel için
+  tur           text not null default 'VAR',  -- VAR | ITER
+  hooks         jsonb default '[]',   -- 1-5 yeni hook
+  note          text,
+  created_by    uuid references auth.users on delete set null,
+  created_name  text,
+  created_at    timestamptz default now(),
+  updated_at    timestamptz default now()
+);
+
+alter table public.pipeline_cards enable row level security;
+alter table public.idea_pool      enable row level security;
+
+create policy "pc_select" on public.pipeline_cards for select using (auth.uid() is not null);
+create policy "pc_insert" on public.pipeline_cards for insert with check (auth.uid() = created_by);
+create policy "pc_update" on public.pipeline_cards for update using (auth.uid() is not null);
+create policy "pc_delete" on public.pipeline_cards for delete
+  using (public.is_admin() or auth.uid() = created_by);
+
+create policy "ip_select" on public.idea_pool for select using (auth.uid() is not null);
+create policy "ip_insert" on public.idea_pool for insert with check (auth.uid() = created_by);
+create policy "ip_update" on public.idea_pool for update
+  using (public.is_admin() or auth.uid() = created_by);
+create policy "ip_delete" on public.idea_pool for delete
+  using (public.is_admin() or auth.uid() = created_by);

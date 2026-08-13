@@ -371,6 +371,7 @@
     <div id="tabBoard"></div>
     <div id="tabGallery" class="hidden"></div>
     <div id="tabHooks" class="hidden"></div>
+    <div id="tabProd" class="hidden"></div>
     <div id="tabTeam" class="hidden"></div>
     <div id="tabFinance" class="hidden"></div>
     <div id="tabImport" class="hidden"></div>
@@ -427,7 +428,17 @@ const S = {
   creatives:[], results:[], fins:[], hooks:[],
   tab:"board", galFilter:{owner:"", status:"", format:""},
   boardFmt:"", hookFilter:{format:"", status:""}, teamTable:true,
+  pipeline:[], ideas:[], prodView:"akis", prodTables:true,
 };
+const STAGES = [
+  ["fikirler","FİKİRLER"],["hooklar","HOOKLAR"],["k_yapilacak","KREATİF YAPILACAKLAR"],
+  ["k_revize","KREATİF REVİZELER"],["k_varyasyon","KREATİF VARYASYONLAR"],
+  ["k_yapiliyor","KREATİF YAPILIYOR"],["k_yapildi","KREATİF YAPILDI"],["k_kontrol","KREATİF KONTROL"],
+  ["r_yapilacak","REKLAM YAPILACAK"],["r_yapiliyor","REKLAM YAPILIYOR"],["r_yapildi","REKLAM YAPILDI"],
+  ["r_yayinlanacak","REKLAM YAYINLANACAK"],["r_yayinda","REKLAM YAYINDA"],
+];
+const STAGE_COLORS = ["#A855F7","#7C6CF6","#E8402A","#FF8A00","#EC4899","#2F5DFF","#22C55E","#E8402A","#FFC53D","#EC4899","#22C55E","#FF8A00","#E8402A"];
+const stageOf = k => { const i=STAGES.findIndex(s=>s[0]===k); return {label:(STAGES[i]||STAGES[0])[1], c:STAGE_COLORS[i>=0?i:0]}; };
 const canFin = () => S.profile && (S.profile.role==="admin" || S.profile.role==="partner");
 const isAdmin = () => S.profile && S.profile.role==="admin";
 
@@ -504,6 +515,15 @@ function demoData(){
     {creative_code:S.creatives[4].code, week:w2, spend:3400,  revenue:2900,  roas:0.85, cpr:3400, gpt:-508, rel_gpt:0.4},
     {creative_code:S.creatives[5].code, week:w2, spend:900,   revenue:1700,  roas:1.89, cpr:900,  gpt:800,  rel_gpt:0.67},
   ];
+  S.pipeline=[
+    {id:"d1", title:"Pazar tezgahı sahnesi — 369 mekaniği", note:"Komşu karakteri pazarcıyla konuşuyor", stage:"fikirler", format:"gorsel", owner_initial:"C", created_name:"Demo Yönetici"},
+    {id:"d2", title:"uz video 452 claymation kış", note:"419 iskeleti, kış sahnesi", stage:"k_yapiliyor", format:"video", owner_initial:"E", created_name:"Demo Çağdaş"},
+    {id:"d3", title:"uz görsel 380", stage:"r_yayinda", format:"gorsel", owner_initial:"M", created_name:"Demo Yönetici"},
+  ];
+  S.ideas=[
+    {id:"i1", parent_code:"uz görsel 369", tur:"VAR", hooks:["KOMŞUDAN DUYDUM, ÜÇ KUTU KAPTIM!","BALKONDAN BALKONA YAYILDI BU HABER!"], note:"Balkon sahnesi aynı kalır, sadece balon metni değişir.", created_name:"Demo Çağdaş"},
+    {id:"i2", parent_code:"uz video 419", tur:"ITER", hooks:["Servis durağında iki anne konuşuyor"], note:"Claymation korunur, sahne kahvaltıdan servise taşınır.", created_name:"Demo İnka"},
+  ];
   S.hooks=[
     {code:"YT01", text:"İADE POLİTİKAMIZ BASİT! ÇOCUĞUNUZUN GERİ KALAN GELİŞİMİNİ İADE EDİYORUZ!", status:"yillik", format:"gorsel", note:"Yılın şampiyonu — mizahi iade garantisi."},
     {code:"HK023", text:"Çocuğunuz sebzeye dokunmuyorsa bu 10 saniyeyi izleyin", owner_initial:"C", status:"tutan", format:"video", first_week:w1, note:"CF012 ailesinin ana hook'u. Sorun-farkında."},
@@ -527,6 +547,12 @@ async function loadAll(){
   S.weeks=w.data||[]; S.creatives=c.data||[]; S.results=r.data||[]; S.hooks=h.data||[];
   if(t.error){ S.teamTable=false; }
   else { S.teamTable=true; if(t.data?.length) OWNERS = Object.fromEntries(t.data.map(m=>[m.initial, mkOwner(m.name, m.color||"#FFC53D")])); }
+  const [pc, ip] = await Promise.all([
+    sb.from("pipeline_cards").select("*").order("created_at",{ascending:false}),
+    sb.from("idea_pool").select("*").order("created_at",{ascending:false}),
+  ]);
+  if(pc.error || ip.error){ S.prodTables=false; S.pipeline=[]; S.ideas=[]; }
+  else { S.prodTables=true; S.pipeline=pc.data||[]; S.ideas=ip.data||[]; }
   S.fins=[];
   if(canFin()){
     const f = await sb.from("weekly_financials").select("*");
@@ -557,9 +583,10 @@ function metricRow(c){
 function creativeCard(c, mini){
   const st = ST[statusAtWeek(c)]||ST.yeni;
   const fmtIc = c.format==="gorsel"?"🖼":c.format==="carousel"?"🧩":"🎬";
-  const thumb = c.thumb_url
+  let thumb = c.thumb_url
     ? `<img class="thumb" src="${esc(c.thumb_url)}" alt="">`
     : `<div class="thumb">${fmtIc}</div>`;
+  if(c.link) thumb = `<a href="${esc(c.link)}" target="_blank" rel="noopener" style="text-decoration:none" title="Facebook'ta aç">${thumb}</a>`;
   return `<div class="card ccard${mini?" mini":""}" data-code="${esc(c.code)}" style="background:${st.s}">
     <div class="top">
       ${thumb}
@@ -569,7 +596,10 @@ function creativeCard(c, mini){
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
         ${chip(st.l, "var(--card)")}
-        ${isAdmin()?`<button class="editbtn" data-edit="${esc(c.code)}" title="Düzenle">✏️</button>`:""}
+        <div style="display:flex;gap:5px">
+          ${c.link?`<a class="editbtn" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;color:var(--cobalt);font-weight:800" href="${esc(c.link)}" target="_blank" rel="noopener" title="Facebook'ta aç">↗</a>`:""}
+          ${isAdmin()?`<button class="editbtn" data-edit="${esc(c.code)}" title="Düzenle">✏️</button>`:""}
+        </div>
       </div>
     </div>
     ${c.hook_text?`<div class="hook">${esc(c.hook_code?c.hook_code+" · ":"")}${esc(c.hook_text)}</div>`:""}
@@ -802,6 +832,8 @@ function openCreativeModal(code, presetStatus){
     <input id="cmReason" value="${esc(v.status_reason||"")}" placeholder="GPT 1.045 · 8 satış · kural v1">
     <div class="flabel">Önizleme Görseli (URL, opsiyonel)</div>
     <input id="cmThumb" value="${esc(v.thumb_url||"")}" placeholder="https://...">
+    <div class="flabel">Facebook Linki (opsiyonel)</div>
+    <input id="cmLink" value="${esc(v.link||"")}" placeholder="https://www.facebook.com/...">
     <div class="btnrow">
       <button class="btn" id="cmSave">Kaydet</button>
       ${isNew?"":`<button class="btn danger" id="cmDel" style="width:auto;padding:14px 18px">Sil</button>`}
@@ -816,7 +848,8 @@ function openCreativeModal(code, presetStatus){
       family: $("cmFamily").value.trim()||null, tur: $("cmTur").value,
       hook_code: $("cmHookCode").value.trim()||null, hook_text: $("cmHookText").value.trim()||null,
       status: $("cmStatus").value, status_reason: $("cmReason").value.trim()||null,
-      thumb_url: $("cmThumb").value.trim()||null, attribution: v.attribution||"dogrulanmis",
+      thumb_url: $("cmThumb").value.trim()||null, link: $("cmLink").value.trim()||null,
+      attribution: v.attribution||"dogrulanmis",
     };
     if(!row.code){ alert("Kod / isim gerekli."); return; }
     if(isNew && S.creatives.some(x=>x.code===row.code)){ alert("Bu kodla bir kreatif zaten var."); return; }
@@ -947,7 +980,7 @@ function renderImport(){
 
 function renderNav(){
   const tabs = [
-    ["board","📊","Board"],["gallery","🖼","Galeri"],["hooks","🪝","Hooklar"],["team","👥","Ekip"],
+    ["board","📊","Board"],["gallery","🖼","Galeri"],["hooks","🪝","Hooklar"],["prod","🛠","Üretim"],["team","👥","Ekip"],
   ];
   if(canFin()) tabs.push(["finance","💰","Finans"]);
   if(isAdmin()) tabs.push(["import","📥","Aktar"]);
@@ -966,15 +999,228 @@ function renderWeeks(){
 
 function renderAll(){
   renderNav(); renderWeeks();
-  ["Board","Gallery","Hooks","Team","Finance","Import"].forEach(t=>$("tab"+t).classList.add("hidden"));
-  const map={board:"Board",gallery:"Gallery",hooks:"Hooks",team:"Team",finance:"Finance",import:"Import"};
+  ["Board","Gallery","Hooks","Prod","Team","Finance","Import"].forEach(t=>$("tab"+t).classList.add("hidden"));
+  const map={board:"Board",gallery:"Gallery",hooks:"Hooks",prod:"Prod",team:"Team",finance:"Finance",import:"Import"};
   if((S.tab==="finance"&&!canFin())||(S.tab==="import"&&!isAdmin())) S.tab="board";
   $("tab"+map[S.tab]).classList.remove("hidden");
-  renderBoard(); renderGallery(); renderHooks(); renderTeam(); renderFinance(); renderImport();
+  renderBoard(); renderGallery(); renderHooks(); renderProd(); renderTeam(); renderFinance(); renderImport();
   const ini = (S.profile?.initial || S.profile?.name?.[0] || "?").toUpperCase();
   $("avatar").textContent = ini; $("avatarSide").textContent = ini;
   $("userName").textContent = S.profile?.name || "";
   $("userRole").textContent = S.profile?.role==="admin"?"Yönetici":S.profile?.role==="partner"?"Ortak":"Kreatif Ekip";
+}
+
+/* ================= ÜRETİM (akış + havuz — herkes yazabilir) ================= */
+function renderProd(){
+  const el = $("tabProd");
+  const warn = (!DEMO && !S.prodTables)
+    ? `<div class="demo" style="margin-bottom:14px">Bu bölüm için Supabase'de <b>pipeline_cards</b> ve <b>idea_pool</b> tabloları gerekli — Claude'un verdiği SQL'i bir kez çalıştır.</div>` : "";
+  const viewChips = [["akis","📋 Üretim Akışı"],["havuz","💡 Varyasyon / İterasyon Havuzu"]].map(([v,l])=>
+    `<button class="fchip ${S.prodView===v?"on":""}" data-pv="${v}">${l}</button>`).join("");
+  let body = "";
+  if(S.prodView==="akis"){
+    const cols = STAGES.map(([key,label],i)=>{
+      const c = STAGE_COLORS[i];
+      const arr = S.pipeline.filter(p=>p.stage===key);
+      return `<div class="bcol" data-pdrop="${key}" style="flex-basis:min(86vw,270px);width:min(86vw,270px);max-width:min(86vw,270px)">
+        <div class="bhead" style="background:${c}22;font-size:.7rem"><span style="color:${c}">●</span> ${label} <span class="cnt">${arr.length}</span></div>
+        <div class="bbody">
+          ${arr.map(pipeCard).join("")}
+          <button class="addbtn" data-padd="${key}">＋ Ekle</button>
+        </div>
+      </div>`;
+    }).join("");
+    body = `<div class="board">${cols}</div>`;
+  } else {
+    const grp = t => S.ideas.filter(x=>x.tur===t);
+    const sec = (t,title) => {
+      const arr = grp(t);
+      return `<div class="sect"><h3>${title} <span class="cnt">${arr.length}</span></h3><div class="cards">${arr.length?arr.map(ideaCard).join(""):`<div class="empty">Henüz kayıt yok — ilk fikri sen ekle</div>`}</div></div>`;
+    };
+    body = `
+      <div style="margin-bottom:14px"><button class="addbtn" id="ideaAdd" style="width:100%">＋ Yeni havuz kaydı (herkes ekleyebilir)</button></div>
+      ${sec("VAR","🔁 Varyasyon Fikirleri")}
+      ${sec("ITER","🧬 İterasyon Fikirleri")}
+    `;
+  }
+  el.innerHTML = `
+    <h2>Üretim</h2>
+    <div class="sub">Ortak çalışma alanı — ekipteki herkes kart ekleyebilir, taşıyabilir, not yazabilir</div>
+    ${warn}
+    <div class="filters">${viewChips}</div>
+    ${body}
+  `;
+  el.querySelectorAll("[data-pv]").forEach(b=>b.onclick=()=>{S.prodView=b.dataset.pv; renderProd();});
+  if(S.prodView==="akis"){
+    el.querySelectorAll("[data-padd]").forEach(b=>b.onclick=()=>openPipeModal(null, b.dataset.padd));
+    el.querySelectorAll("[data-pedit]").forEach(b=>b.onclick=()=>openPipeModal(b.dataset.pedit));
+    el.querySelectorAll(".pcard").forEach(card=>{
+      card.setAttribute("draggable","true");
+      card.addEventListener("dragstart", e=>{ e.dataTransfer.setData("text/plain", card.dataset.pid); });
+    });
+    el.querySelectorAll("[data-pdrop]").forEach(col=>{
+      col.addEventListener("dragover", e=>{ e.preventDefault(); col.classList.add("dragover"); });
+      col.addEventListener("dragleave", ()=>col.classList.remove("dragover"));
+      col.addEventListener("drop", async e=>{
+        e.preventDefault(); col.classList.remove("dragover");
+        const id = e.dataTransfer.getData("text/plain");
+        const p = S.pipeline.find(x=>String(x.id)===id); if(!p || p.stage===col.dataset.pdrop) return;
+        p.stage = col.dataset.pdrop;
+        if(!DEMO) await sb.from("pipeline_cards").update({stage:p.stage, updated_at:new Date().toISOString()}).eq("id", p.id);
+        renderProd();
+      });
+    });
+  } else {
+    if($("ideaAdd")) $("ideaAdd").onclick=()=>openIdeaModal(null);
+    el.querySelectorAll("[data-iedit]").forEach(b=>b.onclick=()=>openIdeaModal(b.dataset.iedit));
+  }
+}
+function pipeCard(p){
+  const fmtIc = p.format==="video"?"🎬":p.format==="gorsel"?"🖼":"";
+  return `<div class="card pcard mini" data-pid="${esc(p.id)}" style="padding:10px 11px">
+    <div style="display:flex;gap:8px;align-items:flex-start">
+      ${p.owner_initial?ownBadge(p.owner_initial):""}
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:800;font-size:.8rem;line-height:1.35">${fmtIc?fmtIc+" ":""}${esc(p.title)}</div>
+        ${p.note?`<div style="font-size:.68rem;color:var(--mut);font-weight:600;margin-top:4px">${esc(p.note)}</div>`:""}
+        ${p.created_name?`<div class="mono" style="font-size:.6rem;color:var(--dim, var(--mut));margin-top:5px">${esc(p.created_name)}</div>`:""}
+      </div>
+      <button class="editbtn" data-pedit="${esc(p.id)}" title="Düzenle">✏️</button>
+    </div>
+  </div>`;
+}
+function ideaCard(x){
+  const hooks = Array.isArray(x.hooks)?x.hooks:[];
+  return `<div class="card" style="background:${x.tur==="VAR"?"var(--mustard-s)":"var(--purple-s)"}">
+    <div style="display:flex;gap:8px;align-items:flex-start">
+      <div style="flex:1;min-width:0">
+        <div class="mono" style="font-size:.72rem;font-weight:700">${esc(x.parent_code)}</div>
+        <ol style="margin:8px 0 0 18px;font-size:.82rem;font-weight:600;display:flex;flex-direction:column;gap:4px">
+          ${hooks.map(h=>`<li>${esc(h)}</li>`).join("")}
+        </ol>
+        ${x.note?`<div class="reason" style="margin-top:8px;font-size:.72rem;color:var(--mut);font-weight:600;font-style:italic">${esc(x.note)}</div>`:""}
+        ${x.created_name?`<div class="mono" style="font-size:.62rem;color:var(--mut);margin-top:6px">${esc(x.created_name)}</div>`:""}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        ${chip(x.tur==="VAR"?"Varyasyon":"İterasyon","var(--card)")}
+        <button class="editbtn" data-iedit="${esc(x.id)}" title="Düzenle">✏️</button>
+      </div>
+    </div>
+  </div>`;
+}
+function openPipeModal(id, presetStage){
+  const p = id ? S.pipeline.find(x=>String(x.id)===String(id)) : null;
+  const isNew = !p;
+  const v = p || {title:"", note:"", stage:presetStage||"fikirler", format:"", owner_initial:""};
+  const canDel = p && (isAdmin() || DEMO || p.created_by===S.profile?.id);
+  modal(`
+    <h3>${isNew?"Yeni Kart":"Kartı Düzenle"}</h3>
+    <div class="flabel">Başlık (fikir / hook / kreatif adı)</div>
+    <input id="pmTitle" value="${esc(v.title)}" placeholder="ör. uz görsel 380 — pazar tezgahı sahnesi">
+    <div class="frow">
+      <div><div class="flabel">Aşama</div>
+        <select id="pmStage">${STAGES.map(([k,l])=>opt(k,l,v.stage)).join("")}</select></div>
+      <div><div class="flabel">Format</div>
+        <select id="pmFormat">${opt("","—",v.format||"")}${opt("gorsel","🖼 Görsel",v.format)}${opt("video","🎬 Video",v.format)}</select></div>
+    </div>
+    <div class="flabel">Sahip (opsiyonel)</div>
+    <select id="pmOwner">${opt("","—",v.owner_initial||"")}${Object.keys(OWNERS).map(o=>opt(o,o+" · "+OWNERS[o].name,v.owner_initial)).join("")}</select>
+    <div class="flabel">Not</div>
+    <textarea id="pmNote" style="min-height:70px">${esc(v.note||"")}</textarea>
+    <div class="btnrow">
+      <button class="btn" id="pmSave">Kaydet</button>
+      ${canDel?`<button class="btn danger" id="pmDel" style="width:auto;padding:14px 18px">Sil</button>`:""}
+      <button class="btn ghost" id="pmCancel" style="width:auto;padding:14px 18px">Vazgeç</button>
+    </div>
+  `);
+  $("pmCancel").onclick = closeModal;
+  $("pmSave").onclick = async ()=>{
+    const title = $("pmTitle").value.trim();
+    if(!title){ alert("Başlık gerekli."); return; }
+    const row = {title, stage:$("pmStage").value, format:$("pmFormat").value||null,
+      owner_initial:$("pmOwner").value||null, note:$("pmNote").value.trim()||null};
+    if(isNew){
+      const full = {...row, created_by:DEMO?null:S.profile.id, created_name:S.profile?.name||null};
+      if(!DEMO){
+        const {data,error} = await sb.from("pipeline_cards").insert(full).select().single();
+        if(error){ alert("Kaydedilemedi: "+error.message); return; }
+        S.pipeline.unshift(data);
+      } else S.pipeline.unshift({...full, id:"demo-"+Math.round(performance.now())});
+    } else {
+      if(!DEMO){
+        const {error} = await sb.from("pipeline_cards").update({...row, updated_at:new Date().toISOString()}).eq("id", p.id);
+        if(error){ alert("Kaydedilemedi: "+error.message); return; }
+      }
+      Object.assign(p, row);
+    }
+    closeModal(); renderProd();
+  };
+  if(!isNew && canDel) $("pmDel").onclick = async ()=>{
+    if(!confirm("Kart silinsin mi?")) return;
+    if(!DEMO){
+      const {error} = await sb.from("pipeline_cards").delete().eq("id", p.id);
+      if(error){ alert("Silinemedi: "+error.message); return; }
+    }
+    S.pipeline = S.pipeline.filter(x=>x.id!==p.id);
+    closeModal(); renderProd();
+  };
+}
+function openIdeaModal(id){
+  const x = id ? S.ideas.find(i=>String(i.id)===String(id)) : null;
+  const isNew = !x;
+  const v = x || {parent_code:"", tur:"VAR", hooks:[], note:""};
+  const hooks = Array.isArray(v.hooks)?v.hooks:[];
+  const canDel = x && (isAdmin() || DEMO || x.created_by===S.profile?.id);
+  const dl = S.creatives.map(c=>`<option value="${esc(c.code)}">`).join("");
+  modal(`
+    <h3>${isNew?"Yeni Havuz Kaydı":"Kaydı Düzenle"}</h3>
+    <div class="flabel">Hangi video / görsel için</div>
+    <input id="imParent" value="${esc(v.parent_code)}" list="imList" placeholder="ör. uz görsel 369">
+    <datalist id="imList">${dl}</datalist>
+    <div class="flabel">Tür</div>
+    <select id="imTur">${opt("VAR","🔁 Varyasyon (sadece hook değişir)",v.tur)}${opt("ITER","🧬 İterasyon (daha derin değişiklik)",v.tur)}</select>
+    ${[0,1,2,3,4].map(i=>`<div class="flabel">Yeni Hook ${i+1}${i===0?"":" (opsiyonel)"}</div>
+    <input id="imH${i}" value="${esc(hooks[i]||"")}" placeholder="Yeni hook metni">`).join("")}
+    <div class="flabel">Not / fikir</div>
+    <textarea id="imNote" style="min-height:70px">${esc(v.note||"")}</textarea>
+    <div class="btnrow">
+      <button class="btn" id="imSave">Kaydet</button>
+      ${canDel?`<button class="btn danger" id="imDel" style="width:auto;padding:14px 18px">Sil</button>`:""}
+      <button class="btn ghost" id="imCancel" style="width:auto;padding:14px 18px">Vazgeç</button>
+    </div>
+  `);
+  $("imCancel").onclick = closeModal;
+  $("imSave").onclick = async ()=>{
+    const parent = $("imParent").value.trim();
+    const hs = [0,1,2,3,4].map(i=>$("imH"+i).value.trim()).filter(Boolean);
+    if(!parent){ alert("Kreatif adı gerekli."); return; }
+    if(!hs.length){ alert("En az 1 hook yaz."); return; }
+    const row = {parent_code:parent, tur:$("imTur").value, hooks:hs, note:$("imNote").value.trim()||null};
+    if(isNew){
+      const full = {...row, created_by:DEMO?null:S.profile.id, created_name:S.profile?.name||null};
+      if(!DEMO){
+        const {data,error} = await sb.from("idea_pool").insert(full).select().single();
+        if(error){ alert("Kaydedilemedi: "+error.message); return; }
+        S.ideas.unshift(data);
+      } else S.ideas.unshift({...full, id:"demo-"+Math.round(performance.now())});
+    } else {
+      if(!DEMO){
+        const {error} = await sb.from("idea_pool").update({...row, updated_at:new Date().toISOString()}).eq("id", x.id);
+        if(error){ alert("Kaydedilemedi: "+error.message); return; }
+      }
+      Object.assign(x, row);
+    }
+    closeModal(); renderProd();
+  };
+  if(!isNew && canDel) $("imDel").onclick = async ()=>{
+    if(!confirm("Kayıt silinsin mi?")) return;
+    if(!DEMO){
+      const {error} = await sb.from("idea_pool").delete().eq("id", x.id);
+      if(error){ alert("Silinemedi: "+error.message); return; }
+    }
+    S.ideas = S.ideas.filter(i=>i.id!==x.id);
+    closeModal(); renderProd();
+  };
 }
 
 /* ================= IMPORT ================= */
@@ -1029,6 +1275,16 @@ async function doImport(){
       say(`→ ${data.hooks.length} hook upsert…`);
       const {error} = await sb.from("hooks").upsert(data.hooks.map(h=>({...h, updated_at:new Date().toISOString()})),{onConflict:"code"});
       if(error) throw error;
+    }
+    if(Array.isArray(data.links) && data.links.length){
+      say(`→ ${data.links.length} Facebook linki işleniyor…`);
+      let ok=0;
+      for(const l of data.links){
+        if(!l.code || !l.link) continue;
+        const {error} = await sb.from("creatives").update({link:l.link}).eq("code", l.code);
+        if(!error) ok++;
+      }
+      say(`   ${ok} kreatif linklendi`);
     }
     say("✅ Tamamlandı. Veriler yenileniyor…");
     await loadAll(); S.week=data.week; renderAll();
