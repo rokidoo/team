@@ -451,6 +451,12 @@ const STAGES = [
 ];
 const STAGE_COLORS = ["#A855F7","#7C6CF6","#E8402A","#FF8A00","#EC4899","#2F5DFF","#22C55E","#E8402A","#FFC53D","#EC4899","#22C55E","#FF8A00","#E8402A"];
 const stageOf = k => { const i=STAGES.findIndex(s=>s[0]===k); return {label:(STAGES[i]||STAGES[0])[1], c:STAGE_COLORS[i>=0?i:0]}; };
+const TURS = {
+  FIKIR:  {l:"💡 Fikir",      s:"var(--cobalt-s)"},
+  VAR:    {l:"🔁 Varyasyon",  s:"var(--mustard-s)"},
+  ITER:   {l:"🧬 İterasyon",  s:"var(--purple-s)"},
+  REVIZE: {l:"🛠 Revize",     s:"var(--red-s)"},
+};
 const canFin = () => S.profile && (S.profile.role==="admin" || S.profile.role==="partner");
 const isAdmin = () => S.profile && S.profile.role==="admin";
 
@@ -1045,15 +1051,19 @@ function renderProd(){
     }).join("");
     body = `<div class="board pboard">${cols}</div>`;
   } else {
-    const grp = t => S.ideas.filter(x=>x.tur===t);
-    const sec = (t,title) => {
-      const arr = grp(t);
-      return `<div class="sect"><h3>${title} <span class="cnt">${arr.length}</span></h3><div class="cards">${arr.length?arr.map(ideaCard).join(""):`<div class="empty">Henüz kayıt yok — ilk fikri sen ekle</div>`}</div></div>`;
-    };
+    const groups = {};
+    S.ideas.forEach(x=>{ (groups[x.parent_code] = groups[x.parent_code]||[]).push(x); });
+    const winnerCodes = S.creatives.filter(c=>["onayli_winner","winner_adayi"].includes(statusAtWeek(c))).map(c=>c.code);
+    winnerCodes.forEach(w=>{ if(!groups[w]) groups[w]=[]; });
+    const keys = Object.keys(groups).sort((a,b)=>{
+      const aw = winnerCodes.includes(a)?0:1, bw = winnerCodes.includes(b)?0:1;
+      return aw-bw || a.localeCompare(b,"tr");
+    });
     body = `
-      <div style="margin-bottom:14px"><button class="addbtn" id="ideaAdd" style="width:100%">＋ Yeni havuz kaydı (herkes ekleyebilir)</button></div>
-      ${sec("VAR","🔁 Varyasyon Fikirleri")}
-      ${sec("ITER","🧬 İterasyon Fikirleri")}
+      <div style="margin-bottom:14px"><button class="addbtn" id="ideaAdd" style="width:100%">＋ Yeni kayıt — kreatifi seç, fikrini/hook'unu yaz, etiketle (herkes ekleyebilir)</button></div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        ${keys.length? keys.map(k=>ideaGroup(k, groups[k], winnerCodes.includes(k))).join("") : `<div class="empty">Henüz kayıt yok — haftalık veri gelince winner'lar burada otomatik listelenir</div>`}
+      </div>
     `;
   }
   el.innerHTML = `
@@ -1085,8 +1095,38 @@ function renderProd(){
     });
   } else {
     if($("ideaAdd")) $("ideaAdd").onclick=()=>openIdeaModal(null);
+    el.querySelectorAll("[data-iadd]").forEach(b=>b.onclick=()=>openIdeaModal(null, b.dataset.iadd));
     el.querySelectorAll("[data-iedit]").forEach(b=>b.onclick=()=>openIdeaModal(b.dataset.iedit));
   }
+}
+function ideaGroup(code, entries, isWinner){
+  const c = S.creatives.find(x=>x.code===code);
+  const fmt = c ? (c.format==="video"?"🎬":c.format==="carousel"?"🧩":"🖼")
+               : (code.toLowerCase().includes("video")?"🎬":"🖼");
+  return `<div class="card" style="padding:0;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:var(--b2);background:${isWinner?"var(--green-s)":"var(--cream2)"};flex-wrap:wrap">
+      <span style="font-size:1.05rem">${fmt}</span>
+      <b class="mono" style="font-size:.78rem;word-break:break-all">${esc(code)}</b>
+      ${isWinner?chip("🏆 Haftanın Winner'ı","var(--card)"):""}
+      ${c?.link?`<a class="editbtn" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;color:var(--cobalt);font-weight:800" href="${esc(c.link)}" target="_blank" rel="noopener" title="Facebook'ta aç">↗</a>`:""}
+      <span style="flex:1"></span>
+      <button class="addbtn" data-iadd="${esc(code)}" style="padding:5px 12px;font-size:.68rem">＋ fikir / hook ekle</button>
+    </div>
+    ${entries.length? entries.map(ideaEntry).join("") : `<div style="padding:11px 14px;font-size:.74rem;color:var(--mut);font-weight:600">Henüz fikir yok — ilk ekleyen sen ol.</div>`}
+  </div>`;
+}
+function ideaEntry(x){
+  const t = TURS[x.tur]||TURS.FIKIR;
+  const hooks = Array.isArray(x.hooks)?x.hooks:[];
+  return `<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 14px;border-bottom:2px solid var(--cream2)">
+    ${chip(t.l, t.s)}
+    <div style="flex:1;min-width:0">
+      ${hooks.map(h=>`<div style="font-size:.82rem;font-weight:700;line-height:1.5">${esc(h)}</div>`).join("")}
+      ${x.note?`<div style="font-size:.74rem;color:var(--mut);font-weight:600;margin-top:3px">${esc(x.note)}</div>`:""}
+    </div>
+    ${x.created_name?`<span class="mono" style="font-size:.6rem;color:var(--mut);white-space:nowrap;padding-top:4px">${esc(x.created_name)}</span>`:""}
+    <button class="editbtn" data-iedit="${esc(x.id)}" title="Düzenle">✏️</button>
+  </div>`;
 }
 function pipeCard(p){
   const fmtIc = p.format==="video"?"🎬":p.format==="gorsel"?"🖼":"";
@@ -1099,25 +1139,6 @@ function pipeCard(p){
         ${p.created_name?`<div class="mono" style="font-size:.6rem;color:var(--dim, var(--mut));margin-top:5px">${esc(p.created_name)}</div>`:""}
       </div>
       <button class="editbtn" data-pedit="${esc(p.id)}" title="Düzenle">✏️</button>
-    </div>
-  </div>`;
-}
-function ideaCard(x){
-  const hooks = Array.isArray(x.hooks)?x.hooks:[];
-  return `<div class="card" style="background:${x.tur==="VAR"?"var(--mustard-s)":"var(--purple-s)"}">
-    <div style="display:flex;gap:8px;align-items:flex-start">
-      <div style="flex:1;min-width:0">
-        <div class="mono" style="font-size:.72rem;font-weight:700">${esc(x.parent_code)}</div>
-        <ol style="margin:8px 0 0 18px;font-size:.82rem;font-weight:600;display:flex;flex-direction:column;gap:4px">
-          ${hooks.map(h=>`<li>${esc(h)}</li>`).join("")}
-        </ol>
-        ${x.note?`<div class="reason" style="margin-top:8px;font-size:.72rem;color:var(--mut);font-weight:600;font-style:italic">${esc(x.note)}</div>`:""}
-        ${x.created_name?`<div class="mono" style="font-size:.62rem;color:var(--mut);margin-top:6px">${esc(x.created_name)}</div>`:""}
-      </div>
-      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-        ${chip(x.tur==="VAR"?"Varyasyon":"İterasyon","var(--card)")}
-        <button class="editbtn" data-iedit="${esc(x.id)}" title="Düzenle">✏️</button>
-      </div>
     </div>
   </div>`;
 }
@@ -1178,10 +1199,10 @@ function openPipeModal(id, presetStage){
     closeModal(); renderProd();
   };
 }
-function openIdeaModal(id){
+function openIdeaModal(id, presetParent){
   const x = id ? S.ideas.find(i=>String(i.id)===String(id)) : null;
   const isNew = !x;
-  const v = x || {parent_code:"", tur:"VAR", hooks:[], note:""};
+  const v = x || {parent_code:presetParent||"", tur:"FIKIR", hooks:[], note:""};
   const hooks = Array.isArray(v.hooks)?v.hooks:[];
   const canDel = x && (isAdmin() || DEMO || x.created_by===S.profile?.id);
   const dl = S.creatives.map(c=>`<option value="${esc(c.code)}">`).join("");
@@ -1190,10 +1211,10 @@ function openIdeaModal(id){
     <div class="flabel">Hangi video / görsel için</div>
     <input id="imParent" value="${esc(v.parent_code)}" list="imList" placeholder="ör. uz görsel 369">
     <datalist id="imList">${dl}</datalist>
-    <div class="flabel">Tür</div>
-    <select id="imTur">${opt("VAR","🔁 Varyasyon (sadece hook değişir)",v.tur)}${opt("ITER","🧬 İterasyon (daha derin değişiklik)",v.tur)}</select>
-    ${[0,1,2,3,4].map(i=>`<div class="flabel">Yeni Hook ${i+1}${i===0?"":" (opsiyonel)"}</div>
-    <input id="imH${i}" value="${esc(hooks[i]||"")}" placeholder="Yeni hook metni">`).join("")}
+    <div class="flabel">Etiket</div>
+    <select id="imTur">${Object.keys(TURS).map(k=>opt(k, TURS[k].l, v.tur)).join("")}</select>
+    ${[0,1,2,3,4].map(i=>`<div class="flabel">Fikir / Hook ${i+1}${i===0?"":" (opsiyonel)"}</div>
+    <input id="imH${i}" value="${esc(hooks[i]||"")}" placeholder="Fikir, hook ya da not satırı">`).join("")}
     <div class="flabel">Not / fikir</div>
     <textarea id="imNote" style="min-height:70px">${esc(v.note||"")}</textarea>
     <div class="btnrow">
@@ -1207,7 +1228,7 @@ function openIdeaModal(id){
     const parent = $("imParent").value.trim();
     const hs = [0,1,2,3,4].map(i=>$("imH"+i).value.trim()).filter(Boolean);
     if(!parent){ alert("Kreatif adı gerekli."); return; }
-    if(!hs.length){ alert("En az 1 hook yaz."); return; }
+    if(!hs.length){ alert("En az 1 satır yaz."); return; }
     const row = {parent_code:parent, tur:$("imTur").value, hooks:hs, note:$("imNote").value.trim()||null};
     if(isNew){
       const full = {...row, created_by:DEMO?null:S.profile.id, created_name:S.profile?.name||null};
