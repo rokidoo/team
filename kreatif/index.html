@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0d0f14">
+<title>uzbionik · Kreatif Performans Merkezi</title>
+<style>
+  :root{
+    --bg:#0d0f14; --card:#151923; --card2:#1b202c; --line:#242b3a;
+    --txt:#e8ecf4; --mut:#8b93a7; --dim:#5a6275;
+    --brand:#f59e0b; --green:#22c55e; --red:#ef4444; --blue:#3b82f6;
+    --amber:#fbbf24; --orange:#fb923c; --purple:#a78bfa; --gray:#6b7280;
+    --r:14px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{font-size:16px}
+  body{
+    background:var(--bg); color:var(--txt); min-height:100dvh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    padding-bottom:calc(76px + env(safe-area-inset-bottom));
+  }
+  .hidden{display:none!important}
+
+  /* ---------- top bar ---------- */
+  header{
+    position:sticky; top:0; z-index:40; background:rgba(13,15,20,.92);
+    backdrop-filter:blur(12px); border-bottom:1px solid var(--line);
+    padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+    display:flex; align-items:center; gap:10px;
+  }
+  header .logo{font-weight:800; font-size:1.02rem; letter-spacing:-.02em}
+  header .logo span{color:var(--brand)}
+  header .sp{flex:1}
+  .weekpick{
+    background:var(--card2); border:1px solid var(--line); color:var(--txt);
+    border-radius:10px; padding:7px 10px; font-size:.82rem; font-weight:600;
+    appearance:none; -webkit-appearance:none;
+  }
+  .avatar{
+    width:34px;height:34px;border-radius:50%;background:var(--card2);
+    border:1px solid var(--line); display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:.8rem;color:var(--brand); cursor:pointer;
+  }
+
+  /* ---------- bottom nav ---------- */
+  nav{
+    position:fixed; bottom:0; left:0; right:0; z-index:40;
+    background:rgba(13,15,20,.94); backdrop-filter:blur(12px);
+    border-top:1px solid var(--line);
+    display:flex; padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+  nav button{
+    flex:1; background:none; border:none; color:var(--dim); cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    font-size:.62rem; font-weight:700; padding:6px 0; border-radius:10px;
+    font-family:inherit;
+  }
+  nav button .ic{font-size:1.15rem; line-height:1}
+  nav button.on{color:var(--brand)}
+
+  /* ---------- generic ---------- */
+  main{padding:16px; max-width:860px; margin:0 auto}
+  h2{font-size:1.15rem; letter-spacing:-.02em; margin-bottom:4px}
+  .sub{color:var(--mut); font-size:.8rem; margin-bottom:16px}
+  .sect{margin-bottom:22px}
+  .sect h3{
+    font-size:.72rem; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--mut); margin-bottom:10px; display:flex; align-items:center; gap:8px;
+  }
+  .sect h3 .cnt{
+    background:var(--card2); border:1px solid var(--line); color:var(--txt);
+    border-radius:99px; padding:1px 8px; font-size:.68rem;
+  }
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--r);
+    padding:14px; margin-bottom:10px;
+  }
+  .chip{
+    display:inline-flex; align-items:center; gap:5px; border-radius:99px;
+    padding:3px 9px; font-size:.68rem; font-weight:700; border:1px solid;
+  }
+  .own{
+    width:26px;height:26px;border-radius:8px; display:inline-flex;
+    align-items:center;justify-content:center; font-weight:800; font-size:.78rem;
+    flex-shrink:0;
+  }
+  .mrow{display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:10px}
+  .m{font-size:.78rem; color:var(--mut)}
+  .m b{color:var(--txt); font-weight:700}
+  .empty{
+    text-align:center; color:var(--dim); font-size:.85rem; padding:28px 12px;
+    border:1px dashed var(--line); border-radius:var(--r);
+  }
+
+  /* creative card */
+  .ccard .top{display:flex; gap:10px; align-items:flex-start}
+  .ccard .code{font-size:.78rem; font-weight:700; word-break:break-all; line-height:1.35}
+  .ccard .meta{font-size:.7rem; color:var(--mut); margin-top:2px}
+  .ccard .thumb{
+    width:52px;height:52px;border-radius:10px; background:var(--card2);
+    border:1px solid var(--line); flex-shrink:0; object-fit:cover;
+    display:flex;align-items:center;justify-content:center; font-size:1.3rem;
+  }
+  .ccard .hook{
+    margin-top:10px; font-size:.82rem; background:var(--card2);
+    border-left:3px solid var(--brand); padding:8px 10px; border-radius:0 8px 8px 0;
+    color:var(--txt);
+  }
+  .ccard .reason{margin-top:8px; font-size:.72rem; color:var(--mut); font-style:italic}
+
+  /* filter chips */
+  .filters{display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; margin-bottom:14px; scrollbar-width:none}
+  .filters::-webkit-scrollbar{display:none}
+  .fchip{
+    flex-shrink:0; background:var(--card); border:1px solid var(--line); color:var(--mut);
+    border-radius:99px; padding:6px 13px; font-size:.75rem; font-weight:700; cursor:pointer;
+    font-family:inherit;
+  }
+  .fchip.on{background:var(--brand); border-color:var(--brand); color:#14100a}
+
+  /* team */
+  .trow{display:flex; align-items:center; gap:12px}
+  .trow .bar{flex:1; height:8px; background:var(--card2); border-radius:99px; overflow:hidden}
+  .trow .bar i{display:block; height:100%; border-radius:99px}
+  .tstats{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:12px}
+  .tstat{background:var(--card2); border-radius:10px; padding:8px 6px; text-align:center}
+  .tstat b{display:block; font-size:1.05rem}
+  .tstat span{font-size:.62rem; color:var(--mut); font-weight:600}
+
+  /* finance table */
+  .tblwrap{overflow-x:auto; border:1px solid var(--line); border-radius:var(--r); background:var(--card)}
+  table{border-collapse:collapse; width:100%; font-size:.76rem; min-width:560px}
+  th,td{padding:9px 10px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap}
+  th:first-child,td:first-child{text-align:left; position:sticky; left:0; background:var(--card)}
+  th{color:var(--mut); font-size:.66rem; text-transform:uppercase; letter-spacing:.05em}
+  tr:last-child td{border-bottom:none}
+  .kpis{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:16px}
+  @media(min-width:600px){.kpis{grid-template-columns:repeat(4,1fr)}}
+  .kpi{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:12px}
+  .kpi b{display:block; font-size:1.25rem; letter-spacing:-.02em}
+  .kpi span{font-size:.68rem; color:var(--mut); font-weight:600}
+
+  /* forms / login */
+  .auth{max-width:380px; margin:10vh auto 0; padding:0 20px}
+  .auth .logo{font-size:1.5rem; font-weight:800; text-align:center; margin-bottom:6px}
+  .auth .logo span{color:var(--brand)}
+  .auth p{color:var(--mut); text-align:center; font-size:.85rem; margin-bottom:26px}
+  input,textarea,select{
+    width:100%; background:var(--card); border:1px solid var(--line); color:var(--txt);
+    border-radius:12px; padding:13px 14px; font-size:.95rem; margin-bottom:10px;
+    font-family:inherit;
+  }
+  input:focus,textarea:focus{outline:none; border-color:var(--brand)}
+  .btn{
+    width:100%; background:var(--brand); color:#14100a; border:none; border-radius:12px;
+    padding:14px; font-size:.95rem; font-weight:800; cursor:pointer; font-family:inherit;
+  }
+  .btn.sec{background:var(--card2); color:var(--txt); border:1px solid var(--line)}
+  .btn:disabled{opacity:.5}
+  .authmsg{font-size:.8rem; text-align:center; margin-top:12px; color:var(--mut)}
+  .authmsg.err{color:var(--red)}
+  .switch{
+    text-align:center; margin-top:16px; font-size:.82rem; color:var(--mut);
+  }
+  .switch a{color:var(--brand); font-weight:700; cursor:pointer; text-decoration:none}
+
+  /* import */
+  textarea.json{min-height:220px; font-family:ui-monospace,Menlo,monospace; font-size:.75rem}
+  .implog{
+    font-family:ui-monospace,Menlo,monospace; font-size:.72rem; color:var(--mut);
+    background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:12px; margin-top:12px; white-space:pre-wrap; max-height:220px; overflow:auto;
+  }
+
+  /* demo banner + role switch */
+  .demo{
+    background:#2a1f0a; border:1px solid #6b5416; color:#fbd38d; font-size:.72rem;
+    padding:8px 12px; border-radius:10px; margin-bottom:14px; display:flex; align-items:center; gap:8px;
+    flex-wrap:wrap;
+  }
+  .demo select{width:auto; margin:0; padding:4px 8px; font-size:.72rem; border-radius:8px}
+
+  /* modal */
+  .modal{
+    position:fixed; inset:0; z-index:60; background:rgba(0,0,0,.6);
+    display:flex; align-items:flex-end; justify-content:center;
+  }
+  @media(min-width:600px){.modal{align-items:center}}
+  .modal .box{
+    background:var(--card); border:1px solid var(--line); width:100%; max-width:480px;
+    border-radius:20px 20px 0 0; padding:20px 18px calc(20px + env(safe-area-inset-bottom));
+    max-height:85dvh; overflow:auto;
+  }
+  @media(min-width:600px){.modal .box{border-radius:20px}}
+</style>
+</head>
+<body>
+
+<!-- ==================== GİRİŞ ==================== -->
+<div id="vAuth" class="auth hidden">
+  <div class="logo">uzbionik <span>·</span> kreatif merkezi</div>
+  <p>Ekip performans paneli</p>
+  <div id="authLogin">
+    <input id="liEmail" type="email" placeholder="E-posta" autocomplete="email">
+    <input id="liPass" type="password" placeholder="Şifre" autocomplete="current-password">
+    <button class="btn" id="btnLogin">Giriş Yap</button>
+    <div class="switch">Hesabın yok mu? <a id="goSignup">Kayıt ol</a></div>
+  </div>
+  <div id="authSignup" class="hidden">
+    <input id="suName" type="text" placeholder="Ad Soyad">
+    <select id="suInitial">
+      <option value="">Kreatif harfin (yoksa boş bırak)</option>
+      <option value="C">C · Çağdaş</option>
+      <option value="İ">İ · İnka</option>
+      <option value="E">E · Erdem</option>
+      <option value="M">M · Mustafa</option>
+    </select>
+    <input id="suEmail" type="email" placeholder="E-posta" autocomplete="email">
+    <input id="suPass" type="password" placeholder="Şifre (en az 6 karakter)" autocomplete="new-password">
+    <button class="btn" id="btnSignup">Kayıt Ol</button>
+    <div class="switch">Zaten hesabın var mı? <a id="goLogin">Giriş yap</a></div>
+  </div>
+  <div id="authMsg" class="authmsg"></div>
+</div>
+
+<!-- ==================== UYGULAMA ==================== -->
+<div id="vApp" class="hidden">
+  <header>
+    <div class="logo">uzbionik <span>kreatif</span></div>
+    <div class="sp"></div>
+    <select id="weekPick" class="weekpick"></select>
+    <div class="avatar" id="avatar" title="Çıkış yap">?</div>
+  </header>
+
+  <main>
+    <div id="demoBar" class="demo hidden">
+      DEMO MODU — örnek veri.
+      <span>Rol:</span>
+      <select id="demoRole">
+        <option value="admin">Yönetici</option>
+        <option value="partner">Ortak</option>
+        <option value="creative">Kreatif Ekip</option>
+      </select>
+    </div>
+
+    <div id="tabBoard"></div>
+    <div id="tabGallery" class="hidden"></div>
+    <div id="tabHooks" class="hidden"></div>
+    <div id="tabTeam" class="hidden"></div>
+    <div id="tabFinance" class="hidden"></div>
+    <div id="tabImport" class="hidden"></div>
+  </main>
+
+  <nav id="nav"></nav>
+</div>
+
+<div id="modalHost"></div>
+
+<script type="module">
+/* ================= AYARLAR =================
+   Supabase projesi oluşturunca doldur.
+   Boş bırakılırsa uygulama DEMO modunda örnek veriyle açılır. */
+const SUPABASE_URL      = "https://ciwpxeqqrwfsuoggdync.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpd3B4ZXFxcndmc3VvZ2dkeW5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MjI4ODQsImV4cCI6MjEwMjE5ODg4NH0.S_vgxYMAjQ9RtkRHxyMJs0NG9aj94_Jn2FfaGszzTOI";
+/* =========================================== */
+
+const DEMO = !SUPABASE_URL;
+let sb = null;
+if(!DEMO){
+  const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
+  sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+/* ---------- sözlükler ---------- */
+const ST = {
+  yeni:          {l:"Yeni",           c:"#8b93a7"},
+  testte:        {l:"Testte",         c:"#3b82f6"},
+  yetersiz_veri: {l:"Yetersiz Veri",  c:"#a78bfa"},
+  winner_adayi:  {l:"Winner Adayı",   c:"#fbbf24"},
+  onayli_winner: {l:"Onaylı Winner",  c:"#22c55e"},
+  yorulma_riski: {l:"Yorulma Riski",  c:"#fb923c"},
+  loser:         {l:"Loser",          c:"#ef4444"},
+  arsiv:         {l:"Arşiv",          c:"#6b7280"},
+};
+const HST = {
+  tutan:        {l:"Tutan",                  c:"#22c55e"},
+  negatif:      {l:"Negatif Sinyalli",       c:"#ef4444"},
+  yeniden_test: {l:"Yeniden Test Edilebilir",c:"#fbbf24"},
+  testte:       {l:"Testte",                 c:"#3b82f6"},
+};
+const OWNERS = {
+  "C":{name:"Çağdaş",  c:"#f59e0b"},
+  "İ":{name:"İnka",    c:"#38bdf8"},
+  "E":{name:"Erdem",   c:"#a78bfa"},
+  "M":{name:"Mustafa", c:"#34d399"},
+};
+const FMT = {video:"🎬 Video", gorsel:"🖼 Görsel", carousel:"🧩 Carousel"};
+
+/* ---------- durum ---------- */
+const S = {
+  profile:null, weeks:[], week:null,
+  creatives:[], results:[], fins:[], hooks:[],
+  tab:"board", galFilter:{owner:"", status:""},
+};
+const canFin = () => S.profile && (S.profile.role==="admin" || S.profile.role==="partner");
+const isAdmin = () => S.profile && S.profile.role==="admin";
+
+/* ---------- yardımcılar ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s??"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+const nf  = new Intl.NumberFormat("tr-TR");
+const nf1 = new Intl.NumberFormat("tr-TR",{maximumFractionDigits:1});
+const nf2 = new Intl.NumberFormat("tr-TR",{maximumFractionDigits:2});
+const tl  = v => v==null ? "—" : "₺"+nf.format(Math.round(v));
+const pct = v => v==null ? "—" : nf1.format(v*100)+"%";
+const trDate = d => new Date(d+"T00:00:00").toLocaleDateString("tr-TR",{day:"numeric",month:"long"});
+const chip = (label,color)=>`<span class="chip" style="color:${color};border-color:${color}44;background:${color}14">${esc(label)}</span>`;
+const ownBadge = o => { const w = OWNERS[o]||{name:o,c:"#8b93a7"}; return `<span class="own" style="background:${w.c}22;color:${w.c}" title="${esc(w.name)}">${esc(o)}</span>`; };
+
+const resFor  = code => S.results.find(r=>r.creative_code===code && r.week===S.week);
+const finFor  = code => S.fins.find(r=>r.creative_code===code && r.week===S.week);
+const statusAtWeek = c => (resFor(c.code)?.status_at_week) || c.status;
+
+/* ================= DEMO VERİSİ ================= */
+function demoData(){
+  const w1="2026-08-03", w2="2026-08-10";
+  S.weeks=[{week:w2,note:"Okula dönüş dalgası başladı; 2 yeni test."},{week:w1,note:"İlk pilot haftası."}];
+  S.week=w2;
+  S.creatives=[
+    {code:"UZB_C_CF012_VIDEO_HK023_YENI_V01_20260727", owner_initial:"C", family:"CF012", format:"video",
+     hook_code:"HK023", hook_text:"Çocuğunuz sebzeye dokunmuyorsa bu 10 saniyeyi izleyin", tur:"YENI",
+     status:"onayli_winner", status_reason:"GPT eşiği + 2 tam gün istikrar tamamlandı (kural v1).",
+     attribution:"dogrulanmis", first_week:w1, thumb_url:""},
+    {code:"UZB_C_CF012_VIDEO_HK023_VAR_V02_20260805", owner_initial:"C", family:"CF012", format:"video",
+     hook_code:"HK031", hook_text:"Kaşık savaşları bitti — annelerin yeni taktiği", tur:"VAR",
+     parent_code:"UZB_C_CF012_VIDEO_HK023_YENI_V01_20260727", changed_element:"Hook metni",
+     status:"winner_adayi", status_reason:"Güçlü sinyal; 1 tam gün + 2 satış daha gerekli.",
+     attribution:"dogrulanmis", first_week:w2},
+    {code:"UZB_I_CF019_GORSEL_HK027_YENI_V01_20260803", owner_initial:"İ", family:"CF019", format:"gorsel",
+     hook_code:"HK027", hook_text:"Eczacıya sorduk: gummy vitaminde nelere bakmalı?", tur:"YENI",
+     status:"testte", status_reason:"Veri birikiyor.", attribution:"belirsiz",
+     attribution_note:"Aynı sette 2. kreatif var; atıf teyidi bekleniyor.", first_week:w2},
+    {code:"UZB_E_CF008_VIDEO_HK015_ITER_V03_20260728", owner_initial:"E", family:"CF008", format:"video",
+     hook_code:"HK015", hook_text:"3 çocuk annesi anlatıyor: sabah rutinimiz değişti", tur:"ITER",
+     changed_element:"Anlatı yapısı (UGC → kurgu)", status:"yorulma_riski",
+     status_reason:"Son pencere GPT'si sağlıklı pencerenin %38 altında, frekans 3.1.",
+     attribution:"dogrulanmis", first_week:w1},
+    {code:"UZB_M_CF021_VIDEO_HK029_YENI_V01_20260803", owner_initial:"M", family:"CF021", format:"video",
+     hook_code:"HK029", hook_text:"Bu şekeri çocuğunuza vermeyin (şaka değil)", tur:"YENI",
+     status:"loser", status_reason:"Veri eşiği doldu; relatif GPT 0,4.", attribution:"dogrulanmis", first_week:w2},
+    {code:"UZB_M_CF022_GORSEL_HK030_YENI_V01_20260810", owner_initial:"M", family:"CF022", format:"gorsel",
+     hook_code:"HK030", hook_text:"Pediatristlerin çekmecesindeki tek gummy", tur:"YENI",
+     status:"yetersiz_veri", status_reason:"1 tam gün veya 2 satış daha gerekli.", attribution:"belirsiz", first_week:w2},
+    {code:"UZB_E_CF008_VIDEO_HK015_YENI_V01_20260720", owner_initial:"E", family:"CF008", format:"video",
+     hook_code:"HK015", hook_text:"3 çocuk annesi anlatıyor: sabah rutinimiz değişti", tur:"YENI",
+     status:"arsiv", status_reason:"Yerini V03 iterasyonu aldı.", attribution:"dogrulanmis", first_week:w1},
+  ];
+  S.results=[
+    {creative_code:S.creatives[0].code, week:w2, sales:14, impressions:118000, video_3s:41300, thruplay:9500, link_clicks:1620, status_at_week:"onayli_winner"},
+    {creative_code:S.creatives[1].code, week:w2, sales:6,  impressions:52000,  video_3s:20800, thruplay:5600, link_clicks:830,  status_at_week:"winner_adayi"},
+    {creative_code:S.creatives[2].code, week:w2, sales:3,  impressions:34000,  link_clicks:510, status_at_week:"testte"},
+    {creative_code:S.creatives[3].code, week:w2, sales:5,  impressions:96000,  video_3s:26900, thruplay:4300, link_clicks:980,  status_at_week:"yorulma_riski"},
+    {creative_code:S.creatives[4].code, week:w2, sales:1,  impressions:41000,  video_3s:9800,  thruplay:1400, link_clicks:290,  status_at_week:"loser"},
+    {creative_code:S.creatives[5].code, week:w2, sales:1,  impressions:9000,   link_clicks:120, status_at_week:"yetersiz_veri"},
+    {creative_code:S.creatives[0].code, week:w1, sales:11, impressions:90000,  video_3s:31000, thruplay:7100, link_clicks:1210, status_at_week:"winner_adayi"},
+    {creative_code:S.creatives[3].code, week:w1, sales:9,  impressions:74000,  video_3s:23500, thruplay:5900, link_clicks:1010, status_at_week:"onayli_winner"},
+  ];
+  S.results.forEach(r=>{
+    r.hook_rate = r.video_3s && r.impressions ? r.video_3s/r.impressions : null;
+    r.hold_rate = r.thruplay && r.video_3s ? r.thruplay/r.video_3s : null;
+    r.ctr = r.link_clicks && r.impressions ? r.link_clicks/r.impressions : null;
+  });
+  S.fins=[
+    {creative_code:S.creatives[0].code, week:w2, spend:9800,  revenue:41500, roas:4.23, cpr:700,  gpt:2262, rel_gpt:1.9},
+    {creative_code:S.creatives[1].code, week:w2, spend:4300,  revenue:14900, roas:3.47, cpr:717,  gpt:1769, rel_gpt:1.48},
+    {creative_code:S.creatives[2].code, week:w2, spend:2100,  revenue:5200,  roas:2.48, cpr:700,  gpt:1034, rel_gpt:0.87},
+    {creative_code:S.creatives[3].code, week:w2, spend:7600,  revenue:19800, roas:2.61, cpr:1520, gpt:2442, rel_gpt:0.74},
+    {creative_code:S.creatives[4].code, week:w2, spend:3400,  revenue:2900,  roas:0.85, cpr:3400, gpt:-508, rel_gpt:0.4},
+    {creative_code:S.creatives[5].code, week:w2, spend:900,   revenue:1700,  roas:1.89, cpr:900,  gpt:800,  rel_gpt:0.67},
+  ];
+  S.hooks=[
+    {code:"HK023", text:"Çocuğunuz sebzeye dokunmuyorsa bu 10 saniyeyi izleyin", owner_initial:"C", status:"tutan", first_week:w1, note:"CF012 ailesinin ana hook'u. Sorun-farkında."},
+    {code:"HK031", text:"Kaşık savaşları bitti — annelerin yeni taktiği", owner_initial:"C", status:"testte", first_week:w2, note:"HK023 varyasyonu."},
+    {code:"HK015", text:"3 çocuk annesi anlatıyor: sabah rutinimiz değişti", owner_initial:"E", status:"tutan", first_week:w1, note:"UGC formatında güçlü, kurguda yorulma sinyali."},
+    {code:"HK029", text:"Bu şekeri çocuğunuza vermeyin (şaka değil)", owner_initial:"M", status:"negatif", first_week:w2, note:"Negatif açı bu üründe ters tepti; farklı gövdeyle yeniden denenebilir."},
+    {code:"HK027", text:"Eczacıya sorduk: gummy vitaminde nelere bakmalı?", owner_initial:"İ", status:"testte", first_week:w2, note:"Otorite açısı, çözüm-farkında."},
+    {code:"HK011", text:"Vitamini oyuna çeviren gummy", owner_initial:"İ", status:"yeniden_test", first_week:w1, note:"İlk testte yetersiz veri; okul döneminde tekrar."},
+  ];
+}
+
+/* ================= SUPABASE VERİ ================= */
+async function loadAll(){
+  const [w,c,r,h] = await Promise.all([
+    sb.from("weeks").select("*").order("week",{ascending:false}),
+    sb.from("creatives").select("*").order("created_at",{ascending:false}),
+    sb.from("weekly_results").select("*"),
+    sb.from("hooks").select("*").order("updated_at",{ascending:false}),
+  ]);
+  S.weeks=w.data||[]; S.creatives=c.data||[]; S.results=r.data||[]; S.hooks=h.data||[];
+  S.fins=[];
+  if(canFin()){
+    const f = await sb.from("weekly_financials").select("*");
+    S.fins=f.data||[];
+  }
+  if(!S.week && S.weeks.length) S.week=S.weeks[0].week;
+}
+
+/* ================= RENDER ================= */
+function metricRow(c){
+  const r=resFor(c.code), f=finFor(c.code);
+  let out=[];
+  if(r){
+    out.push(`<span class="m">Satış <b>${nf.format(r.sales??0)}</b></span>`);
+    if(r.hook_rate!=null) out.push(`<span class="m">Hook <b>${pct(r.hook_rate)}</b></span>`);
+    if(r.hold_rate!=null) out.push(`<span class="m">Hold <b>${pct(r.hold_rate)}</b></span>`);
+    if(r.ctr!=null) out.push(`<span class="m">CTR <b>${pct(r.ctr)}</b></span>`);
+  }
+  if(canFin() && f){
+    out.push(`<span class="m">Harcama <b>${tl(f.spend)}</b></span>`);
+    out.push(`<span class="m">ROAS <b>${f.roas!=null?nf2.format(f.roas):"—"}</b></span>`);
+    out.push(`<span class="m">GPT <b>${tl(f.gpt)}</b></span>`);
+    out.push(`<span class="m">rGPT <b>${f.rel_gpt!=null?nf2.format(f.rel_gpt):"—"}</b></span>`);
+  }
+  return out.length?`<div class="mrow">${out.join("")}</div>`:"";
+}
+
+function creativeCard(c){
+  const st = ST[statusAtWeek(c)]||ST.yeni;
+  const fmtIc = c.format==="gorsel"?"🖼":c.format==="carousel"?"🧩":"🎬";
+  const thumb = c.thumb_url
+    ? `<img class="thumb" src="${esc(c.thumb_url)}" alt="">`
+    : `<div class="thumb">${fmtIc}</div>`;
+  return `<div class="card ccard" data-code="${esc(c.code)}">
+    <div class="top">
+      ${thumb}
+      <div style="flex:1;min-width:0">
+        <div class="code">${esc(c.code)}</div>
+        <div class="meta">${ownBadge(c.owner_initial)} &nbsp;${esc(c.family||"")} · ${esc(c.tur||"")}${c.attribution==="belirsiz"?" · <span style='color:var(--purple)'>atıf belirsiz</span>":""}</div>
+      </div>
+      ${chip(st.l, st.c)}
+    </div>
+    ${c.hook_text?`<div class="hook">${esc(c.hook_code?c.hook_code+" · ":"")}${esc(c.hook_text)}</div>`:""}
+    ${metricRow(c)}
+    ${c.status_reason?`<div class="reason">${esc(c.status_reason)}</div>`:""}
+  </div>`;
+}
+
+function renderBoard(){
+  const wk = S.weeks.find(w=>w.week===S.week);
+  const act = S.creatives.filter(c=>statusAtWeek(c)!=="arsiv");
+  const grp = keys => act.filter(c=>keys.includes(statusAtWeek(c)));
+  const sec = (title,arr,emptyTxt)=> `<div class="sect"><h3>${title} <span class="cnt">${arr.length}</span></h3>${arr.length?arr.map(creativeCard).join(""):`<div class="empty">${emptyTxt}</div>`}</div>`;
+  $("tabBoard").innerHTML = `
+    <h2>Haftalık Board</h2>
+    <div class="sub">${S.week?trDate(S.week)+" haftası":"Henüz veri yok"}${wk?.note?` · ${esc(wk.note)}`:""}</div>
+    ${sec("🏆 Kazananlar", grp(["onayli_winner","winner_adayi"]), "Bu hafta kazanan yok")}
+    ${sec("⚠️ Yorulma Riski", grp(["yorulma_riski"]), "Yorulma sinyali yok")}
+    ${sec("🧪 Testte", grp(["testte","yeni","yetersiz_veri"]), "Testte kreatif yok")}
+    ${sec("❌ Kaybedenler", grp(["loser"]), "Bu hafta kaybeden yok")}
+  `;
+}
+
+function renderGallery(){
+  const f = S.galFilter;
+  let list = S.creatives.slice();
+  if(f.owner) list = list.filter(c=>c.owner_initial===f.owner);
+  if(f.status) list = list.filter(c=>c.status===f.status);
+  const ochips = ["",...Object.keys(OWNERS)].map(o=>
+    `<button class="fchip ${f.owner===o?"on":""}" data-fo="${o}">${o?o+" · "+OWNERS[o].name:"Herkes"}</button>`).join("");
+  const schips = ["",...Object.keys(ST)].map(s=>
+    `<button class="fchip ${f.status===s?"on":""}" data-fs="${s}">${s?ST[s].l:"Tüm durumlar"}</button>`).join("");
+  $("tabGallery").innerHTML = `
+    <h2>Kreatif Galerisi</h2>
+    <div class="sub">${list.length} kreatif</div>
+    <div class="filters">${ochips}</div>
+    <div class="filters">${schips}</div>
+    ${list.length?list.map(creativeCard).join(""):`<div class="empty">Filtreye uyan kreatif yok</div>`}
+  `;
+  $("tabGallery").querySelectorAll("[data-fo]").forEach(b=>b.onclick=()=>{S.galFilter.owner=b.dataset.fo;renderGallery();});
+  $("tabGallery").querySelectorAll("[data-fs]").forEach(b=>b.onclick=()=>{S.galFilter.status=b.dataset.fs;renderGallery();});
+}
+
+function renderHooks(){
+  const grp = st => S.hooks.filter(h=>h.status===st);
+  const hookCard = h => `<div class="card">
+    <div style="display:flex;gap:10px;align-items:flex-start">
+      ${h.owner_initial?ownBadge(h.owner_initial):""}
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:.88rem;line-height:1.4">${esc(h.text)}</div>
+        <div style="font-size:.7rem;color:var(--mut);margin-top:3px">${esc(h.code)}${h.first_week?" · "+trDate(h.first_week):""}</div>
+      </div>
+      ${chip(HST[h.status]?.l||h.status, HST[h.status]?.c||"#8b93a7")}
+    </div>
+    ${h.note?`<div class="reason" style="margin-top:8px;font-size:.74rem;color:var(--mut);font-style:italic">${esc(h.note)}</div>`:""}
+  </div>`;
+  const sec=(t,arr)=>`<div class="sect"><h3>${t} <span class="cnt">${arr.length}</span></h3>${arr.length?arr.map(hookCard).join(""):`<div class="empty">Boş</div>`}</div>`;
+  $("tabHooks").innerHTML = `
+    <h2>Hook Bankası</h2>
+    <div class="sub">Tutan, negatif sinyalli ve yeniden test edilebilir hook'lar</div>
+    ${sec("✅ Tutan Hook'lar", grp("tutan"))}
+    ${sec("🧪 Testte", grp("testte"))}
+    ${sec("🔄 Yeniden Test Edilebilir", grp("yeniden_test"))}
+    ${sec("🚫 Negatif Sinyalli", grp("negatif"))}
+  `;
+}
+
+function renderTeam(){
+  const active = S.creatives;
+  const rows = Object.keys(OWNERS).map(o=>{
+    const mine = active.filter(c=>c.owner_initial===o);
+    const teslim = mine.length;
+    const evald = mine.filter(c=>!["yeni","testte","yetersiz_veri"].includes(c.status)).length;
+    const win = mine.filter(c=>["onayli_winner","winner_adayi"].includes(c.status)).length;
+    const rate = evald ? win/evald : null;
+    return {o, teslim, evald, win, rate};
+  }).sort((a,b)=>(b.win-a.win)||(b.rate??0)-(a.rate??0));
+  const maxWin = Math.max(1,...rows.map(r=>r.win));
+  $("tabTeam").innerHTML = `
+    <h2>Ekip Skoru</h2>
+    <div class="sub">Üretim ve winner sayısı ayrı gösterilir; küçük örneklemde oran "ön sinyal"dir</div>
+    ${rows.map(r=>{
+      const w=OWNERS[r.o];
+      return `<div class="card">
+        <div class="trow">
+          ${ownBadge(r.o)}
+          <b style="font-size:.9rem">${esc(w.name)}</b>
+          <div class="bar"><i style="width:${(r.win/maxWin)*100}%;background:${w.c}"></i></div>
+          <b style="color:${w.c}">${r.win}</b>
+        </div>
+        <div class="tstats">
+          <div class="tstat"><b>${r.teslim}</b><span>Teslim</span></div>
+          <div class="tstat"><b>${r.evald}</b><span>Değerlendirilebilir</span></div>
+          <div class="tstat"><b>${r.win}</b><span>Winner</span></div>
+          <div class="tstat"><b>${r.rate==null?"—":pct(r.rate)}</b><span>Winner Oranı${r.evald<4?" *":""}</span></div>
+        </div>
+        ${r.evald<4?`<div class="reason" style="margin-top:8px;font-size:.68rem;color:var(--dim)">* Örneklem küçük (${r.evald} değerlendirilebilir) — ön sinyal.</div>`:""}
+      </div>`;
+    }).join("")}
+  `;
+}
+
+function renderFinance(){
+  if(!canFin()){ $("tabFinance").innerHTML=""; return; }
+  const wf = S.fins.filter(f=>f.week===S.week);
+  const tot = wf.reduce((a,f)=>({spend:a.spend+(+f.spend||0), revenue:a.revenue+(+f.revenue||0)}),{spend:0,revenue:0});
+  const sales = S.results.filter(r=>r.week===S.week).reduce((a,r)=>a+(+r.sales||0),0);
+  const roas = tot.spend? tot.revenue/tot.spend : null;
+  const cpr  = sales? tot.spend/sales : null;
+  const gpt  = (cpr!=null && roas!=null)? cpr*(roas-1) : null;
+  const rows = wf.slice().sort((a,b)=>(+b.spend||0)-(+a.spend||0)).map(f=>{
+    const c=S.creatives.find(x=>x.code===f.creative_code);
+    const r=S.results.find(x=>x.creative_code===f.creative_code && x.week===S.week);
+    return `<tr>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis" title="${esc(f.creative_code)}">${c?ownBadge(c.owner_initial):""} ${esc((f.creative_code||"").split("_").slice(2,5).join("_"))}</td>
+      <td>${tl(f.spend)}</td><td>${tl(f.revenue)}</td><td>${nf.format(r?.sales??0)}</td>
+      <td>${f.roas!=null?nf2.format(f.roas):"—"}</td><td>${tl(f.gpt)}</td>
+      <td>${f.rel_gpt!=null?nf2.format(f.rel_gpt):"—"}</td>
+    </tr>`;
+  }).join("");
+  $("tabFinance").innerHTML = `
+    <h2>Finansal Özet</h2>
+    <div class="sub">${S.week?trDate(S.week)+" haftası":""} · yalnızca yönetici ve ortak görür</div>
+    <div class="kpis">
+      <div class="kpi"><b>${tl(tot.spend)}</b><span>Harcama</span></div>
+      <div class="kpi"><b>${tl(tot.revenue)}</b><span>Ciro</span></div>
+      <div class="kpi"><b>${roas!=null?nf2.format(roas):"—"}</b><span>ROAS</span></div>
+      <div class="kpi"><b>${tl(gpt)}</b><span>GPT (hesap)</span></div>
+    </div>
+    <div class="tblwrap"><table>
+      <thead><tr><th>Kreatif</th><th>Harcama</th><th>Ciro</th><th>Satış</th><th>ROAS</th><th>GPT</th><th>rGPT</th></tr></thead>
+      <tbody>${rows||`<tr><td colspan="7" style="text-align:center;color:var(--dim)">Bu hafta finansal kayıt yok</td></tr>`}</tbody>
+    </table></div>
+    <div class="reason" style="margin-top:10px;font-size:.7rem;color:var(--dim)">GPT = CPR × (ROAS − 1). Meta verisinden hesaplanan karar metriğidir; muhasebe kârı değildir.</div>
+  `;
+}
+
+function renderImport(){
+  if(!isAdmin()){ $("tabImport").innerHTML=""; return; }
+  $("tabImport").innerHTML = `
+    <h2>Haftalık Veri İçe Aktar</h2>
+    <div class="sub">Claude'un ürettiği haftalık JSON'u yapıştır → tüm paneller güncellenir</div>
+    <textarea id="impJson" class="json" placeholder='{"week":"2026-08-10","note":"...","creatives":[...],"results":[...],"financials":[...]}'></textarea>
+    <button class="btn" id="btnImport">İçe Aktar</button>
+    <div id="impLog" class="implog hidden"></div>
+  `;
+  $("btnImport").onclick = doImport;
+}
+
+function renderNav(){
+  const tabs = [
+    ["board","📊","Board"],["gallery","🖼","Galeri"],["hooks","🪝","Hooklar"],["team","👥","Ekip"],
+  ];
+  if(canFin()) tabs.push(["finance","💰","Finans"]);
+  if(isAdmin()) tabs.push(["import","📥","Aktar"]);
+  $("nav").innerHTML = tabs.map(([id,ic,l])=>
+    `<button data-tab="${id}" class="${S.tab===id?"on":""}"><span class="ic">${ic}</span>${l}</button>`).join("");
+  $("nav").querySelectorAll("button").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab; renderAll();});
+}
+
+function renderWeeks(){
+  $("weekPick").innerHTML = S.weeks.length
+    ? S.weeks.map(w=>`<option value="${w.week}" ${w.week===S.week?"selected":""}>${trDate(w.week)}</option>`).join("")
+    : `<option>Hafta yok</option>`;
+}
+
+function renderAll(){
+  renderNav(); renderWeeks();
+  ["Board","Gallery","Hooks","Team","Finance","Import"].forEach(t=>$("tab"+t).classList.add("hidden"));
+  const map={board:"Board",gallery:"Gallery",hooks:"Hooks",team:"Team",finance:"Finance",import:"Import"};
+  if((S.tab==="finance"&&!canFin())||(S.tab==="import"&&!isAdmin())) S.tab="board";
+  $("tab"+map[S.tab]).classList.remove("hidden");
+  renderBoard(); renderGallery(); renderHooks(); renderTeam(); renderFinance(); renderImport();
+  $("avatar").textContent = (S.profile?.initial || S.profile?.name?.[0] || "?").toUpperCase();
+}
+
+/* ================= IMPORT ================= */
+async function doImport(){
+  const log = $("impLog"); log.classList.remove("hidden"); log.textContent="";
+  const say = m => { log.textContent += m+"\n"; };
+  let data;
+  try{ data = JSON.parse($("impJson").value); }
+  catch(e){ say("❌ JSON okunamadı: "+e.message); return; }
+  if(!data.week){ say("❌ 'week' alanı zorunlu (haftanın pazartesi tarihi, YYYY-AA-GG)."); return; }
+  if(DEMO){ say("⚠️ DEMO modundasın — Supabase ayarları doldurulunca gerçek içe aktarma çalışır."); return; }
+  try{
+    say("→ Hafta kaydediliyor…");
+    await sb.from("weeks").upsert({week:data.week, note:data.note||null, updated_at:new Date().toISOString()});
+    if(Array.isArray(data.creatives) && data.creatives.length){
+      say(`→ ${data.creatives.length} kreatif upsert…`);
+      const rows = data.creatives.map(c=>({...c, updated_at:new Date().toISOString()}));
+      const {error} = await sb.from("creatives").upsert(rows,{onConflict:"code"});
+      if(error) throw error;
+    }
+    if(Array.isArray(data.results) && data.results.length){
+      say(`→ ${data.results.length} haftalık sonuç upsert…`);
+      const rows = data.results.map(r=>{
+        const o={...r, week:data.week};
+        o.hook_rate = o.hook_rate ?? (o.video_3s&&o.impressions? o.video_3s/o.impressions : null);
+        o.hold_rate = o.hold_rate ?? (o.thruplay&&o.video_3s? o.thruplay/o.video_3s : null);
+        o.ctr = o.ctr ?? (o.link_clicks&&o.impressions? o.link_clicks/o.impressions : null);
+        return o;
+      });
+      const {error} = await sb.from("weekly_results").upsert(rows,{onConflict:"creative_code,week"});
+      if(error) throw error;
+      // durumları kreatif kartına da yansıt
+      for(const r of rows){
+        if(r.status_at_week) await sb.from("creatives").update({status:r.status_at_week, updated_at:new Date().toISOString()}).eq("code", r.creative_code);
+      }
+    }
+    if(Array.isArray(data.financials) && data.financials.length){
+      say(`→ ${data.financials.length} finansal kayıt upsert…`);
+      let rows = data.financials.map(f=>({...f, week:data.week}));
+      rows.forEach(f=>{
+        const sales = (data.results||[]).find(r=>r.creative_code===f.creative_code)?.sales;
+        f.roas = f.roas ?? (f.spend? f.revenue/f.spend : null);
+        f.cpr  = f.cpr  ?? (sales? f.spend/sales : null);
+        f.gpt  = f.gpt  ?? ((f.cpr!=null&&f.roas!=null)? f.cpr*(f.roas-1) : null);
+      });
+      const totSpend = rows.reduce((a,f)=>a+(+f.spend||0),0);
+      const wAvg = totSpend? rows.reduce((a,f)=>a+(+f.gpt||0)*(+f.spend||0),0)/totSpend : null;
+      rows.forEach(f=>{ f.rel_gpt = f.rel_gpt ?? ((wAvg&&f.gpt!=null)? f.gpt/wAvg : null); });
+      const {error} = await sb.from("weekly_financials").upsert(rows,{onConflict:"creative_code,week"});
+      if(error) throw error;
+    }
+    if(Array.isArray(data.hooks) && data.hooks.length){
+      say(`→ ${data.hooks.length} hook upsert…`);
+      const {error} = await sb.from("hooks").upsert(data.hooks.map(h=>({...h, updated_at:new Date().toISOString()})),{onConflict:"code"});
+      if(error) throw error;
+    }
+    say("✅ Tamamlandı. Veriler yenileniyor…");
+    await loadAll(); S.week=data.week; renderAll();
+  }catch(e){ say("❌ Hata: "+(e.message||e)); }
+}
+
+/* ================= AUTH ================= */
+function showAuth(msg,err){
+  $("vAuth").classList.remove("hidden"); $("vApp").classList.add("hidden");
+  const m=$("authMsg"); m.textContent=msg||""; m.className="authmsg"+(err?" err":"");
+}
+async function showApp(){
+  $("vAuth").classList.add("hidden"); $("vApp").classList.remove("hidden");
+  renderAll();
+}
+
+async function boot(){
+  if(DEMO){
+    demoData();
+    S.profile={name:"Demo Yönetici", role:"admin", initial:"Y"};
+    $("demoBar").classList.remove("hidden");
+    $("demoRole").onchange = e=>{
+      const r=e.target.value;
+      S.profile = r==="admin" ? {name:"Demo Yönetici",role:"admin",initial:"Y"}
+        : r==="partner" ? {name:"Demo Ortak",role:"partner",initial:"O"}
+        : {name:"Demo Çağdaş",role:"creative",initial:"C"};
+      S.tab="board"; renderAll();
+    };
+    await showApp(); return;
+  }
+  const {data:{session}} = await sb.auth.getSession();
+  if(!session){ showAuth(); return; }
+  const {data:prof} = await sb.from("profiles").select("*").eq("id",session.user.id).single();
+  if(!prof){ showAuth("Profil bulunamadı — tekrar kayıt olmayı dene.",true); await sb.auth.signOut(); return; }
+  S.profile=prof;
+  await loadAll();
+  await showApp();
+}
+
+$("goSignup").onclick=()=>{ $("authLogin").classList.add("hidden"); $("authSignup").classList.remove("hidden"); $("authMsg").textContent=""; };
+$("goLogin").onclick =()=>{ $("authSignup").classList.add("hidden"); $("authLogin").classList.remove("hidden"); $("authMsg").textContent=""; };
+
+$("btnLogin").onclick = async ()=>{
+  if(DEMO) return;
+  $("btnLogin").disabled=true;
+  const {error} = await sb.auth.signInWithPassword({email:$("liEmail").value.trim(), password:$("liPass").value});
+  $("btnLogin").disabled=false;
+  if(error){ showAuth("Giriş başarısız: "+error.message, true); return; }
+  boot();
+};
+$("btnSignup").onclick = async ()=>{
+  if(DEMO) return;
+  const name=$("suName").value.trim();
+  if(!name){ showAuth("Ad Soyad gerekli.",true); return; }
+  $("btnSignup").disabled=true;
+  const {data,error} = await sb.auth.signUp({email:$("suEmail").value.trim(), password:$("suPass").value});
+  if(error){ $("btnSignup").disabled=false; showAuth("Kayıt başarısız: "+error.message, true); return; }
+  if(data.user){
+    await sb.from("profiles").insert({id:data.user.id, name, initial:$("suInitial").value||null});
+  }
+  $("btnSignup").disabled=false;
+  boot();
+};
+$("avatar").onclick = async ()=>{
+  if(DEMO){ alert("Demo modundasın. Supabase bağlanınca burası çıkış butonu olur."); return; }
+  if(confirm("Çıkış yapılsın mı?")){ await sb.auth.signOut(); location.reload(); }
+};
+$("weekPick").onchange = e=>{ S.week=e.target.value; renderAll(); };
+
+boot();
+</script>
+</body>
+</html>
