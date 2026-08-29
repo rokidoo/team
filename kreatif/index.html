@@ -441,7 +441,7 @@ const S = {
   tab:"board", galFilter:{owner:"", status:"", format:""},
   boardFmt:"", hookFilter:{format:"", status:""}, teamTable:true,
   pipeline:[], ideas:[], prodView:"akis", prodTables:true,
-  ideaFilter:{tur:"", format:""},
+  ideaFilter:{tur:"", format:"", durum:"acik"},
 };
 const STAGES = [
   ["fikirler","FİKİRLER"],["hooklar","HOOKLAR"],["k_yapilacak","KREATİF YAPILACAKLAR"],
@@ -540,7 +540,7 @@ function demoData(){
     {id:"d3", title:"uz görsel 380", stage:"r_yayinda", format:"gorsel", owner_initial:"M", created_name:"Demo Yönetici"},
   ];
   S.ideas=[
-    {id:"i1", parent_code:"uz görsel 369", tur:"VAR", hooks:["KOMŞUDAN DUYDUM, ÜÇ KUTU KAPTIM!","BALKONDAN BALKONA YAYILDI BU HABER!"], note:"Balkon sahnesi aynı kalır, sadece balon metni değişir.", created_name:"Demo Çağdaş"},
+    {id:"i1", parent_code:"uz görsel 369", tur:"VAR", hooks:["KOMŞUDAN DUYDUM, ÜÇ KUTU KAPTIM!","BALKONDAN BALKONA YAYILDI BU HABER!"], note:"Balkon sahnesi aynı kalır, sadece balon metni değişir.", created_name:"Demo Çağdaş", done:true, done_name:"Demo Çağdaş"},
     {id:"i2", parent_code:"uz video 419", tur:"ITER", hooks:["Servis durağında iki anne konuşuyor"], note:"Claymation korunur, sahne kahvaltıdan servise taşınır.", created_name:"Demo İnka"},
   ];
   S.hooks=[
@@ -1066,22 +1066,37 @@ function renderProd(){
       return aw-bw || a.localeCompare(b,"tr");
     });
     if(f.format) keys = keys.filter(k=>fmtOf(k)===f.format);
+    const isDone = x => !!x.done;
+    const allDone = k => groups[k].length>0 && groups[k].every(isDone);
+    const doneGroups = keys.filter(allDone);
     const view = {};
     keys.forEach(k=>{
-      view[k] = f.tur ? groups[k].filter(x=>(x.tur||"FIKIR")===f.tur) : groups[k];
+      let arr = groups[k];
+      if(f.tur) arr = arr.filter(x=>(x.tur||"FIKIR")===f.tur);
+      if(f.durum==="acik")   arr = arr.filter(x=>!isDone(x));
+      if(f.durum==="yapildi") arr = arr.filter(isDone);
+      view[k] = arr;
     });
-    if(f.tur) keys = keys.filter(k=>view[k].length);
+    if(f.durum==="acik")    keys = keys.filter(k=>!allDone(k));
+    if(f.durum==="yapildi") keys = keys.filter(k=>view[k].length);
+    if(f.tur)               keys = keys.filter(k=>view[k].length);
     const tchips = [["","Tüm etiketler"],...Object.keys(TURS).map(k=>[k,TURS[k].l])].map(([v,l])=>
       `<button class="fchip ${f.tur===v?"on":""}" data-it="${v}">${l}</button>`).join("");
     const fchips2 = [["","Tüm formatlar"],["gorsel","🖼 Görsel"],["video","🎬 Video"]].map(([v,l])=>
       `<button class="fchip ${f.format===v?"on":""}" data-if="${v}">${l}</button>`).join("");
+    const dchips = [["acik","🔵 Açık işler"],["yapildi","✅ Yapıldı"],["tumu","Tümü"]].map(([v,l])=>
+      `<button class="fchip ${f.durum===v?"on":""}" data-id2="${v}">${l}</button>`).join("");
+    const doneNote = (f.durum==="acik" && doneGroups.length)
+      ? `<div style="font-size:.72rem;color:var(--mut);font-weight:700;margin-top:14px">✅ ${doneGroups.length} kreatifin tüm işi tamamlandı ve listeden gizlendi — görmek için "Yapıldı" filtresine geç.</div>` : "";
     body = `
+      <div class="filters">${dchips}</div>
       <div class="filters">${fchips2}</div>
       <div class="filters">${tchips}</div>
       <div style="margin-bottom:14px"><button class="addbtn" id="ideaAdd" style="width:100%">＋ Yeni kayıt — kreatifi seç, fikrini/hook'unu yaz, etiketle (herkes ekleyebilir)</button></div>
       <div style="display:flex;flex-direction:column;gap:14px">
-        ${keys.length? keys.map(k=>ideaGroup(k, view[k], winnerCodes.includes(k))).join("") : `<div class="empty">Filtreye uyan kayıt yok</div>`}
+        ${keys.length? keys.map(k=>ideaGroup(k, view[k], winnerCodes.includes(k), allDone(k))).join("") : `<div class="empty">${f.durum==="yapildi"?"Henüz tamamlanan kayıt yok":"Açık iş kalmadı — hepsi tamamlandı 🎉"}</div>`}
       </div>
+      ${doneNote}
     `;
   }
   el.innerHTML = `
@@ -1117,17 +1132,20 @@ function renderProd(){
     el.querySelectorAll("[data-iedit]").forEach(b=>b.onclick=()=>openIdeaModal(b.dataset.iedit));
     el.querySelectorAll("[data-it]").forEach(b=>b.onclick=()=>{S.ideaFilter.tur=b.dataset.it; renderProd();});
     el.querySelectorAll("[data-if]").forEach(b=>b.onclick=()=>{S.ideaFilter.format=b.dataset.if; renderProd();});
+    el.querySelectorAll("[data-id2]").forEach(b=>b.onclick=()=>{S.ideaFilter.durum=b.dataset.id2; renderProd();});
+    el.querySelectorAll("[data-idone]").forEach(b=>b.onclick=()=>toggleIdeaDone(b.dataset.idone));
   }
 }
-function ideaGroup(code, entries, isWinner){
+function ideaGroup(code, entries, isWinner, allDone){
   const c = S.creatives.find(x=>x.code===code);
   const fmt = c ? (c.format==="video"?"🎬":c.format==="carousel"?"🧩":"🖼")
                : (code.toLowerCase().includes("video")?"🎬":"🖼");
   return `<div class="card" style="padding:0;overflow:hidden">
-    <div style="display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:var(--b2);background:${isWinner?"var(--green-s)":"var(--cream2)"};flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:var(--b2);background:${allDone?"var(--gray-s)":isWinner?"var(--green-s)":"var(--cream2)"};flex-wrap:wrap">
       <span style="font-size:1.05rem">${fmt}</span>
       <b class="mono" style="font-size:.78rem;word-break:break-all">${esc(code)}</b>
       ${isWinner?chip("🏆 Haftanın Winner'ı","var(--card)"):""}
+      ${allDone?chip("✅ Tamamlandı","var(--green-s)"):""}
       ${c?.link?`<a class="editbtn" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;color:var(--cobalt);font-weight:800" href="${esc(c.link)}" target="_blank" rel="noopener" title="Facebook'ta aç">↗</a>`:""}
       <span style="flex:1"></span>
       <button class="addbtn" data-iadd="${esc(code)}" style="padding:5px 12px;font-size:.68rem">＋ fikir / hook ekle</button>
@@ -1140,17 +1158,35 @@ function ideaGroup(code, entries, isWinner){
 function ideaEntry(x){
   const t = TURS[x.tur]||TURS.FIKIR;
   const hooks = Array.isArray(x.hooks)?x.hooks:[];
-  return `<div style="display:inline-flex;align-items:flex-start;gap:7px;padding:7px 9px;border:2px solid var(--ink);border-radius:12px;background:${t.s};max-width:100%">
+  const d = !!x.done;
+  return `<div style="display:inline-flex;align-items:flex-start;gap:7px;padding:7px 9px;border:2px solid ${d?"var(--mut)":"var(--ink)"};border-radius:12px;background:${d?"var(--gray-s)":t.s};max-width:100%;${d?"opacity:.72":""}">
+    <button class="editbtn" data-idone="${esc(x.id)}" title="${d?"Yapıldı — geri al":"Yapıldı olarak işaretle"}"
+      style="min-width:24px;height:24px;font-size:.68rem;background:${d?"var(--green)":"var(--card)"};color:${d?"#fff":"var(--ink)"};border-color:${d?"var(--green)":"var(--ink)"}">✓</button>
     ${chip(t.l, "var(--card)")}
     <div style="min-width:0">
       <div style="display:flex;flex-wrap:wrap;gap:5px">
-        ${hooks.map(h=>`<span style="display:inline-block;background:var(--card);border:2px solid var(--ink);border-radius:8px;padding:3px 9px;font-size:.76rem;font-weight:700;line-height:1.35">${esc(h)}</span>`).join("")}
+        ${hooks.map(h=>`<span style="display:inline-block;background:var(--card);border:2px solid ${d?"var(--mut)":"var(--ink)"};border-radius:8px;padding:3px 9px;font-size:.76rem;font-weight:700;line-height:1.35;${d?"text-decoration:line-through;color:var(--mut)":""}">${esc(h)}</span>`).join("")}
       </div>
       ${x.note?`<div style="font-size:.7rem;color:var(--ink-soft);font-weight:600;margin-top:4px">${esc(x.note)}</div>`:""}
-      ${x.created_name?`<div class="mono" style="font-size:.58rem;color:var(--mut);margin-top:3px">${esc(x.created_name)}</div>`:""}
+      <div class="mono" style="font-size:.58rem;color:var(--mut);margin-top:3px">
+        ${x.created_name?esc(x.created_name):""}${d&&x.done_name?` · ✅ ${esc(x.done_name)}`:d?" · ✅ yapıldı":""}
+      </div>
     </div>
     <button class="editbtn" data-iedit="${esc(x.id)}" title="Düzenle" style="min-width:22px;height:22px;font-size:.58rem">✏️</button>
   </div>`;
+}
+async function toggleIdeaDone(id){
+  const x = S.ideas.find(i=>String(i.id)===String(id)); if(!x) return;
+  const now = !x.done;
+  x.done = now;
+  x.done_name = now ? (S.profile?.name||null) : null;
+  if(!DEMO){
+    const {error} = await sb.from("idea_pool")
+      .update({done:now, done_name:x.done_name, done_at: now? new Date().toISOString() : null, updated_at:new Date().toISOString()})
+      .eq("id", x.id);
+    if(error){ alert("Kaydedilemedi: "+error.message); x.done=!now; return; }
+  }
+  renderProd();
 }
 function pipeCard(p){
   const fmtIc = p.format==="video"?"🎬":p.format==="gorsel"?"🖼":"";

@@ -224,3 +224,8 @@ create policy "ip_update" on public.idea_pool for update
   using (public.is_admin() or auth.uid() = created_by);
 create policy "ip_delete" on public.idea_pool for delete
   using (public.is_admin() or auth.uid() = created_by);
+
+-- v1.4: havuz kayıtlarında "yapıldı" işareti
+alter table public.idea_pool add column if not exists done      boolean default false;
+alter table public.idea_pool add column if not exists done_name text;
+alter table public.idea_pool add column if not exists done_at   timestamptz;
