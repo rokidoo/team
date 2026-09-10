@@ -439,7 +439,7 @@ const S = {
   profile:null, weeks:[], week:null,
   creatives:[], results:[], fins:[], hooks:[],
   tab:"board", galFilter:{owner:"", status:"", format:""},
-  boardFmt:"", hookFilter:{format:"", status:""}, teamTable:true,
+  boardFmt:"", boardOwner:"", boardView:"hafta", teamView:"tumu", hookFilter:{format:"", status:""}, teamTable:true,
   pipeline:[], ideas:[], prodView:"akis", prodTables:true,
   ideaFilter:{tur:"", format:"", durum:"acik"},
 };
@@ -636,12 +636,88 @@ const BOARD_COLS = [
   {key:"lose", title:"❌ Kaybedenler", statuses:["loser"],                        color:"var(--red)",    soft:"var(--red-s)",    drop:"loser"},
   {key:"fatg", title:"⚠️ Yorulma",     statuses:["yorulma_riski"],                color:"var(--orange)", soft:"var(--orange-s)", drop:"yorulma_riski"},
 ];
-function renderBoard(){
-  const wk = S.weeks.find(w=>w.week===S.week);
-  let act = S.creatives.filter(c=>statusAtWeek(c)!=="arsiv");
-  if(S.boardFmt) act = act.filter(c=>(c.format||"video")===S.boardFmt);
+function boardFilterChips(){
   const fchips = [["","Tümü"],["gorsel","🖼 Görsel"],["video","🎬 Video"]].map(([v,l])=>
     `<button class="fchip ${S.boardFmt===v?"on":""}" data-bf="${v}">${l}</button>`).join("");
+  const ochips = ["",...Object.keys(OWNERS)].map(ov=>
+    `<button class="fchip ${S.boardOwner===ov?"on":""}" data-bo="${ov}">${ov?ov+" · "+OWNERS[ov].name:"👥 Herkes"}</button>`).join("")
+    + `<button class="fchip ${S.boardOwner==="?"?"on":""}" data-bo="?">? · Sahipsiz</button>`;
+  const vchips = [["hafta","📊 Bu Hafta"],["tumu","🏛 Tüm Zamanlar"]].map(([v,l])=>
+    `<button class="fchip ${S.boardView===v?"on":""}" data-bv="${v}">${l}</button>`).join("");
+  return `<div class="filters">${vchips}</div><div class="filters">${fchips}</div><div class="filters">${ochips}</div>`;
+}
+function bindBoardFilters(el){
+  el.querySelectorAll("[data-bf]").forEach(b=>b.onclick=()=>{S.boardFmt=b.dataset.bf; renderBoard();});
+  el.querySelectorAll("[data-bo]").forEach(b=>b.onclick=()=>{S.boardOwner=b.dataset.bo; renderBoard();});
+  el.querySelectorAll("[data-bv]").forEach(b=>b.onclick=()=>{S.boardView=b.dataset.bv; renderBoard();});
+}
+function boardFilter(list){
+  let a = list;
+  if(S.boardFmt)   a = a.filter(c=>(c.format||"video")===S.boardFmt);
+  if(S.boardOwner) a = a.filter(c=>(c.owner_initial||"?")===S.boardOwner);
+  return a;
+}
+/* ---- Tüm Zamanlar: her kreatifin butun haftalardaki toplami ---- */
+function allTimeRows(){
+  const by = {};
+  S.results.forEach(r=>{
+    const k=r.creative_code;
+    const x = by[k] = by[k] || {code:k, weeks:0, sales:0, imp:0, winWeeks:0, spend:0, rev:0, first:null, last:null};
+    x.weeks++; x.sales += (+r.sales||0); x.imp += (+r.impressions||0);
+    if(["onayli_winner","winner_adayi"].includes(r.status_at_week)) x.winWeeks++;
+    if(r.week){ if(!x.first || r.week<x.first) x.first=r.week; if(!x.last || r.week>x.last) x.last=r.week; }
+  });
+  S.fins.forEach(f=>{ const x=by[f.creative_code]; if(x){ x.spend+=(+f.spend||0); x.rev+=(+f.revenue||0); } });
+  return Object.values(by).map(x=>{
+    x.creative = S.creatives.find(c=>c.code===x.code) || null;
+    x.roas = x.spend ? x.rev/x.spend : null;
+    x.gpt  = (x.sales && x.spend) ? (x.spend/x.sales)*((x.rev/x.spend)-1) : null;
+    return x;
+  });
+}
+function renderAllTime(el){
+  let rows = allTimeRows().filter(x=>x.creative ? boardFilter([x.creative]).length : !S.boardFmt && !S.boardOwner);
+  rows.sort((a,b)=> canFin() ? (b.spend-a.spend) : (b.sales-a.sales));
+  const finCols = canFin();
+  const body = rows.map(x=>{
+    const c=x.creative;
+    const st = ST[c?.status||"yeni"]||ST.yeni;
+    const ic = c ? (c.format==="video"?"🎬":c.format==="carousel"?"🧩":"🖼") : (x.code.toLowerCase().includes("video")?"🎬":"🖼");
+    return `<tr>
+      <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(x.code)}">
+        ${ic} ${c?ownBadge(c.owner_initial):""} ${esc(x.code)}${c?.link?` <a href="${esc(c.link)}" target="_blank" rel="noopener" style="color:var(--cobalt);font-weight:800;text-decoration:none">↗</a>`:""}
+      </td>
+      <td>${x.weeks}</td>
+      <td><b style="color:${x.winWeeks?"var(--green)":"var(--mut)"}">${x.winWeeks}</b></td>
+      <td>${nf.format(x.sales)}</td>
+      ${finCols?`<td>${tl(x.spend)}</td><td>${tl(x.rev)}</td><td>${x.roas!=null?nf2.format(x.roas):"—"}</td><td>${tl(x.gpt)}</td>`:""}
+      <td style="text-align:left">${chip(st.l, st.s)}</td>
+    </tr>`;
+  }).join("");
+  const tw = rows.reduce((a,x)=>({sp:a.sp+x.spend, rv:a.rv+x.rev, sa:a.sa+x.sales}),{sp:0,rv:0,sa:0});
+  const troas = tw.sp? tw.rv/tw.sp : null;
+  const tgpt = (tw.sa && tw.sp)? (tw.sp/tw.sa)*((tw.rv/tw.sp)-1) : null;
+  el.innerHTML = `
+    <h2>Tüm Zamanlar</h2>
+    <div class="sub">${rows.length} kreatif · tüm haftaların toplamı · "Winner hafta" = kaç farklı haftada winner oldu</div>
+    ${boardFilterChips()}
+    <div class="kpis">
+      <div class="kpi"><b>${rows.length}</b><span>Kreatif</span></div>
+      <div class="kpi"><b>${nf.format(tw.sa)}</b><span>Toplam Satış</span></div>
+      ${canFin()?`<div class="kpi"><b>${troas!=null?nf2.format(troas):"—"}</b><span>ROAS</span></div><div class="kpi"><b>${tl(tgpt)}</b><span>GPT</span></div>`:""}
+    </div>
+    <div class="tblwrap"><table>
+      <thead><tr><th>Kreatif</th><th>Hafta</th><th>Winner hafta</th><th>Satış</th>${finCols?"<th>Harcama</th><th>Ciro</th><th>ROAS</th><th>GPT</th>":""}<th style="text-align:left">Güncel durum</th></tr></thead>
+      <tbody>${body||`<tr><td colspan="${finCols?9:5}" style="text-align:center;color:var(--mut)">Kayıt yok</td></tr>`}</tbody>
+    </table></div>
+  `;
+  bindBoardFilters(el);
+}
+function renderBoard(){
+  const el = $("tabBoard");
+  if(S.boardView==="tumu"){ renderAllTime(el); return; }
+  const wk = S.weeks.find(w=>w.week===S.week);
+  let act = boardFilter(S.creatives.filter(c=>statusAtWeek(c)!=="arsiv"));
   const cols = BOARD_COLS.map(col=>{
     const arr = act.filter(c=>col.statuses.includes(statusAtWeek(c)));
     return `<div class="bcol" data-drop="${col.drop}">
@@ -652,14 +728,13 @@ function renderBoard(){
       </div>
     </div>`;
   }).join("");
-  const el = $("tabBoard");
   el.innerHTML = `
     <h2>Haftalık Board</h2>
     <div class="sub">${S.week?trDate(S.week)+" haftası":"Henüz veri yok"}${wk?.note?` · ${esc(wk.note)}`:""}${isAdmin()?" · kartları sütunlar arası sürükleyebilirsin":""}</div>
-    <div class="filters">${fchips}</div>
+    ${boardFilterChips()}
     <div class="board">${cols}</div>
   `;
-  el.querySelectorAll("[data-bf]").forEach(b=>b.onclick=()=>{S.boardFmt=b.dataset.bf; renderBoard(); bindBoard();});
+  bindBoardFilters(el);
   bindBoard();
 }
 function bindBoard(){
@@ -766,21 +841,51 @@ function renderHooks(){
 }
 
 function renderTeam(){
-  const active = S.creatives;
-  const rows = Object.keys(OWNERS).map(o=>{
-    const mine = active.filter(c=>c.owner_initial===o);
-    const teslim = mine.length;
-    const evald = mine.filter(c=>!["yeni","testte","yetersiz_veri"].includes(c.status)).length;
-    const win = mine.filter(c=>["onayli_winner","winner_adayi"].includes(c.status)).length;
-    const rate = evald ? win/evald : null;
-    return {o, teslim, evald, win, rate};
-  }).sort((a,b)=>(b.win-a.win)||(b.rate??0)-(a.rate??0));
+  const WIN=["onayli_winner","winner_adayi"], UNDEC=["yeni","testte","yetersiz_veri"];
+  const weekly = S.teamView==="hafta";
+  let rows;
+  if(weekly){
+    const wr = S.results.filter(r=>r.week===S.week);
+    const stOf = {}; wr.forEach(r=>stOf[r.creative_code]=r.status_at_week);
+    rows = Object.keys(OWNERS).map(o=>{
+      const mine = S.creatives.filter(c=>c.owner_initial===o && stOf[c.code]);
+      const teslim = mine.length;
+      const evald  = mine.filter(c=>!UNDEC.includes(stOf[c.code])).length;
+      const win    = mine.filter(c=>WIN.includes(stOf[c.code])).length;
+      return {o, teslim, evald, win, rate: evald? win/evald : null};
+    });
+  } else {
+    const perCode = {};
+    S.results.forEach(r=>{
+      const x = perCode[r.creative_code] = perCode[r.creative_code] || {ever:false, dec:false};
+      if(WIN.includes(r.status_at_week)) x.ever = true;
+      if(!UNDEC.includes(r.status_at_week)) x.dec = true;
+    });
+    rows = Object.keys(OWNERS).map(o=>{
+      const mine = S.creatives.filter(c=>c.owner_initial===o);
+      const teslim = mine.length;
+      const evald  = mine.filter(c=>perCode[c.code]?.dec || !UNDEC.includes(c.status)).length;
+      const win    = mine.filter(c=>perCode[c.code]?.ever || WIN.includes(c.status)).length;
+      return {o, teslim, evald, win, rate: evald? win/evald : null};
+    });
+  }
+  rows.sort((a,b)=>(b.win-a.win)||((b.rate??0)-(a.rate??0)));
   const maxWin = Math.max(1,...rows.map(r=>r.win));
   const teamWarn = (isAdmin() && !DEMO && !S.teamTable)
     ? `<div class="demo" style="margin-bottom:14px">Ekip düzenleme için Supabase'de <b>team_members</b> tablosu gerekli — Claude'un verdiği SQL'i bir kez çalıştır.</div>` : "";
+  const tvchips = [["tumu","🏛 Tüm Zamanlar"],["hafta","📅 Bu Hafta"]].map(([v,l])=>
+    `<button class="fchip ${S.teamView===v?"on":""}" data-tv="${v}">${l}</button>`).join("");
+  const tot = rows.reduce((a,r)=>({t:a.t+r.teslim, e:a.e+r.evald, w:a.w+r.win}),{t:0,e:0,w:0});
   $("tabTeam").innerHTML = `
     <h2>Ekip Skoru</h2>
-    <div class="sub">Üretim ve winner sayısı ayrı gösterilir; küçük örneklemde oran "ön sinyal"dir</div>
+    <div class="sub">${weekly?(S.week?trDate(S.week)+" haftası":"Hafta seçilmedi"):"Tüm haftaların toplamı — bir kreatif herhangi bir haftada winner olduysa sayılır"} · üretim ve winner ayrı gösterilir, küçük örneklemde oran "ön sinyal"dir</div>
+    <div class="filters">${tvchips}</div>
+    <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
+      <div class="kpi"><b>${tot.t}</b><span>Teslim</span></div>
+      <div class="kpi"><b>${tot.e}</b><span>Değerlendirilebilir</span></div>
+      <div class="kpi"><b>${tot.w}</b><span>Winner</span></div>
+      <div class="kpi"><b>${tot.e?pct(tot.w/tot.e):"—"}</b><span>Ekip Winner Oranı</span></div>
+    </div>
     ${teamWarn}
     ${isAdmin()?`<div style="margin-bottom:12px"><button class="addbtn" id="teamAdd" style="width:100%">＋ Ekip üyesi ekle</button></div>`:""}
     <div class="cards">
@@ -805,6 +910,7 @@ function renderTeam(){
     }).join("")}
     </div>
   `;
+  $("tabTeam").querySelectorAll("[data-tv]").forEach(b=>b.onclick=()=>{S.teamView=b.dataset.tv; renderTeam();});
   if(isAdmin()){
     if($("teamAdd")) $("teamAdd").onclick=()=>openTeamModal(null);
     $("tabTeam").querySelectorAll("[data-tedit]").forEach(b=>b.onclick=()=>openTeamModal(b.dataset.tedit));
