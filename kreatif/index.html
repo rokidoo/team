@@ -439,7 +439,7 @@ const S = {
   profile:null, weeks:[], week:null,
   creatives:[], results:[], fins:[], hooks:[],
   tab:"board", galFilter:{owner:"", status:"", format:""},
-  boardFmt:"", boardOwner:"", boardView:"hafta", teamView:"tumu", teamFmt:"", hookFilter:{format:"", status:""}, teamTable:true,
+  boardFmt:"", boardOwner:"", boardView:"hafta", teamView:"tumu", teamFmt:"", teamMonth:"", hookFilter:{format:"", status:""}, teamTable:true,
   pipeline:[], ideas:[], prodView:"akis", prodTables:true,
   ideaFilter:{tur:"", format:"", durum:"acik"},
 };
@@ -840,7 +840,90 @@ function renderHooks(){
   el.querySelectorAll("[data-hs]").forEach(b=>b.onclick=()=>{S.hookFilter.status=b.dataset.hs; renderHooks();});
 }
 
+const AYLAR=["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
+const ayAdi = ym => { const [y,m]=ym.split("-"); return `${AYLAR[+m-1]} ${y}`; };
+function aylikVideoSiralama(ym){
+  const WIN=["onayli_winner","winner_adayi"], UNDEC=["yeni","testte","yetersiz_veri"];
+  const wks = S.weeks.filter(w=>String(w.week).slice(0,7)===ym).map(w=>w.week);
+  const per = {};
+  Object.keys(OWNERS).forEach(o=>{ per[o]={kod:new Set(), dec:new Set(), win:new Set()}; });
+  S.results.filter(r=>wks.includes(r.week)).forEach(r=>{
+    const c = S.creatives.find(x=>x.code===r.creative_code);
+    if(!c) return;
+    if((c.format||"video")!=="video") return;            // SADECE VIDEO
+    const o = c.owner_initial; if(!per[o]) return;        // sahipsiz ve ekipte olmayan haric
+    per[o].kod.add(c.code);
+    if(!UNDEC.includes(r.status_at_week)) per[o].dec.add(c.code);
+    if(WIN.includes(r.status_at_week))    per[o].win.add(c.code);
+  });
+  let rows = Object.keys(per).map(o=>{
+    const t=per[o].kod.size, d=per[o].dec.size, w=per[o].win.size;
+    return {o, teslim:t, dec:d, win:w, rate: d? w/d : null};
+  }).filter(r=>r.teslim>0);
+  const maxT = Math.max(1,...rows.map(r=>r.teslim));
+  const maxR = Math.max(0.0001,...rows.map(r=>r.rate||0));
+  rows.forEach(r=>{
+    r.pUretim = (r.teslim/maxT)*100;
+    r.pOran   = ((r.rate||0)/maxR)*100;
+    r.puan    = 0.5*r.pUretim + 0.5*r.pOran;
+    r.yeterli = r.dec >= 4;
+  });
+  const sirali = rows.filter(r=>r.yeterli).sort((a,b)=>b.puan-a.puan);
+  const onSinyal = rows.filter(r=>!r.yeterli).sort((a,b)=>b.teslim-a.teslim);
+  return {wks, sirali, onSinyal};
+}
+function renderAylik(){
+  const aylar = [...new Set(S.weeks.map(w=>String(w.week).slice(0,7)))].sort().reverse();
+  if(!S.teamMonth || !aylar.includes(S.teamMonth)) S.teamMonth = aylar[0] || "";
+  const {wks, sirali, onSinyal} = aylikVideoSiralama(S.teamMonth);
+  const achips = aylar.map(a=>`<button class="fchip ${S.teamMonth===a?"on":""}" data-tm="${a}">${ayAdi(a)}</button>`).join("");
+  const madalya = i => ["🥇","🥈","🥉"][i] || `${i+1}.`;
+  const kart = (r,i) => {
+    const w=OWNERS[r.o]||{name:r.o,c:"#8A867E"};
+    return `<div class="card" style="${i===0?"background:var(--mustard-s)":""}">
+      <div class="trow">
+        <span style="font-size:1.2rem;min-width:28px">${madalya(i)}</span>
+        ${ownBadge(r.o)}
+        <span class="nm">${esc(w.name)}</span>
+        <div class="bar"><i style="width:${r.puan}%;background:${w.c}"></i></div>
+        <span class="wn">${nf1.format(r.puan)}</span>
+      </div>
+      <div class="tstats">
+        <div class="tstat"><b>${r.teslim}</b><span>Video Teslim</span></div>
+        <div class="tstat"><b>${r.win}/${r.dec}</b><span>Winner / Değ.</span></div>
+        <div class="tstat"><b>${r.rate==null?"—":pct(r.rate)}</b><span>Winner Oranı</span></div>
+        <div class="tstat"><b>${nf1.format(r.puan)}</b><span>Puan</span></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">📦 Üretim puanı <b class="mono">${nf1.format(r.pUretim)}</b></span>
+        <span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">🎯 Oran puanı <b class="mono">${nf1.format(r.pOran)}</b></span>
+      </div>
+    </div>`;
+  };
+  return `
+    <div class="filters">${achips}</div>
+    <div class="demo" style="margin-bottom:14px">Sadece <b>video</b> kreatifler sayılır — görseller bu sıralamaya girmez. Puan = üretim hacmi %50 + winner oranı %50 (ayın en iyisi her bileşende 100 puan). ${wks.length} hafta.</div>
+    <div class="cards">${sirali.length? sirali.map(kart).join("") : `<div class="empty">Bu ayda sıralanabilir video yok</div>`}</div>
+    ${onSinyal.length?`<div class="sect" style="margin-top:22px"><h3>Ön Sinyal <span class="cnt">${onSinyal.length}</span></h3>
+      <div class="sub" style="margin-bottom:10px">4 değerlendirilebilir videonun altında kaldı — sıralamaya girmiyor</div>
+      <div class="cards">${onSinyal.map(r=>{
+        const w=OWNERS[r.o]||{name:r.o};
+        return `<div class="card" style="opacity:.8"><div class="trow">${ownBadge(r.o)}<span class="nm">${esc(w.name)}</span>
+          <span style="flex:1"></span><span class="mono" style="font-size:.78rem">${r.teslim} teslim · ${r.win}/${r.dec} winner</span></div></div>`;
+      }).join("")}</div></div>`:""}
+  `;
+}
 function renderTeam(){
+  if(S.teamView==="ay"){
+    const chips=[["tumu","🏛 Tüm Zamanlar"],["hafta","📅 Bu Hafta"],["ay","🏆 Aylık Sıralama"]].map(([v,l])=>
+      `<button class="fchip ${S.teamView===v?"on":""}" data-tv="${v}">${l}</button>`).join("");
+    $("tabTeam").innerHTML = `<h2>Aylık En İyi — Video</h2>
+      <div class="sub">Ayın en iyisi: çok üreten ve isabet oranı yüksek olan</div>
+      <div class="filters">${chips}</div>${renderAylik()}`;
+    $("tabTeam").querySelectorAll("[data-tv]").forEach(b=>b.onclick=()=>{S.teamView=b.dataset.tv; renderTeam();});
+    $("tabTeam").querySelectorAll("[data-tm]").forEach(b=>b.onclick=()=>{S.teamMonth=b.dataset.tm; renderTeam();});
+    return;
+  }
   const WIN=["onayli_winner","winner_adayi"], UNDEC=["yeni","testte","yetersiz_veri"];
   const weekly = S.teamView==="hafta";
   /* her kreatif icin: kapsamda mi, karar verilebilir mi, winner mi */
@@ -879,7 +962,7 @@ function renderTeam(){
   const maxWin = Math.max(1,...rows.map(r=>r.win));
   const teamWarn = (isAdmin() && !DEMO && !S.teamTable)
     ? `<div class="demo" style="margin-bottom:14px">Ekip düzenleme için Supabase'de <b>team_members</b> tablosu gerekli — Claude'un verdiği SQL'i bir kez çalıştır.</div>` : "";
-  const tvchips = [["tumu","🏛 Tüm Zamanlar"],["hafta","📅 Bu Hafta"]].map(([v,l])=>
+  const tvchips = [["tumu","🏛 Tüm Zamanlar"],["hafta","📅 Bu Hafta"],["ay","🏆 Aylık Sıralama"]].map(([v,l])=>
     `<button class="fchip ${S.teamView===v?"on":""}" data-tv="${v}">${l}</button>`).join("");
   const tfchips = [["","Görsel + Video"],["gorsel","🖼 Sadece Görsel"],["video","🎬 Sadece Video"]].map(([v,l])=>
     `<button class="fchip ${S.teamFmt===v?"on":""}" data-tf="${v}">${l}</button>`).join("");
