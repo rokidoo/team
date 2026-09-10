@@ -439,7 +439,7 @@ const S = {
   profile:null, weeks:[], week:null,
   creatives:[], results:[], fins:[], hooks:[],
   tab:"board", galFilter:{owner:"", status:"", format:""},
-  boardFmt:"", boardOwner:"", boardView:"hafta", teamView:"tumu", hookFilter:{format:"", status:""}, teamTable:true,
+  boardFmt:"", boardOwner:"", boardView:"hafta", teamView:"tumu", teamFmt:"", hookFilter:{format:"", status:""}, teamTable:true,
   pipeline:[], ideas:[], prodView:"akis", prodTables:true,
   ideaFilter:{tur:"", format:"", durum:"acik"},
 };
@@ -843,43 +843,52 @@ function renderHooks(){
 function renderTeam(){
   const WIN=["onayli_winner","winner_adayi"], UNDEC=["yeni","testte","yetersiz_veri"];
   const weekly = S.teamView==="hafta";
-  let rows;
+  /* her kreatif icin: kapsamda mi, karar verilebilir mi, winner mi */
+  const info = {};
   if(weekly){
-    const wr = S.results.filter(r=>r.week===S.week);
-    const stOf = {}; wr.forEach(r=>stOf[r.creative_code]=r.status_at_week);
-    rows = Object.keys(OWNERS).map(o=>{
-      const mine = S.creatives.filter(c=>c.owner_initial===o && stOf[c.code]);
-      const teslim = mine.length;
-      const evald  = mine.filter(c=>!UNDEC.includes(stOf[c.code])).length;
-      const win    = mine.filter(c=>WIN.includes(stOf[c.code])).length;
-      return {o, teslim, evald, win, rate: evald? win/evald : null};
+    const stOf = {}; S.results.filter(r=>r.week===S.week).forEach(r=>stOf[r.creative_code]=r.status_at_week);
+    S.creatives.forEach(c=>{
+      const st = stOf[c.code];
+      info[c.code] = st ? {ok:true, dec:!UNDEC.includes(st), win:WIN.includes(st)} : {ok:false};
     });
   } else {
-    const perCode = {};
+    const per = {};
     S.results.forEach(r=>{
-      const x = perCode[r.creative_code] = perCode[r.creative_code] || {ever:false, dec:false};
+      const x = per[r.creative_code] = per[r.creative_code] || {ever:false, dec:false};
       if(WIN.includes(r.status_at_week)) x.ever = true;
       if(!UNDEC.includes(r.status_at_week)) x.dec = true;
     });
-    rows = Object.keys(OWNERS).map(o=>{
-      const mine = S.creatives.filter(c=>c.owner_initial===o);
-      const teslim = mine.length;
-      const evald  = mine.filter(c=>perCode[c.code]?.dec || !UNDEC.includes(c.status)).length;
-      const win    = mine.filter(c=>perCode[c.code]?.ever || WIN.includes(c.status)).length;
-      return {o, teslim, evald, win, rate: evald? win/evald : null};
+    S.creatives.forEach(c=>{
+      info[c.code] = {ok:true, dec:(per[c.code]?.dec)||!UNDEC.includes(c.status), win:(per[c.code]?.ever)||WIN.includes(c.status)};
     });
   }
+  const fmtOf = c => (c.format||"video")==="gorsel" ? "gorsel" : "video";
+  const agg = list => {
+    const l = list.filter(c=>info[c.code]?.ok);
+    const a = {teslim:l.length, evald:l.filter(c=>info[c.code].dec).length, win:l.filter(c=>info[c.code].win).length};
+    a.rate = a.evald ? a.win/a.evald : null;
+    return a;
+  };
+  let rows = Object.keys(OWNERS).map(o=>{
+    let mine = S.creatives.filter(c=>c.owner_initial===o);
+    if(S.teamFmt) mine = mine.filter(c=>fmtOf(c)===S.teamFmt);
+    const a = agg(mine);
+    return {o, ...a, g: agg(mine.filter(c=>fmtOf(c)==="gorsel")), v: agg(mine.filter(c=>fmtOf(c)==="video"))};
+  });
   rows.sort((a,b)=>(b.win-a.win)||((b.rate??0)-(a.rate??0)));
   const maxWin = Math.max(1,...rows.map(r=>r.win));
   const teamWarn = (isAdmin() && !DEMO && !S.teamTable)
     ? `<div class="demo" style="margin-bottom:14px">Ekip düzenleme için Supabase'de <b>team_members</b> tablosu gerekli — Claude'un verdiği SQL'i bir kez çalıştır.</div>` : "";
   const tvchips = [["tumu","🏛 Tüm Zamanlar"],["hafta","📅 Bu Hafta"]].map(([v,l])=>
     `<button class="fchip ${S.teamView===v?"on":""}" data-tv="${v}">${l}</button>`).join("");
+  const tfchips = [["","Görsel + Video"],["gorsel","🖼 Sadece Görsel"],["video","🎬 Sadece Video"]].map(([v,l])=>
+    `<button class="fchip ${S.teamFmt===v?"on":""}" data-tf="${v}">${l}</button>`).join("");
   const tot = rows.reduce((a,r)=>({t:a.t+r.teslim, e:a.e+r.evald, w:a.w+r.win}),{t:0,e:0,w:0});
   $("tabTeam").innerHTML = `
     <h2>Ekip Skoru</h2>
-    <div class="sub">${weekly?(S.week?trDate(S.week)+" haftası":"Hafta seçilmedi"):"Tüm haftaların toplamı — bir kreatif herhangi bir haftada winner olduysa sayılır"} · üretim ve winner ayrı gösterilir, küçük örneklemde oran "ön sinyal"dir</div>
+    <div class="sub">${weekly?(S.week?trDate(S.week)+" haftası":"Hafta seçilmedi"):"Tüm haftaların toplamı — bir kreatif herhangi bir haftada winner olduysa sayılır"} · görsel ve video birlikte sayılır, kırılımı her kartta görürsün · küçük örneklemde oran "ön sinyal"dir</div>
     <div class="filters">${tvchips}</div>
+    <div class="filters">${tfchips}</div>
     <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
       <div class="kpi"><b>${tot.t}</b><span>Teslim</span></div>
       <div class="kpi"><b>${tot.e}</b><span>Değerlendirilebilir</span></div>
@@ -905,12 +914,17 @@ function renderTeam(){
           <div class="tstat"><b>${r.win}</b><span>Winner</span></div>
           <div class="tstat"><b>${r.rate==null?"—":pct(r.rate)}</b><span>Winner Oranı${r.evald<4?" *":""}</span></div>
         </div>
+        ${!S.teamFmt?`<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">🖼 Görsel <b class="mono">${r.g.win}/${r.g.evald}</b> ${r.g.rate==null?"":"· "+pct(r.g.rate)}</span>
+          <span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">🎬 Video <b class="mono">${r.v.win}/${r.v.evald}</b> ${r.v.rate==null?"":"· "+pct(r.v.rate)}</span>
+        </div>`:""}
         ${r.evald<4?`<div class="reason" style="margin-top:9px;font-size:.68rem;color:var(--mut);font-weight:600">* Örneklem küçük (${r.evald} değerlendirilebilir) — ön sinyal.</div>`:""}
       </div>`;
     }).join("")}
     </div>
   `;
   $("tabTeam").querySelectorAll("[data-tv]").forEach(b=>b.onclick=()=>{S.teamView=b.dataset.tv; renderTeam();});
+  $("tabTeam").querySelectorAll("[data-tf]").forEach(b=>b.onclick=()=>{S.teamFmt=b.dataset.tf; renderTeam();});
   if(isAdmin()){
     if($("teamAdd")) $("teamAdd").onclick=()=>openTeamModal(null);
     $("tabTeam").querySelectorAll("[data-tedit]").forEach(b=>b.onclick=()=>openTeamModal(b.dataset.tedit));
