@@ -473,6 +473,15 @@ const trDate = d => new Date(d+"T00:00:00").toLocaleDateString("tr-TR",{day:"num
 const chip = (label,soft)=>`<span class="chip" style="background:${soft}">${esc(label)}</span>`;
 const ownBadge = o => { const w = OWNERS[o]||{name:o,s:"#ECEAE4"}; return `<span class="own" style="background:${w.s}" title="${esc(w.name)}">${esc(o)}</span>`; };
 
+const ownersOf = c => c ? [c.owner_initial, ...String(c.co_owner||"").split(",").map(x=>x.trim())].filter(Boolean) : [];
+const hasOwner = (c,o) => ownersOf(c).includes(o);
+const ownBadges = c => ownersOf(c).length ? ownersOf(c).map(ownBadge).join("") : ownBadge("?");
+function firstSeenMap(){
+  const m = {};
+  S.results.forEach(r=>{ if(!m[r.creative_code] || r.week < m[r.creative_code]) m[r.creative_code] = r.week; });
+  S.creatives.forEach(c=>{ if(!m[c.code] && c.first_week) m[c.code] = c.first_week; });
+  return m;
+}
 const resFor  = code => S.results.find(r=>r.creative_code===code && r.week===S.week);
 const finFor  = code => S.fins.find(r=>r.creative_code===code && r.week===S.week);
 const statusAtWeek = c => (resFor(c.code)?.status_at_week) || c.status;
@@ -611,7 +620,7 @@ function creativeCard(c, mini){
       ${thumb}
       <div style="flex:1;min-width:0">
         <div class="code" title="${esc(c.code)}">${esc(c.code)}</div>
-        <div class="meta">${ownBadge(c.owner_initial)} <span>${esc(c.family||"")} · ${esc(c.tur||"")}${c.attribution==="belirsiz"?" · <b style='color:var(--purple)'>atıf belirsiz</b>":""}</span></div>
+        <div class="meta">${ownBadges(c)} <span>${esc(c.family||"")} · ${esc(c.tur||"")}${c.attribution==="belirsiz"?" · <b style='color:var(--purple)'>atıf belirsiz</b>":""}</span></div>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
         ${chip(st.l, "var(--card)")}
@@ -654,7 +663,7 @@ function bindBoardFilters(el){
 function boardFilter(list){
   let a = list;
   if(S.boardFmt)   a = a.filter(c=>(c.format||"video")===S.boardFmt);
-  if(S.boardOwner) a = a.filter(c=>(c.owner_initial||"?")===S.boardOwner);
+  if(S.boardOwner) a = a.filter(c=> S.boardOwner==="?" ? !ownersOf(c).length || c.owner_initial==="?" : hasOwner(c,S.boardOwner));
   return a;
 }
 /* ---- Tüm Zamanlar: her kreatifin butun haftalardaki toplami ---- */
@@ -685,7 +694,7 @@ function renderAllTime(el){
     const ic = c ? (c.format==="video"?"🎬":c.format==="carousel"?"🧩":"🖼") : (x.code.toLowerCase().includes("video")?"🎬":"🖼");
     return `<tr>
       <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(x.code)}">
-        ${ic} ${c?ownBadge(c.owner_initial):""} ${esc(x.code)}${c?.link?` <a href="${esc(c.link)}" target="_blank" rel="noopener" style="color:var(--cobalt);font-weight:800;text-decoration:none">↗</a>`:""}
+        ${ic} ${c?ownBadges(c):""} ${esc(x.code)}${c?.link?` <a href="${esc(c.link)}" target="_blank" rel="noopener" style="color:var(--cobalt);font-weight:800;text-decoration:none">↗</a>`:""}
       </td>
       <td>${x.weeks}</td>
       <td><b style="color:${x.winWeeks?"var(--green)":"var(--mut)"}">${x.winWeeks}</b></td>
@@ -772,7 +781,7 @@ async function setStatus(code, status, reason){
 function renderGallery(){
   const f = S.galFilter;
   let list = S.creatives.slice();
-  if(f.owner) list = list.filter(c=>c.owner_initial===f.owner);
+  if(f.owner) list = list.filter(c=>hasOwner(c,f.owner));
   if(f.status) list = list.filter(c=>c.status===f.status);
   if(f.format) list = list.filter(c=>(c.format||"video")===f.format);
   const ochips = ["",...Object.keys(OWNERS)].map(o=>
@@ -845,21 +854,26 @@ const ayAdi = ym => { const [y,m]=ym.split("-"); return `${AYLAR[+m-1]} ${y}`; }
 function aylikVideoSiralama(ym){
   const WIN=["onayli_winner","winner_adayi"], UNDEC=["yeni","testte","yetersiz_veri"];
   const wks = S.weeks.filter(w=>String(w.week).slice(0,7)===ym).map(w=>w.week);
+  const fs = firstSeenMap();
   const per = {};
-  Object.keys(OWNERS).forEach(o=>{ per[o]={kod:new Set(), dec:new Set(), win:new Set()}; });
+  Object.keys(OWNERS).forEach(o=>{ per[o]={kod:new Set(), dec:new Set(), win:new Set(), eski:new Set()}; });
   S.results.filter(r=>wks.includes(r.week)).forEach(r=>{
     const c = S.creatives.find(x=>x.code===r.creative_code);
     if(!c) return;
-    if((c.format||"video")!=="video") return;            // SADECE VIDEO
-    const o = c.owner_initial; if(!per[o]) return;        // sahipsiz ve ekipte olmayan haric
-    per[o].kod.add(c.code);
-    if(!UNDEC.includes(r.status_at_week)) per[o].dec.add(c.code);
-    if(WIN.includes(r.status_at_week))    per[o].win.add(c.code);
+    if((c.format||"video")!=="video") return;             // SADECE VIDEO
+    const yeni = wks.includes(fs[c.code]);                  // bu ay ILK KEZ teslim edilmis mi
+    ownersOf(c).forEach(o=>{
+      if(!per[o]) return;                                   // sahipsiz ve ekipte olmayan haric
+      if(!yeni){ if(WIN.includes(r.status_at_week)) per[o].eski.add(c.code); return; }
+      per[o].kod.add(c.code);
+      if(!UNDEC.includes(r.status_at_week)) per[o].dec.add(c.code);
+      if(WIN.includes(r.status_at_week))    per[o].win.add(c.code);
+    });
   });
   let rows = Object.keys(per).map(o=>{
     const t=per[o].kod.size, d=per[o].dec.size, w=per[o].win.size;
-    return {o, teslim:t, dec:d, win:w, rate: d? w/d : null};
-  }).filter(r=>r.teslim>0);
+    return {o, teslim:t, dec:d, win:w, rate: d? w/d : null, eski:per[o].eski.size};
+  }).filter(r=>r.teslim>0 || r.eski>0);
   const maxT = Math.max(1,...rows.map(r=>r.teslim));
   const maxR = Math.max(0.0001,...rows.map(r=>r.rate||0));
   rows.forEach(r=>{
@@ -897,12 +911,13 @@ function renderAylik(){
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         <span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">📦 Üretim puanı <b class="mono">${nf1.format(r.pUretim)}</b></span>
         <span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">🎯 Oran puanı <b class="mono">${nf1.format(r.pOran)}</b></span>
+        ${r.eski?`<span style="background:var(--green-s);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">♻️ Önceki aylardan +${r.eski} video hâlâ winner (puana girmez)</span>`:""}
       </div>
     </div>`;
   };
   return `
     <div class="filters">${achips}</div>
-    <div class="demo" style="margin-bottom:14px">Sadece <b>video</b> kreatifler sayılır — görseller bu sıralamaya girmez. Puan = üretim hacmi %50 + winner oranı %50 (ayın en iyisi her bileşende 100 puan). ${wks.length} hafta.</div>
+    <div class="demo" style="margin-bottom:14px">Sadece <b>bu ay ilk kez teslim edilen videolar</b> sayılır — önceki aylardan yayında kalanlar ve görseller puana girmez. Puan = üretim hacmi %50 + winner oranı %50 (ayın en iyisi her bileşende 100 puan). Ortak videolar iki kişiye de sayılır. ${wks.length} hafta.</div>
     <div class="cards">${sirali.length? sirali.map(kart).join("") : `<div class="empty">Bu ayda sıralanabilir video yok</div>`}</div>
     ${onSinyal.length?`<div class="sect" style="margin-top:22px"><h3>Ön Sinyal <span class="cnt">${onSinyal.length}</span></h3>
       <div class="sub" style="margin-bottom:10px">4 değerlendirilebilir videonun altında kaldı — sıralamaya girmiyor</div>
@@ -929,10 +944,13 @@ function renderTeam(){
   /* her kreatif icin: kapsamda mi, karar verilebilir mi, winner mi */
   const info = {};
   if(weekly){
+    const fs = firstSeenMap();
     const stOf = {}; S.results.filter(r=>r.week===S.week).forEach(r=>stOf[r.creative_code]=r.status_at_week);
     S.creatives.forEach(c=>{
       const st = stOf[c.code];
-      info[c.code] = st ? {ok:true, dec:!UNDEC.includes(st), win:WIN.includes(st)} : {ok:false};
+      const yeni = fs[c.code]===S.week;                     // bu hafta ILK KEZ teslim edilmis
+      info[c.code] = (st && yeni) ? {ok:true, dec:!UNDEC.includes(st), win:WIN.includes(st)}
+                   : {ok:false, eskiWin: !!(st && !yeni && WIN.includes(st))};
     });
   } else {
     const per = {};
@@ -953,10 +971,11 @@ function renderTeam(){
     return a;
   };
   let rows = Object.keys(OWNERS).map(o=>{
-    let mine = S.creatives.filter(c=>c.owner_initial===o);
+    let mine = S.creatives.filter(c=>hasOwner(c,o));
     if(S.teamFmt) mine = mine.filter(c=>fmtOf(c)===S.teamFmt);
     const a = agg(mine);
-    return {o, ...a, g: agg(mine.filter(c=>fmtOf(c)==="gorsel")), v: agg(mine.filter(c=>fmtOf(c)==="video"))};
+    const eski = weekly ? mine.filter(c=>info[c.code]?.eskiWin).length : 0;
+    return {o, ...a, eski, g: agg(mine.filter(c=>fmtOf(c)==="gorsel")), v: agg(mine.filter(c=>fmtOf(c)==="video"))};
   });
   rows.sort((a,b)=>(b.win-a.win)||((b.rate??0)-(a.rate??0)));
   const maxWin = Math.max(1,...rows.map(r=>r.win));
@@ -969,7 +988,7 @@ function renderTeam(){
   const tot = rows.reduce((a,r)=>({t:a.t+r.teslim, e:a.e+r.evald, w:a.w+r.win}),{t:0,e:0,w:0});
   $("tabTeam").innerHTML = `
     <h2>Ekip Skoru</h2>
-    <div class="sub">${weekly?(S.week?trDate(S.week)+" haftası":"Hafta seçilmedi"):"Tüm haftaların toplamı — bir kreatif herhangi bir haftada winner olduysa sayılır"} · görsel ve video birlikte sayılır, kırılımı her kartta görürsün · küçük örneklemde oran "ön sinyal"dir</div>
+    <div class="sub">${weekly?(S.week?trDate(S.week)+" haftasında ilk kez teslim edilenler":"Hafta seçilmedi"):"Tüm haftaların toplamı — bir kreatif herhangi bir haftada winner olduysa sayılır"} · görsel ve video birlikte sayılır, kırılımı her kartta görürsün · küçük örneklemde oran "ön sinyal"dir</div>
     <div class="filters">${tvchips}</div>
     <div class="filters">${tfchips}</div>
     <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
@@ -1001,6 +1020,7 @@ function renderTeam(){
           <span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">🖼 Görsel <b class="mono">${r.g.win}/${r.g.evald}</b> ${r.g.rate==null?"":"· "+pct(r.g.rate)}</span>
           <span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">🎬 Video <b class="mono">${r.v.win}/${r.v.evald}</b> ${r.v.rate==null?"":"· "+pct(r.v.rate)}</span>
         </div>`:""}
+        ${r.eski?`<div class="reason" style="margin-top:8px;font-size:.7rem;color:var(--green);font-weight:700">♻️ Önceki haftalardan +${r.eski} kreatifi bu hafta da winner (skora girmez)</div>`:""}
         ${r.evald<4?`<div class="reason" style="margin-top:9px;font-size:.68rem;color:var(--mut);font-weight:600">* Örneklem küçük (${r.evald} değerlendirilebilir) — ön sinyal.</div>`:""}
       </div>`;
     }).join("")}
@@ -1035,6 +1055,10 @@ function openCreativeModal(code, presetStatus){
     <div class="frow">
       <div><div class="flabel">Sahip</div>
         <select id="cmOwner">${Object.keys(OWNERS).map(o=>opt(o, o+" · "+OWNERS[o].name, v.owner_initial)).join("")}${OWNERS[v.owner_initial]?"":opt(v.owner_initial||"?", v.owner_initial||"?", v.owner_initial)}</select></div>
+      <div><div class="flabel">Ortak Sahip (opsiyonel)</div>
+        <select id="cmCo">${opt("","—",v.co_owner||"")}${Object.keys(OWNERS).map(o=>opt(o, o+" · "+OWNERS[o].name, v.co_owner||"")).join("")}</select></div>
+    </div>
+    <div class="frow">
       <div><div class="flabel">Format</div>
         <select id="cmFormat">${opt("gorsel","🖼 Görsel",v.format)}${opt("video","🎬 Video",v.format)}${opt("carousel","🧩 Carousel",v.format)}</select></div>
     </div>
@@ -1066,7 +1090,8 @@ function openCreativeModal(code, presetStatus){
   $("cmSave").onclick = async ()=>{
     const row = {
       code: isNew ? $("cmCode").value.trim() : v.code,
-      owner_initial: $("cmOwner").value, format: $("cmFormat").value,
+      owner_initial: $("cmOwner").value, co_owner: ($("cmCo").value && $("cmCo").value!==$("cmOwner").value) ? $("cmCo").value : null,
+      format: $("cmFormat").value,
       family: $("cmFamily").value.trim()||null, tur: $("cmTur").value,
       hook_code: $("cmHookCode").value.trim()||null, hook_text: $("cmHookText").value.trim()||null,
       status: $("cmStatus").value, status_reason: $("cmReason").value.trim()||null,
@@ -1165,7 +1190,7 @@ function renderFinance(){
     const c=S.creatives.find(x=>x.code===f.creative_code);
     const r=S.results.find(x=>x.creative_code===f.creative_code && x.week===S.week);
     return `<tr>
-      <td style="max-width:230px;overflow:hidden;text-overflow:ellipsis" title="${esc(f.creative_code)}">${c?ownBadge(c.owner_initial):""} ${esc((f.creative_code||"").split("_").slice(2,5).join("_"))}</td>
+      <td style="max-width:230px;overflow:hidden;text-overflow:ellipsis" title="${esc(f.creative_code)}">${c?ownBadges(c):""} ${esc((f.creative_code||"").split("_").slice(2,5).join("_"))}</td>
       <td>${tl(f.spend)}</td><td>${tl(f.revenue)}</td><td>${nf.format(r?.sales??0)}</td>
       <td>${f.roas!=null?nf2.format(f.roas):"—"}</td><td>${tl(f.gpt)}</td>
       <td>${f.rel_gpt!=null?nf2.format(f.rel_gpt):"—"}</td>

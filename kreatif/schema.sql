@@ -229,3 +229,6 @@ create policy "ip_delete" on public.idea_pool for delete
 alter table public.idea_pool add column if not exists done      boolean default false;
 alter table public.idea_pool add column if not exists done_name text;
 alter table public.idea_pool add column if not exists done_at   timestamptz;
+
+-- v1.5: ortak sahip (ör. 'uz video 502-İ VE K' -> İ + M)
+alter table public.creatives add column if not exists co_owner text;
