@@ -442,7 +442,7 @@ const S = {
   tab:"board", galFilter:{owner:"", status:"", format:""},
   boardFmt:"", boardOwner:"", boardView:"hafta", teamView:"tumu", teamFmt:"", teamMonth:"", hookFilter:{format:"", status:""}, teamTable:true,
   pipeline:[], ideas:[], prodView:"akis", prodTables:true,
-  links:[], linksTable:true, linkFilter:{durum:"acik", kat:"", plat:"", q:""},
+  links:[], linksTable:true, waLast:null, importsTable:true, linkFilter:{durum:"acik", kat:"", plat:"", q:""},
   ideaFilter:{tur:"", format:"", durum:"acik"},
 };
 const STAGES = [
@@ -590,6 +590,8 @@ async function loadAll(){
   else { S.prodTables=true; S.pipeline=pc.data||[]; S.ideas=ip.data||[]; }
   const ln = await sb.from("links").select("*").order("created_at",{ascending:false});
   if(ln.error){ S.linksTable=false; S.links=[]; } else { S.linksTable=true; S.links=ln.data||[]; }
+  const li = await sb.from("link_imports").select("last_message_at").order("last_message_at",{ascending:false}).limit(1);
+  if(li.error){ S.importsTable=false; S.waLast=null; } else { S.importsTable=true; S.waLast = li.data?.[0]?.last_message_at || null; }
   S.fins=[];
   if(canFin()){
     const f = await sb.from("weekly_financials").select("*");
@@ -1371,6 +1373,14 @@ async function readWaFile(file){
   }
   return await file.text();
 }
+/* Tarih siniri: son aktarilan sohbet dosyasinin EN YENI mesaji.
+   Linklerden bagimsiz tutulur — link silinse de sinir geri kaymaz, silinen link geri gelmez. */
+function waCutoff(){
+  if(S.importsTable) return S.waLast ? new Date(S.waLast) : null;
+  const t = S.links.filter(l=>l.source==="whatsapp" && l.shared_at).map(l=>new Date(l.shared_at).getTime()).filter(x=>!isNaN(x));
+  return t.length ? new Date(Math.max(...t)) : null;   // link_imports tablosu yoksa eski yontem
+}
+const trShortTime = d => { try{ return new Date(d).toLocaleString("tr-TR",{day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"}); }catch{ return ""; } };
 const trShort = d => { try{ return new Date(d).toLocaleDateString("tr-TR",{day:"numeric",month:"short",year:"numeric"}); }catch{ return ""; } };
 function linkFiltered(){
   const f = S.linkFilter;
@@ -1520,30 +1530,35 @@ function openWaImportModal(){
       WhatsApp'ta grubu aç → grup adına dokun → <b>Sohbeti dışa aktar</b> → <b>Medya olmadan</b>.<br>
       Çıkan <b>.zip</b> ya da <b>.txt</b> dosyasını buraya yükle. Sadece link içeren mesajlar alınır, telefon numaraları panele taşınmaz. Daha önce eklenmiş linkler atlanır.
     </div>
+    ${waCutoff()?`<label style="display:flex;gap:9px;align-items:flex-start;font-size:.78rem;font-weight:700;margin:0 0 12px;background:var(--green-s);border:var(--b2);border-radius:10px;padding:9px 11px;cursor:pointer">
+      <input type="checkbox" id="waOnlyNew" checked style="width:auto;margin:2px 0 0">
+      <span>Sadece son aktarmadan sonraki mesajları al<br><span style="font-weight:600;color:var(--ink-soft)">Son aktarılan link: ${esc(trShortTime(waCutoff()))} — öncesi okunmaz, silinen linkler geri gelmez</span></span>
+    </label>`:`<div class="sub" style="margin:0 0 12px">İlk aktarma: sohbetteki bütün linkler alınacak.</div>`}
     <input type="file" id="waFile" accept=".txt,.zip,text/plain,application/zip">
     <div id="waPrev"></div>
     <div class="btnrow">
       <button class="btn" id="waGo" disabled>İçe Aktar</button>
       <button class="btn ghost" id="waCancel" style="width:auto;padding:14px 18px">Vazgeç</button>
     </div>`);
-  let yeniler = [];
+  let yeniler = [], msgs = null;
   $("waCancel").onclick = closeModal;
-  $("waFile").onchange = async e=>{
-    const file = e.target.files[0]; if(!file) return;
-    $("waPrev").innerHTML = `<div class="sub">Okunuyor…</div>`; $("waGo").disabled = true;
-    try{
-      const msgs = parseWhatsApp(await readWaFile(file));
-      if(!msgs.length) throw new Error("Dosyada WhatsApp mesajı bulunamadı — doğru dosyayı seçtiğinden emin ol");
-      const hepsi = extractLinks(msgs);
-      const var_ = new Set(S.links.map(l=>l.url_key||urlKey(l.url)));
-      yeniler = hepsi.filter(l=>!var_.has(l.url_key));
-      const kc = {}; yeniler.forEach(l=>kc[l.category]=(kc[l.category]||0)+1);
-      $("waPrev").innerHTML = `
+  const hesapla = ()=>{
+    if(!msgs) return;
+    const hepsi = extractLinks(msgs);
+    const cut = ($("waOnlyNew")?.checked) ? waCutoff() : null;
+    const eski = cut ? hepsi.filter(l=>l.shared_at && new Date(l.shared_at).getTime() <= cut.getTime()) : [];
+    const aday = cut ? hepsi.filter(l=>!l.shared_at || new Date(l.shared_at).getTime() > cut.getTime()) : hepsi;
+    const var_ = new Set(S.links.map(l=>l.url_key||urlKey(l.url)));
+    const tekrar = aday.filter(l=>var_.has(l.url_key));
+    yeniler = aday.filter(l=>!var_.has(l.url_key));
+    const kc = {}; yeniler.forEach(l=>kc[l.category]=(kc[l.category]||0)+1);
+    $("waPrev").innerHTML = `
         <div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-top:6px">
-          <div class="kpi"><b>${msgs.length}</b><span>Mesaj</span></div>
-          <div class="kpi"><b>${hepsi.length}</b><span>Link</span></div>
-          <div class="kpi"><b>${yeniler.length}</b><span>Yeni</span></div>
+          <div class="kpi"><b>${hepsi.length}</b><span>Sohbetteki link</span></div>
+          <div class="kpi"><b>${eski.length+tekrar.length}</b><span>Atlanan</span></div>
+          <div class="kpi"><b>${yeniler.length}</b><span>Eklenecek</span></div>
         </div>
+        ${(eski.length||tekrar.length)?`<div class="sub" style="margin:-6px 0 10px">Atlananlar: ${eski.length} link son aktarmadan önce paylaşılmış · ${tekrar.length} link zaten kütüphanede</div>`:""}
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${Object.entries(kc).map(([k,n])=>chip(`${(LINK_KATS[k]||LINK_KATS.diger).l} · ${n}`,(LINK_KATS[k]||LINK_KATS.diger).s)).join("")}</div>
         <div style="max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:6px">
           ${yeniler.slice(0,8).map(l=>`<div style="font-size:.72rem;border:2px solid var(--cream2);border-radius:9px;padding:6px 8px">
@@ -1552,14 +1567,25 @@ function openWaImportModal(){
           ${yeniler.length>8?`<div class="sub" style="margin:0">…ve ${yeniler.length-8} link daha</div>`:""}
         </div>
         <div class="sub" style="margin:8px 0 0">Kategoriler linkin türüne göre tahmin edildi, sonra ✏️ ile değiştirebilirsin.</div>`;
-      $("waGo").disabled = !yeniler.length;
-      if(!yeniler.length) $("waGo").textContent = "Yeni link yok";
-    }catch(err){ $("waPrev").innerHTML = `<div class="demo" style="margin-top:8px">❌ ${esc(err.message||err)}</div>`; }
+    $("waGo").disabled = !yeniler.length;
+    $("waGo").textContent = yeniler.length ? `İçe Aktar (${yeniler.length})` : "Yeni link yok";
+  };
+  if($("waOnlyNew")) $("waOnlyNew").onchange = hesapla;
+  $("waFile").onchange = async e=>{
+    const file = e.target.files[0]; if(!file) return;
+    $("waPrev").innerHTML = `<div class="sub">Okunuyor…</div>`; $("waGo").disabled = true;
+    try{
+      msgs = parseWhatsApp(await readWaFile(file));
+      if(!msgs.length) throw new Error("Dosyada WhatsApp mesajı bulunamadı — doğru dosyayı seçtiğinden emin ol");
+      hesapla();
+    }catch(err){ msgs=null; $("waPrev").innerHTML = `<div class="demo" style="margin-top:8px">❌ ${esc(err.message||err)}</div>`; }
   };
   $("waGo").onclick = async ()=>{
     if(!yeniler.length) return;
     $("waGo").disabled = true; $("waGo").textContent = "Aktarılıyor…";
     const rows = yeniler.map(l=>({...l, created_by:DEMO?null:S.profile.id, created_name:S.profile?.name||null}));
+    const sonMesajMs = Math.max(...msgs.map(m=>m.ts.getTime()).filter(x=>!isNaN(x)));
+    const sonMesaj = new Date(Math.max(sonMesajMs, S.waLast ? new Date(S.waLast).getTime() : 0)).toISOString();
     if(!DEMO){
       for(let i=0;i<rows.length;i+=200){
         const {error} = await sb.from("links").upsert(rows.slice(i,i+200), {onConflict:"url_key", ignoreDuplicates:true});
@@ -1567,7 +1593,11 @@ function openWaImportModal(){
       }
       const {data} = await sb.from("links").select("*").order("created_at",{ascending:false});
       if(data) S.links = data;
+      if(S.importsTable){
+        await sb.from("link_imports").insert({last_message_at:sonMesaj, link_count:rows.length, imported_by:S.profile.id, imported_name:S.profile?.name||null});
+      }
     } else rows.forEach((r,i)=>S.links.unshift({...r, id:"wa-"+i+"-"+Date.now()}));
+    S.waLast = sonMesaj;
     closeModal(); S.linkFilter.durum="acik"; renderLinks();
     alert(`✅ ${rows.length} link kütüphaneye eklendi`);
   };

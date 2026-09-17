@@ -257,3 +257,16 @@ create policy "ln_select" on public.links for select using (auth.uid() is not nu
 create policy "ln_insert" on public.links for insert with check (auth.uid() = created_by);
 create policy "ln_update" on public.links for update using (auth.uid() is not null);
 create policy "ln_delete" on public.links for delete using (public.is_admin() or auth.uid() = created_by);
+
+-- v1.6b: WhatsApp aktarma kaydi — "sadece yeniler" siniri linklerden bagimsiz tutulur
+create table if not exists public.link_imports (
+  id              uuid primary key default gen_random_uuid(),
+  last_message_at timestamptz not null,   -- aktarilan sohbet dosyasindaki en yeni mesaj
+  link_count      integer default 0,
+  imported_by     uuid references auth.users on delete set null,
+  imported_name   text,
+  created_at      timestamptz default now()
+);
+alter table public.link_imports enable row level security;
+create policy "li_select" on public.link_imports for select using (auth.uid() is not null);
+create policy "li_insert" on public.link_imports for insert with check (auth.uid() = imported_by);
