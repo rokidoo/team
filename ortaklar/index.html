@@ -451,7 +451,7 @@ const LATE_MIN=9*60+10;
 /* ---------- durum ---------- */
 const S = {
   profile:null, tab:"gun", day:null, gunUser:null, period:"hafta", ref:null, rpPerson:"", rpPeriod:"hafta", rpRef:null,
-  partners:[], prtDaily:[], prtTasks:[], prtTables:true, missing:[],
+  partners:[], profiles:[], prtDaily:[], prtTasks:[], tasksRaw:null, assigneesRaw:[], prtTables:true, missing:[],
   k:{weeks:[],creatives:[],results:[],fins:[],team:[],daily:[],scores:[],reqs:[],pipeline:[]},
   o:{members:[],daily:[],scores:[],team:[],checks:[],tasks:[],voice:[],stock:[],products:[],assign:[]},
   rank:{},
@@ -523,10 +523,12 @@ const tryAll=async (table,build)=>{ try{ return await fetchAll(table,build); }ca
 async function loadAll(){
   if(DEMO) return;
   S.missing=[]; const since="2026-06-01";
-  const [profiles,pd,pt]=await Promise.all([tryAll("profiles",q=>q.order("name")), tryAll("prt_daily",q=>q.order("day",{ascending:false})), tryAll("prt_tasks",q=>q.order("created_at",{ascending:false}))]);
+  const [profiles,pd,tk,ta]=await Promise.all([tryAll("profiles",q=>q.order("name")), tryAll("prt_daily",q=>q.order("day",{ascending:false})), tryAll("tasks",q=>q.order("created_at",{ascending:false})), tryAll("task_assignees")]);
+  S.profiles=profiles||[];
   S.partners=(profiles||[]).filter(p=>["admin","partner"].includes(p.role));
   if(!S.partners.find(p=>p.id===S.profile.id)) S.partners.unshift(S.profile);
-  S.prtTables=!!(pd&&pt); S.prtDaily=pd||[]; S.prtTasks=pt||[];
+  S.prtTables=!!pd; S.prtDaily=pd||[]; S.tasksRaw=tk||[]; S.assigneesRaw=ta||[];
+  S.prtTasks=unifyTasks(S.tasksRaw,S.assigneesRaw).filter(t=>S.partners.some(u=>u.id===t.assigned_to));
   const [weeks,creatives,results,fins,team,kdaily,kscores,kreq,pipeline]=await Promise.all([
     tryAll("weeks",q=>q.order("week",{ascending:false})), tryAll("creatives"), tryAll("weekly_results"), tryAll("weekly_financials"),
     tryAll("team_members",q=>q.order("sort")), tryAll("kre_daily",q=>q.gte("day",since)), tryAll("kre_scores",q=>q.gte("day",since)),
@@ -535,11 +537,23 @@ async function loadAll(){
   Object.assign(S.k,{weeks:weeks||[],creatives:creatives||[],results:results||[],fins:fins||[],team:team||[],daily:kdaily||[],scores:kscores||[],reqs:kreq||[],pipeline:pipeline||[]});
   const [members,odaily,oscores,oteam,ochecks,otasks,ovoice,ostock,oprod,oassign]=await Promise.all([
     tryAll("ops_members",q=>q.order("sort")), tryAll("ops_daily",q=>q.gte("day",since)), tryAll("ops_scores",q=>q.gte("day",since)),
-    tryAll("ops_team_daily",q=>q.gte("day",since)), tryAll("ops_checks",q=>q.gte("day",since)), tryAll("ops_tasks"),
+    tryAll("ops_team_daily",q=>q.gte("day",since)), tryAll("ops_checks",q=>q.gte("day",since)), Promise.resolve([]),
     tryAll("ops_voice",q=>q.gte("day",since)), tryAll("ops_stock"), tryAll("ops_products"), tryAll("ops_assignments"),
   ]);
-  Object.assign(S.o,{members:members||[],daily:odaily||[],scores:oscores||[],team:oteam||[],checks:ochecks||[],tasks:otasks||[],voice:ovoice||[],stock:ostock||[],products:oprod||[],assign:oassign||[]});
+  Object.assign(S.o,{members:members||[],daily:odaily||[],scores:oscores||[],team:oteam||[],checks:ochecks||[],tasks:[],voice:ovoice||[],stock:ostock||[],products:oprod||[],assign:oassign||[]});
+  // operasyon ekibinin işleri: ortak tasks tablosundan, üye hesabına göre
+  S.o.tasks=unifyTasks(S.tasksRaw,S.assigneesRaw).map(t=>{ const m=S.o.members.find(x=>x.user_id===t.assigned_to); return m?{...t,member_id:m.id}:null; }).filter(Boolean);
 }
+// ortak görev tablosu -> panel şekli (her atanan kişi için bir satır)
+function unifyTasks(rows, assignees){
+  const out=[]; const nm=id=>S.profiles?.find(p=>p.id===id)?.name || S.partners.find(p=>p.id===id)?.name || "";
+  (rows||[]).forEach(t=>{
+    const uids=[t.user_id, ...(assignees||[]).filter(a=>a.task_id===t.id).map(a=>a.user_id)].filter((v,i,a)=>v&&a.indexOf(v)===i);
+    uids.forEach(uid=>out.push({id:t.id, assigned_to:uid, assigned_name:nm(uid), title:t.title, detail:t.descr||null, due:t.due, created_by:t.assigned_by, created_name:nm(t.assigned_by), done:t.status==="done", done_at:t.done_at, done_note:t.done_note, created_at:t.created_at, source:t.source}));
+  });
+  return out;
+}
+const taskUpd = upd=>({status: upd.done?"done":"todo", done_at: upd.done_at||null, done_note: upd.done_note||null});
 async function ranking(from,to){
   const k=`${from}|${to}`; if(Array.isArray(S.rank[k])) return S.rank[k];
   if(DEMO){ // basit yerel: puan ort + doldurma
@@ -581,10 +595,10 @@ function bindTasks(root, rerender){
       <div class="flabel">Ne yapıldı / not</div><textarea id="pt_note" rows="3" ${can?"":"disabled"}>${esc(t.done_note||"")}</textarea>
       ${can?`<div class="btnrow">${t.done?`<button class="btn ghost" id="ptUndo">Yapılmadı yap</button>`:""}<button class="btn" id="ptDone">${t.done?"Notu güncelle":"Yapıldı ✓"}</button></div>`:`<div class="note">Bu iş sana verilmemiş.</div>`}
       ${(isAdmin()||t.created_by===S.profile.id)?`<button class="btn danger sm" id="ptDel" style="margin-top:10px">İşi sil</button>`:""}`);
-    const save=async upd=>{ try{ if(!DEMO){ const {error}=await sb.from("prt_tasks").update(upd).eq("id",t.id); if(error) throw error; } Object.assign(t,upd); closeModal(); rerender(); }catch(e){ toast("Hata: "+e.message); } };
+    const save=async upd=>{ try{ if(!DEMO){ const {error}=await sb.from("tasks").update(taskUpd(upd)).eq("id",t.id); if(error) throw error; } S.prtTasks.filter(x=>x.id===t.id).forEach(x=>Object.assign(x,upd)); closeModal(); rerender(); }catch(e){ toast("Hata: "+e.message); } };
     const d=$("ptDone"); if(d) d.onclick=()=>save({done:true,done_at:t.done_at||nowIso(),done_note:$("pt_note").value.trim()||null});
     const u=$("ptUndo"); if(u) u.onclick=()=>save({done:false,done_at:null,done_note:$("pt_note").value.trim()||null});
-    const x=$("ptDel"); if(x) x.onclick=async ()=>{ if(!confirm("Silinsin mi?")) return; try{ if(!DEMO){ const {error}=await sb.from("prt_tasks").delete().eq("id",t.id); if(error) throw error; } S.prtTasks=S.prtTasks.filter(y=>y.id!==t.id); closeModal(); rerender(); }catch(e){ toast("Hata: "+e.message); } };
+    const x=$("ptDel"); if(x) x.onclick=async ()=>{ if(!confirm("Silinsin mi?")) return; try{ if(!DEMO){ const {error}=await sb.from("tasks").delete().eq("id",t.id); if(error) throw error; } S.prtTasks=S.prtTasks.filter(y=>y.id!==t.id); closeModal(); rerender(); }catch(e){ toast("Hata: "+e.message); } };
   });
 }
 function renderGun(){
@@ -623,7 +637,7 @@ function renderGun(){
 /* ================= GÖREVLER ================= */
 function renderGorev(){
   const el=$("tabGorev");
-  if(!DEMO&&!S.prtTables){ el.innerHTML=`<h2>Görevler</h2><div class="empty">ortaklar/schema.sql çalıştırılmamış ya da okunamıyor.<br><small>${esc(S.missing.filter(x=>x.startsWith("prt_")).join(" · ")||"")}</small></div>`; return; }
+  if(!DEMO&&!S.tasksRaw){ el.innerHTML=`<h2>Görevler</h2><div class="empty">Görev tablosu (tasks) okunamıyor — <b>schema-v2-gorevler.sql</b> çalıştırılmamış olabilir.<br><small>${esc(S.missing.filter(x=>x.startsWith("tasks")).join(" · ")||"")}</small></div>`; return; }
   const open=S.prtTasks.filter(t=>!t.done), done=S.prtTasks.filter(t=>t.done).slice(0,20);
   const byUser=S.partners.map(u=>({u,ts:open.filter(t=>t.assigned_to===u.id)})).filter(x=>x.ts.length);
   el.innerHTML=`
@@ -641,7 +655,7 @@ function renderGorev(){
   $("tAdd").onclick=async ()=>{
     const title=$("t_title").value.trim(); if(!title){ toast("İş adı gerekli."); return; }
     const to=$("t_to").value; const row={title,detail:$("t_detail").value.trim()||null,assigned_to:to,assigned_name:userName(to),due:$("t_due").value||null,created_by:S.profile.id,created_name:S.profile.name,created_at:nowIso(),done:false};
-    try{ if(DEMO) S.prtTasks.unshift({id:uid(),...row}); else { const {data,error}=await sb.from("prt_tasks").insert(row).select().single(); if(error) throw error; S.prtTasks.unshift(data); }
+    try{ if(DEMO) S.prtTasks.unshift({id:uid(),...row}); else { const {data,error}=await sb.from("tasks").insert({user_id:to, title, descr:row.detail, due:row.due, status:"todo", priority:"normal", source:"ortaklar", assigned_by:S.profile.id}).select().single(); if(error) throw error; S.prtTasks.unshift(...unifyTasks([data],[])); }
       toast("İş verildi ✓"); renderGorev(); }catch(e){ toast("Hata: "+e.message); }
   };
 }
