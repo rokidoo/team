@@ -1311,8 +1311,8 @@ function renderNav(){
   $("sideNav").innerHTML = tabs.map(([id,ic,l])=>
     `<button data-tab="${id}" class="navbtn ${S.tab===id?"on":""}"><span class="ic">${ic}</span><span class="lbl">${l}</span></button>`).join("");
   if(canFin()){
-    $("nav").insertAdjacentHTML("beforeend", `<button onclick="location.href='/operasyon/'"><span class="ic">🏭</span>Operasyon</button>`);
-    $("sideNav").insertAdjacentHTML("beforeend", `<a class="navbtn" href="/operasyon/" style="text-decoration:none;margin-top:10px;border-style:dashed;border-color:var(--mut)"><span class="ic">🏭</span><span class="lbl">Operasyon paneline geç</span></a>`);
+    $("nav").insertAdjacentHTML("beforeend", `<button onclick="location.href='/operasyon/'"><span class="ic">🏭</span>Operasyon</button><button onclick="location.href='/ortaklar/'"><span class="ic">🤝</span>Ortaklar</button>`);
+    $("sideNav").insertAdjacentHTML("beforeend", `<a class="navbtn" href="/operasyon/" style="text-decoration:none;margin-top:10px;border-style:dashed;border-color:var(--mut)"><span class="ic">🏭</span><span class="lbl">Operasyon paneline geç</span></a><a class="navbtn" href="/ortaklar/" style="text-decoration:none;border-style:dashed;border-color:var(--mut)"><span class="ic">🤝</span><span class="lbl">Ortaklar paneli</span></a>`);
   }
   document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab; renderAll();});
 }
