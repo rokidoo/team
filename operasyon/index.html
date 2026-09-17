@@ -425,6 +425,7 @@
       <span>Kim:</span>
       <select id="demoRole">
         <option value="admin">Yönetici</option>
+        <option value="partner">Ortak</option>
         <option value="melek">Melek</option>
         <option value="halil">Halil İbrahim</option>
         <option value="rabia">Rabia</option>
@@ -522,8 +523,8 @@ const numOrNull = v=>{ const s=String(v??"").trim(); if(s==="") return null; con
 const sum = (arr,f)=>arr.reduce((a,x)=>a+(+(f?f(x):x)||0),0);
 const avg = arr=>arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : null;
 const chip = (label,soft)=>`<span class="chip" style="background:${soft}">${esc(label)}</span>`;
-const isAdmin = ()=>S.profile?.role==="admin";
-const canOps  = ()=>S.profile && (S.profile.role==="ops"||S.profile.role==="admin");
+const isAdmin = ()=>S.profile?.role==="admin" || S.profile?.role==="partner";   // ortaklar operasyonda tam yetkili
+const canOps  = ()=>S.profile && ["ops","admin","partner"].includes(S.profile.role);
 const memById = id=>S.members.find(m=>m.id===id);
 const memName = id=>memById(id)?.name || "—";
 const actives = ()=>S.members.filter(m=>m.active).sort((a,b)=>(a.sort||0)-(b.sort||0));
@@ -619,6 +620,10 @@ function renderNav(){
   if(isAdmin()) tabs.push(["pano","📈","Pano"],["import","📥","Aktar"]);
   $("nav").innerHTML = tabs.map(([id,ic,l])=>`<button data-tab="${id}" class="${S.tab===id?"on":""}"><span class="ic">${ic}</span>${l}</button>`).join("");
   $("sideNav").innerHTML = tabs.map(([id,ic,l])=>`<button data-tab="${id}" class="navbtn ${S.tab===id?"on":""}"><span class="ic">${ic}</span><span class="lbl">${l}</span></button>`).join("");
+  if(realAdmin()){
+    $("nav").insertAdjacentHTML("beforeend", `<button onclick="location.href='/kreatif/'"><span class="ic">🎬</span>Kreatif</button>`);
+    $("sideNav").insertAdjacentHTML("beforeend", `<a class="navbtn" href="/kreatif/" style="text-decoration:none;margin-top:10px;border-style:dashed;border-color:var(--mut)"><span class="ic">🎬</span><span class="lbl">Kreatif paneline geç</span></a>`);
+  }
   document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab; renderAll(); window.scrollTo(0,0);});
 }
 const TABS = {gun:"Gun", puan:"Puan", kontrol:"Kontrol", denetim:"Denetim", kargo:"Kargo", ses:"Ses", stok:"Stok", birinci:"Birinci", ekip:"Ekip", pano:"Pano", import:"Import"};
@@ -635,13 +640,13 @@ function renderAll(){
   const ini = initials(S.me?.name || S.profile?.name);
   $("avatar").textContent = ini; $("avatarSide").textContent = ini;
   $("userName").textContent = S.profile?.name || "";
-  $("userRole").textContent = isAdmin() ? "Yönetici" : (S.me ? "Operasyon · "+S.me.name : "Operasyon");
+  $("userRole").textContent = S.profile?.role==="admin" ? "Yönetici" : S.profile?.role==="partner" ? "Ortak" : (S.me ? "Operasyon · "+S.me.name : "Operasyon");
   renderViewBar();
 }
 
 /* ================= GÖZÜNDEN GÖR (yönetici) ================= */
 let REAL=null;
-const realAdmin=()=>(REAL?REAL.profile:S.profile)?.role==="admin";
+const realAdmin=()=>["admin","partner"].includes((REAL?REAL.profile:S.profile)?.role);
 const VIEW=()=>!!REAL;
 function renderViewBar(){
   $("btnView").classList.toggle("hidden", !realAdmin());
@@ -1612,7 +1617,7 @@ async function boot(){
   initDays();
   if(DEMO){
     demoData();
-    const setRole=r=>{ if(r==="admin"){ S.profile={id:"u_admin",name:"Demo Yönetici",role:"admin"}; S.me=null; } else { S.profile={id:"u_"+r,name:memById("m_"+r).name,role:"ops"}; S.me=memById("m_"+r); } };
+    const setRole=r=>{ if(r==="admin"){ S.profile={id:"u_admin",name:"Demo Yönetici",role:"admin"}; S.me=null; } else if(r==="partner"){ S.profile={id:"u_partner",name:"Demo Ortak",role:"partner"}; S.me=null; } else { S.profile={id:"u_"+r,name:memById("m_"+r).name,role:"ops"}; S.me=memById("m_"+r); } };
     setRole("admin");
     $("demoBar").classList.remove("hidden");
     $("demoRole").onchange=e=>{ setRole(e.target.value); S.tab="gun"; renderAll(); };

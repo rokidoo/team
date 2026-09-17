@@ -400,3 +400,121 @@ insert into public.ops_check_items (key, group_key, label, sort) values
   ('masa_aksam','temizlik_aksam','Masa ve içerinin temizliği',1), ('bulasik_aksam','temizlik_aksam','Bulaşık',2), ('cop_aksam','temizlik_aksam','Çöpler toplandı ve atıldı',3),
   ('fis','kapanis','Fişler çekildi',1), ('klima','kapanis','Klima kapatıldı',2), ('alan','kapanis','Herkes kendi alanını topladı',3), ('tuvalet','kapanis','Tuvalet temizliği',4)
 on conflict (key) do nothing;
+
+-- ============================================================
+-- v1.7: ORTAKLAR (partner) operasyonda tam yetkili
+-- ============================================================
+create or replace function public.is_ops()
+returns boolean language sql security definer stable
+set search_path = public
+as $$ select coalesce(public.my_role() in ('ops','admin','partner'), false) $$;
+
+create or replace function public.is_ops_admin()
+returns boolean language sql security definer stable
+set search_path = public
+as $$ select coalesce(public.my_role() in ('admin','partner'), false) $$;
+
+-- ortaklar profil listesini görebilsin (üye-hesap bağlama için)
+drop policy if exists "profiles_select" on public.profiles;
+create policy "profiles_select" on public.profiles for select
+  using (id = auth.uid() or public.is_ops_admin());
+
+-- ops tablolarındaki yönetici koşullarını ops_admin'e çevir
+do $$
+declare r record;
+begin
+  for r in select policyname, tablename from pg_policies where schemaname='public' and tablename like 'ops\_%' loop
+    execute format('drop policy if exists %I on public.%I', r.policyname, r.tablename);
+  end loop;
+end $$;
+
+create policy "om_select" on public.ops_members for select using (public.is_ops());
+create policy "om_claim"  on public.ops_members for update
+  using (public.is_ops_admin() or (user_id is null and public.is_ops()))
+  with check (public.is_ops_admin() or user_id = auth.uid());
+create policy "om_admin_ins" on public.ops_members for insert with check (public.is_ops_admin());
+create policy "om_admin_del" on public.ops_members for delete using (public.is_ops_admin());
+create policy "od_select" on public.ops_daily for select using (public.is_ops());
+create policy "od_insert" on public.ops_daily for insert with check (public.is_ops_admin() or member_id = public.my_member());
+create policy "od_update" on public.ops_daily for update using (public.is_ops_admin() or member_id = public.my_member());
+create policy "od_delete" on public.ops_daily for delete using (public.is_ops_admin());
+create policy "os_select" on public.ops_scores for select using (public.is_ops_admin() or rater_id = public.my_member());
+create policy "os_insert" on public.ops_scores for insert with check (public.is_ops_admin() or rater_id = public.my_member());
+create policy "os_update" on public.ops_scores for update using (public.is_ops_admin() or rater_id = public.my_member());
+create policy "os_delete" on public.ops_scores for delete using (public.is_ops_admin());
+create policy "oc_select" on public.ops_checks for select using (public.is_ops());
+create policy "oc_insert" on public.ops_checks for insert with check (public.is_ops_admin() or done_by = public.my_member());
+create policy "oc_update" on public.ops_checks for update using (public.is_ops_admin() or done_by = public.my_member());
+create policy "oc_delete" on public.ops_checks for delete using (public.is_ops_admin() or done_by = public.my_member());
+create policy "odt_all" on public.ops_duty       for all using (public.is_ops()) with check (public.is_ops());
+create policy "otd_all" on public.ops_team_daily for all using (public.is_ops()) with check (public.is_ops());
+create policy "ost_all" on public.ops_stock      for all using (public.is_ops()) with check (public.is_ops());
+create policy "ov_select" on public.ops_voice for select using (public.is_ops());
+create policy "ov_insert" on public.ops_voice for insert with check (public.is_ops_admin() or by_id = public.my_member());
+create policy "ov_update" on public.ops_voice for update using (public.is_ops_admin() or by_id = public.my_member());
+create policy "ov_delete" on public.ops_voice for delete using (public.is_ops_admin() or by_id = public.my_member());
+create policy "op_select" on public.ops_products for select using (public.is_ops());
+create policy "op_write"  on public.ops_products for all using (public.is_ops_admin()) with check (public.is_ops_admin());
+create policy "oset_select" on public.ops_settings for select using (public.is_ops());
+create policy "oset_write"  on public.ops_settings for all using (public.is_ops_admin()) with check (public.is_ops_admin());
+create policy "oaw_select"  on public.ops_awards for select using (public.is_ops());
+create policy "oaw_write"   on public.ops_awards for all using (public.is_ops_admin()) with check (public.is_ops_admin());
+create policy "oas_select" on public.ops_assignments for select using (public.is_ops());
+create policy "oas_write"  on public.ops_assignments for all using (public.is_ops_admin()) with check (public.is_ops_admin());
+create policy "otk_select" on public.ops_tasks for select using (public.is_ops_admin() or member_id = public.my_member());
+create policy "otk_insert" on public.ops_tasks for insert with check (public.is_ops_admin());
+create policy "otk_update" on public.ops_tasks for update using (public.is_ops_admin() or member_id = public.my_member());
+create policy "otk_delete" on public.ops_tasks for delete using (public.is_ops_admin());
+create policy "ob_select" on public.ops_brands for select using (public.is_ops());
+create policy "ob_write"  on public.ops_brands for all using (public.is_ops_admin()) with check (public.is_ops_admin());
+create policy "oci_select" on public.ops_check_items for select using (public.is_ops());
+create policy "oci_write"  on public.ops_check_items for all using (public.is_ops_admin()) with check (public.is_ops_admin());
+
+-- sıralama fonksiyonu: tam tablo ortaklara da açık
+create or replace function public.ops_ranking(p_from date, p_to date, p_full boolean default false)
+returns table(member_id uuid, name text, puan numeric, n_puan integer, disiplin numeric,
+              devam numeric, kontrol numeric, hacim numeric, total numeric)
+language plpgsql security definer
+set search_path = public
+as $$
+declare w jsonb; wdays integer;
+begin
+  if p_full and not public.is_ops_admin() then raise exception 'sadece yönetici'; end if;
+  if not public.is_ops() then raise exception 'yetki yok'; end if;
+  select value into w from public.ops_settings where key = 'rank_weights';
+  w := coalesce(w, '{"puan":40,"disiplin":20,"devam":15,"kontrol":10,"hacim":15}'::jsonb);
+  select count(*) into wdays
+    from generate_series(p_from, least(p_to, current_date), interval '1 day') d
+    where extract(dow from d) <> 0;
+  return query
+  with m as (select id, ops_members.name from public.ops_members where active),
+  d as (select od.member_id, count(*)::numeric filled,
+               count(*) filter (where in_time is not null)::numeric n_in,
+               count(*) filter (where in_time is not null and in_time <= '09:10')::numeric ontime,
+               sum(coalesce(call_total,0)+coalesce(wp_msg,0)+coalesce(ig_msg,0)+coalesce(mail_msg,0)+coalesce(cargo,0))::numeric vol
+        from public.ops_daily od where day between p_from and p_to group by od.member_id),
+  s as (select ratee_id, avg(score)::numeric sc, count(score)::integer n
+        from public.ops_scores where day between p_from and p_to and score is not null group by ratee_id),
+  c as (select done_by, count(*)::numeric ticks from public.ops_checks where day between p_from and p_to group by done_by),
+  base as (select m.id, m.name,
+             coalesce(s.sc,0)*10 puan, coalesce(s.n,0) n_puan,
+             least(100, coalesce(d.filled,0)/greatest(wdays,1)*100) disiplin,
+             case when coalesce(d.n_in,0) > 0 then d.ontime/d.n_in*100 else 0 end devam,
+             coalesce(c.ticks,0) ticks,
+             coalesce(d.vol,0)/greatest(coalesce(d.filled,1),1) volpd
+           from m left join d on d.member_id = m.id left join s on s.ratee_id = m.id left join c on c.done_by = m.id),
+  mx as (select greatest(max(ticks),1) mt, greatest(max(volpd),1) mv from base),
+  r as (select b.id, b.name, b.puan, b.n_puan, b.disiplin, b.devam,
+               b.ticks/mx.mt*100 kontrol, b.volpd/mx.mv*100 hacim,
+               (b.puan*(w->>'puan')::numeric + b.disiplin*(w->>'disiplin')::numeric + b.devam*(w->>'devam')::numeric
+                + b.ticks/mx.mt*100*(w->>'kontrol')::numeric + b.volpd/mx.mv*100*(w->>'hacim')::numeric)/100 total
+        from base b, mx)
+  select r.id, r.name,
+         case when p_full then round(r.puan,1) end, case when p_full then r.n_puan end,
+         case when p_full then round(r.disiplin,1) end, case when p_full then round(r.devam,1) end,
+         case when p_full then round(r.kontrol,1) end, case when p_full then round(r.hacim,1) end,
+         case when p_full then round(r.total,1) end
+  from r where r.total > 0
+  order by r.total desc, r.puan desc
+  limit case when p_full then 100 else 1 end;
+end $$;
