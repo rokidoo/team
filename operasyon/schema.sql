@@ -1,0 +1,235 @@
+-- ============================================================
+-- uzbionik Operasyon Paneli · Supabase Şeması + RLS  (v1.0)
+-- Aynı Supabase projesi (kreatif panelle ortak giriş).
+-- Supabase Dashboard → SQL Editor → tamamını yapıştır → Run
+-- ============================================================
+
+-- ---------- ROL ----------
+-- profiles.role değerleri: admin | partner | creative | ops
+-- Operasyon ekibi 'ops' rolüyle kayıt olur. Kayıt sırasında sadece
+-- 'creative' veya 'ops' seçilebilir; admin/partner yalnızca SQL ile verilir.
+drop policy if exists "profiles_insert" on public.profiles;
+create policy "profiles_insert" on public.profiles for insert
+  with check (id = auth.uid() and coalesce(role,'creative') in ('creative','ops'));
+
+create or replace function public.is_ops()
+returns boolean language sql security definer stable
+set search_path = public
+as $$ select coalesce(public.my_role() in ('ops','admin'), false) $$;
+
+-- ---------- EKİP ----------
+create table if not exists public.ops_members (
+  id       uuid primary key default gen_random_uuid(),
+  key      text unique not null,          -- sait | halil | melek | rabia | furkan | anil
+  name     text not null,
+  color    text default '#FFC53D',
+  active   boolean default true,
+  sort     integer default 0,
+  tasks    text,                          -- görev tanımı (serbest metin)
+  user_id  uuid unique references auth.users on delete set null
+);
+
+-- giriş yapan kullanıcının ekip kaydı
+create or replace function public.my_member()
+returns uuid language sql security definer stable
+set search_path = public
+as $$ select id from public.ops_members where user_id = auth.uid() limit 1 $$;
+
+-- ---------- GÜNLÜK KİŞİSEL KAYIT ----------
+create table if not exists public.ops_daily (
+  id          uuid primary key default gen_random_uuid(),
+  member_id   uuid not null references public.ops_members(id) on delete cascade,
+  day         date not null,
+  in_time     text,                       -- "09:05"
+  out_time    text,
+  leave_min   integer,                    -- izin (dk)
+  ot_min      integer,                    -- mesai (dk)
+  cargo       integer,
+  call_total  integer, call_send integer, call_nolook integer,
+  wp_msg      integer, wp_order integer,
+  ig_msg      integer, ig_order integer,
+  mail_msg    integer, mail_order integer,
+  note        text,                       -- bugün ne yaptım
+  wish        text,                       -- yapılmasını istediğim iş
+  updated_at  timestamptz default now(),
+  unique (member_id, day)
+);
+
+-- ---------- EKİP PUANI (gizli: sadece admin + puanı veren görür) ----------
+create table if not exists public.ops_scores (
+  id         uuid primary key default gen_random_uuid(),
+  day        date not null,
+  rater_id   uuid not null references public.ops_members(id) on delete cascade,
+  ratee_id   uuid not null references public.ops_members(id) on delete cascade,
+  score      integer check (score is null or (score between 0 and 10)),
+  comment    text,
+  updated_at timestamptz default now(),
+  unique (day, rater_id, ratee_id)
+);
+
+-- ---------- KONTROL LİSTESİ (mesaj kanalı, temizlik, kapanış) ----------
+create table if not exists public.ops_checks (
+  id       uuid primary key default gen_random_uuid(),
+  day      date not null,
+  item     text not null,
+  done_by  uuid references public.ops_members(id) on delete set null,
+  done_at  timestamptz default now(),
+  unique (day, item)
+);
+
+-- ---------- NÖBET ----------
+create table if not exists public.ops_duty (
+  day        date primary key,
+  a_id       uuid references public.ops_members(id) on delete set null,
+  b_id       uuid references public.ops_members(id) on delete set null,
+  updated_at timestamptz default now()
+);
+
+-- ---------- EKİP GÜNLÜĞÜ: kargo + mesaj kanalı toplamları ----------
+create table if not exists public.ops_team_daily (
+  day         date primary key,
+  hepsijet    integer, yurtici integer, dhl integer, cargo_total integer,
+  failed      integer,                    -- teslimat başarısız
+  returns     integer, cancels integer,   -- iade / iptal
+  wp_total    integer, ig_total integer, mail_total integer,
+  note        text,
+  updated_by  uuid references public.ops_members(id) on delete set null,
+  updated_at  timestamptz default now()
+);
+
+-- ---------- MÜŞTERİ SESİ ----------
+create table if not exists public.ops_voice (
+  id         uuid primary key default gen_random_uuid(),
+  day        date not null,
+  kind       text not null default 'sikayet',  -- sikayet | soru | geri_donus | haftalik | ekip_mesaj | istek_mesaj
+  brand      text,                             -- dogal_denge | ozvenia | best | uzbionik | liarina
+  tags       text[] default '{}',              -- erimis | eksik | yanlis | gec | iade | iptal | kullanim | icerik | fiyat | ekitap | diger
+  text       text not null,
+  by_id      uuid references public.ops_members(id) on delete set null,
+  created_at timestamptz default now()
+);
+
+-- ---------- STOK ----------
+create table if not exists public.ops_products (
+  key     text primary key,
+  name    text not null,
+  sort    integer default 0,
+  active  boolean default true,
+  min_qty integer default 0
+);
+create table if not exists public.ops_stock (
+  id      uuid primary key default gen_random_uuid(),
+  day     date not null,
+  product text not null references public.ops_products(key) on delete cascade,
+  qty     integer not null,
+  by_id   uuid references public.ops_members(id) on delete set null,
+  unique (day, product)
+);
+
+create index if not exists ops_daily_day_idx  on public.ops_daily(day);
+create index if not exists ops_scores_day_idx on public.ops_scores(day);
+create index if not exists ops_checks_day_idx on public.ops_checks(day);
+create index if not exists ops_voice_day_idx  on public.ops_voice(day);
+
+-- ============================================================
+-- RLS
+-- ============================================================
+alter table public.ops_members    enable row level security;
+alter table public.ops_daily      enable row level security;
+alter table public.ops_scores     enable row level security;
+alter table public.ops_checks     enable row level security;
+alter table public.ops_duty       enable row level security;
+alter table public.ops_team_daily enable row level security;
+alter table public.ops_voice      enable row level security;
+alter table public.ops_products   enable row level security;
+alter table public.ops_stock      enable row level security;
+
+-- ekip: herkes görür; kişi boş bir kaydı kendine bağlayabilir; admin her şeyi
+create policy "om_select" on public.ops_members for select using (public.is_ops());
+create policy "om_claim"  on public.ops_members for update
+  using (public.is_admin() or (user_id is null and public.is_ops()))
+  with check (public.is_admin() or user_id = auth.uid());
+create policy "om_admin_ins" on public.ops_members for insert with check (public.is_admin());
+create policy "om_admin_del" on public.ops_members for delete using (public.is_admin());
+
+-- günlük kayıt: herkes okur, herkes sadece kendi satırını yazar
+create policy "od_select" on public.ops_daily for select using (public.is_ops());
+create policy "od_insert" on public.ops_daily for insert
+  with check (public.is_admin() or member_id = public.my_member());
+create policy "od_update" on public.ops_daily for update
+  using (public.is_admin() or member_id = public.my_member());
+create policy "od_delete" on public.ops_daily for delete using (public.is_admin());
+
+-- puan: puanı veren kendi verdiklerini görür, puanlanan asla görmez, admin hepsini görür
+create policy "os_select" on public.ops_scores for select
+  using (public.is_admin() or rater_id = public.my_member());
+create policy "os_insert" on public.ops_scores for insert
+  with check (public.is_admin() or rater_id = public.my_member());
+create policy "os_update" on public.ops_scores for update
+  using (public.is_admin() or rater_id = public.my_member());
+create policy "os_delete" on public.ops_scores for delete using (public.is_admin());
+
+-- kontrol listesi: herkes tikler, kendi tikini kaldırır
+create policy "oc_select" on public.ops_checks for select using (public.is_ops());
+create policy "oc_insert" on public.ops_checks for insert
+  with check (public.is_admin() or done_by = public.my_member());
+create policy "oc_delete" on public.ops_checks for delete
+  using (public.is_admin() or done_by = public.my_member());
+
+-- nöbet, ekip günlüğü, stok: ekipten herkes yazar
+create policy "odt_all" on public.ops_duty       for all using (public.is_ops()) with check (public.is_ops());
+create policy "otd_all" on public.ops_team_daily for all using (public.is_ops()) with check (public.is_ops());
+create policy "ost_all" on public.ops_stock      for all using (public.is_ops()) with check (public.is_ops());
+
+-- müşteri sesi: herkes ekler, kendi kaydını düzenler
+create policy "ov_select" on public.ops_voice for select using (public.is_ops());
+create policy "ov_insert" on public.ops_voice for insert
+  with check (public.is_admin() or by_id = public.my_member());
+create policy "ov_update" on public.ops_voice for update
+  using (public.is_admin() or by_id = public.my_member());
+create policy "ov_delete" on public.ops_voice for delete
+  using (public.is_admin() or by_id = public.my_member());
+
+-- ürünler: herkes okur, admin düzenler
+create policy "op_select" on public.ops_products for select using (public.is_ops());
+create policy "op_write"  on public.ops_products for all
+  using (public.is_admin()) with check (public.is_admin());
+
+-- ============================================================
+-- BAŞLANGIÇ VERİSİ
+-- ============================================================
+insert into public.ops_members (key, name, color, active, sort, tasks) values
+  ('sait',  'Sait',          '#2F5DFF', true, 1, 'Planlama, görev dağılımı, barkod, stok'),
+  ('halil', 'Halil İbrahim', '#FF8A00', true, 2, 'Kargo süreçleri, iade-iptal, teslim edilemeyen aramaları'),
+  ('melek', 'Melek',         '#EC4899', true, 3, 'Instagram + Mail mesajları, sipariş girişi, müşteri sesi'),
+  ('rabia', 'Rabia',         '#A855F7', true, 4, 'Arama, WhatsApp, temizlik ve nöbet düzeni'),
+  ('furkan','Furkan',        '#22C55E', true, 5, 'Arama, bakmadı takibi'),
+  ('anil',  'Anıl',          '#FFC53D', true, 6, 'Anlık aramalar'),
+  ('efkan', 'Efkan',         '#9AA0A6', false, 7, null),
+  ('umut',  'Umut',          '#9AA0A6', false, 8, null)
+on conflict (key) do nothing;
+
+insert into public.ops_products (key, name, sort) values
+  ('dogal_shilajit','Doğal Shilajit',1), ('bestside_gummy','Bestside Gummy',2), ('nioli','Nioli',3),
+  ('agiz_sprey','Ağız Sprey',4), ('esans','Esans',5), ('uz_cilek','Uz Çilek',6), ('uz_ananas','Uz Ananas',7),
+  ('kolajen_maske','Kolajen Maske',8), ('hidro_maske','Hidro Maske',9), ('soyulabilir','Soyulabilir',10),
+  ('niasinamid','Niasinamid',11), ('ozvenia','Ozvenia',12), ('senlina','Senlina',13)
+on conflict (key) do nothing;
+
+-- ============================================================
+-- İSTEĞE BAĞLI: operasyon ekibi kreatif panelin verisini görmesin.
+-- (Şu an kreatif tabloları "giriş yapmış herkes" okuyabiliyor.)
+-- Çalıştırmak istersen aşağıdaki bloğun yorumunu kaldır.
+-- ============================================================
+-- drop policy if exists "creatives_select" on public.creatives;
+-- create policy "creatives_select" on public.creatives for select using (auth.uid() is not null and public.my_role() <> 'ops');
+-- drop policy if exists "results_select" on public.weekly_results;
+-- create policy "results_select" on public.weekly_results for select using (auth.uid() is not null and public.my_role() <> 'ops');
+-- drop policy if exists "hooks_select" on public.hooks;
+-- create policy "hooks_select" on public.hooks for select using (auth.uid() is not null and public.my_role() <> 'ops');
+-- drop policy if exists "ln_select" on public.links;
+-- create policy "ln_select" on public.links for select using (auth.uid() is not null and public.my_role() <> 'ops');
+-- drop policy if exists "pc_select" on public.pipeline_cards;
+-- create policy "pc_select" on public.pipeline_cards for select using (auth.uid() is not null and public.my_role() <> 'ops');
+-- drop policy if exists "ip_select" on public.idea_pool;
+-- create policy "ip_select" on public.idea_pool for select using (auth.uid() is not null and public.my_role() <> 'ops');
