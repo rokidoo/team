@@ -279,6 +279,13 @@
   .flabel{font-size:.66rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); margin:2px 0 4px}
   .btn.danger{background:var(--red)}
   .btn.ghost{background:var(--card); color:var(--ink)}
+  .btn.sm{width:auto; padding:9px 14px; font-size:.8rem}
+  .eye{width:38px;height:38px;border:var(--b2);border-radius:50%;background:var(--card);cursor:pointer;box-shadow:var(--sh-sm);font-size:1rem;flex-shrink:0}
+  .viewbar{background:var(--purple-s);border:var(--b2);border-radius:12px;padding:9px 13px;margin-bottom:16px;font-size:.78rem;font-weight:800;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .viewbar button{margin-left:auto}
+  .vlist button{display:block;width:100%;text-align:left;margin-bottom:8px;padding:11px 14px}
+  .vlist small{color:var(--mut);font-weight:700;margin-left:8px}
+
   .btnrow{display:flex; gap:10px; margin-top:8px}
 
   /* form / giriş */
@@ -366,10 +373,12 @@
     <div class="mlogo">uzbionik <b>kreatif</b></div>
     <div class="sp"></div>
     <select id="weekPick" class="weekpick"></select>
+    <button class="eye hidden" id="btnView" title="Birinin gözünden gör">👁</button>
     <div class="avatar" id="avatar" title="Çıkış yap">?</div>
   </header>
 
   <main>
+    <div id="viewBar" class="viewbar hidden"></div>
     <div id="demoBar" class="demo hidden">
       DEMO MODU — örnek veri.
       <span>Rol:</span>
@@ -1267,7 +1276,34 @@ function renderAll(){
   $("avatar").textContent = ini; $("avatarSide").textContent = ini;
   $("userName").textContent = S.profile?.name || "";
   $("userRole").textContent = S.profile?.role==="admin"?"Yönetici":S.profile?.role==="partner"?"Ortak":"Kreatif Ekip";
+  renderViewBar();
 }
+
+/* ================= GÖZÜNDEN GÖR (yönetici) ================= */
+let REAL=null;
+const realAdmin=()=>(REAL?REAL.profile:S.profile)?.role==="admin";
+const VIEW=()=>!!REAL;
+const roleLbl=r=>r==="admin"?"Yönetici":r==="partner"?"Ortak":r==="ops"?"Operasyon":"Kreatif Ekip";
+function renderViewBar(){
+  $("btnView").classList.toggle("hidden", !realAdmin());
+  const vb=$("viewBar");
+  if(REAL){ vb.classList.remove("hidden"); vb.innerHTML=`👁 <b>${esc(S.profile.name)}</b> gözünden görüyorsun · ${roleLbl(S.profile.role)}<button class="btn ghost sm" id="viewExit">Kendime dön</button>`; $("viewExit").onclick=()=>viewAs(null); }
+  else vb.classList.add("hidden");
+}
+function viewAs(p){
+  if(p){ if(!REAL) REAL={profile:S.profile}; S.profile=p; }
+  else if(REAL){ S.profile=REAL.profile; REAL=null; }
+  S.tab="board"; closeModal(); renderAll(); window.scrollTo(0,0);
+}
+async function openViewModal(){
+  const me=(REAL?REAL.profile:S.profile);
+  let list=[];
+  if(DEMO) list=[{id:"d1",name:"Demo Çağdaş",role:"creative",initial:"C"},{id:"d2",name:"Demo Ortak",role:"partner",initial:"O"}];
+  else{ const {data,error}=await sb.from("profiles").select("id,name,role,initial").order("name"); if(error){ alert("Kullanıcılar okunamadı: "+error.message); return; } list=(data||[]).filter(p=>p.id!==me.id); }
+  modal(`<h3>Kimin gözünden?</h3><div class="sub">Panel o kişinin yetkisiyle çizilir; veri değişmez.</div><div class="vlist">${list.map(p=>`<button class="btn ghost" data-vp="${esc(p.id)}">${esc(p.name)}<small>${roleLbl(p.role)}${p.initial?" · "+esc(p.initial):""}</small></button>`).join("")||"<div class='empty'>Başka kullanıcı yok</div>"}</div>`);
+  document.querySelectorAll("[data-vp]").forEach(b=>b.onclick=()=>viewAs(list.find(p=>String(p.id)===b.dataset.vp)));
+}
+
 
 /* ================= LİNK KÜTÜPHANESİ (herkes ekler, herkes görür) ================= */
 const LINK_KATS = {
@@ -2027,6 +2063,7 @@ const logout = async ()=>{
   if(confirm("Çıkış yapılsın mı?")){ await sb.auth.signOut(); location.reload(); }
 };
 $("avatar").onclick = logout;
+$("btnView").onclick = openViewModal;
 $("avatarSide").onclick = logout;
 $("weekPick").onchange = e=>{ S.week=e.target.value; renderAll(); };
 $("btnCollapse").onclick = ()=>{
