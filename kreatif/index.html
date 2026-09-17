@@ -478,7 +478,7 @@ const S = {
   profile:null, weeks:[], week:null,
   creatives:[], results:[], fins:[], hooks:[],
   tab:"board", galFilter:{owner:"", status:"", format:""},
-  gunDay:null, puanDay:null, gunIni:null, gunPeriod:"hafta", kdaily:[], kscores:[], kreq:[], kreTables:true,
+  gunDay:null, puanDay:null, gunIni:null, gunPeriod:"hafta", kdaily:[], kscores:[], kreq:[], kreTables:true, kreRoles:{talep:"İ"}, profiles:[],
   boardFmt:"", boardOwner:"", boardView:"hafta", teamView:"tumu", teamFmt:"", teamMonth:"", hookFilter:{format:"", status:""}, teamTable:true,
   pipeline:[], ideas:[], prodView:"akis", prodTables:true,
   links:[], linksTable:true, waLast:null, importsTable:true, linkFilter:{durum:"acik", kat:"", plat:"", q:""},
@@ -642,6 +642,8 @@ async function loadAll(){
   ]);
   if(kd.error||ks.error||kr.error){ S.kreTables=false; S.kdaily=[]; S.kscores=[]; S.kreq=[]; }
   else { S.kreTables=true; S.kdaily=kd.data||[]; S.kscores=ks.data||[]; S.kreq=kr.data||[]; }
+  try{ const {data:st}=await sb.from("kre_settings").select("*").eq("key","roles").maybeSingle(); if(st?.value) S.kreRoles={...S.kreRoles,...st.value}; }catch(e){}
+  if(isAdmin()){ const {data:pr}=await sb.from("profiles").select("id,name,initial,role").order("name"); S.profiles=pr||[]; }
   S.fins=[];
   if(canFin()){
     const f = await sb.from("weekly_financials").select("*");
@@ -1059,7 +1061,8 @@ function renderTeam(){
       <div class="kpi"><b>${tot.e?pct(tot.w/tot.e):"—"}</b><span>Ekip Winner Oranı</span></div>
     </div>
     ${teamWarn}
-    ${isAdmin()?`<div style="margin-bottom:12px"><button class="addbtn" id="teamAdd" style="width:100%">＋ Ekip üyesi ekle</button></div>`:""}
+    ${isAdmin()?`<div class="demo" style="margin-bottom:12px">🛒 Talep & ofis alışverişi sorumlusu: <select id="talepSel">${Object.keys(OWNERS).map(k=>`<option value="${esc(k)}" ${k===S.kreRoles.talep?"selected":""}>${esc(k)} · ${esc(OWNERS[k].name)}</option>`).join("")}</select><span style="font-weight:600;color:var(--mut)">Talepler bölümünü yalnızca bu kişi, sen ve ortaklar görür.</span></div>
+    <div style="margin-bottom:12px"><button class="addbtn" id="teamAdd" style="width:100%">＋ Ekip üyesi ekle</button></div>`:""}
     <div class="cards">
     ${rows.map(r=>{
       const w=OWNERS[r.o];
@@ -1091,6 +1094,7 @@ function renderTeam(){
   $("tabTeam").querySelectorAll("[data-tf]").forEach(b=>b.onclick=()=>{S.teamFmt=b.dataset.tf; renderTeam();});
   if(isAdmin()){
     if($("teamAdd")) $("teamAdd").onclick=()=>openTeamModal(null);
+    if($("talepSel")) $("talepSel").onchange=async e=>{ const v={...S.kreRoles, talep:e.target.value}; if(!DEMO){ const {error}=await sb.from("kre_settings").upsert({key:"roles",value:v,updated_at:nowIso()},{onConflict:"key"}); if(error){ toast("Hata: "+error.message); return; } } S.kreRoles=v; toast("Talep sorumlusu: "+OWNERS[v.talep].name); };
     $("tabTeam").querySelectorAll("[data-tedit]").forEach(b=>b.onclick=()=>openTeamModal(b.dataset.tedit));
   }
 }
@@ -1200,6 +1204,8 @@ function openTeamModal(initial){
       <div><div class="flabel">Harf</div><input id="tmIni" value="${esc(initial||"")}" ${isNew?"":"disabled"} maxlength="2" placeholder="C"></div>
       <div><div class="flabel">İsim</div><input id="tmName" value="${esc(w?.name||"")}" placeholder="Çağdaş"></div>
     </div>
+    ${isNew?"":`<div class="flabel">Bağlı hesap (giriş yapınca bu harf tanınır)</div>
+    <select id="tmUser"><option value="">— bağlı değil —</option>${S.profiles.map(p=>`<option value="${esc(p.id)}" ${p.initial===initial?"selected":""}>${esc(p.name)}${p.initial?" · "+esc(p.initial):""} (${esc(p.role)})</option>`).join("")}</select>`}
     <div class="flabel">Renk</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px" id="tmColors">
       ${PALETTE.map(p=>`<button data-col="${p}" style="width:36px;height:36px;border-radius:10px;border:${(w?.c||PALETTE[0])===p?"3px solid var(--ink)":"2px solid #ccc"};background:${p};cursor:pointer"></button>`).join("")}
@@ -1226,6 +1232,12 @@ function openTeamModal(initial){
       if(q.error){ alert("Kaydedilemedi: "+q.error.message); return; }
     }
     OWNERS[ini] = mkOwner(name, color);
+    const us=$("tmUser");
+    if(us && !DEMO){
+      const sel=us.value; const prev=S.profiles.find(p=>p.initial===ini);
+      if(prev && prev.id!==sel){ await sb.from("profiles").update({initial:null}).eq("id",prev.id); prev.initial=null; }
+      if(sel){ const {error}=await sb.from("profiles").update({initial:ini}).eq("id",sel); if(error){ alert("Hesap bağlanamadı: "+error.message); } else { const pr=S.profiles.find(p=>p.id===sel); if(pr) pr.initial=ini; if(S.profile?.id===sel) S.profile.initial=ini; } }
+    }
     closeModal(); renderAll();
   };
   if(!isNew) $("tmDel").onclick = async ()=>{
@@ -1351,7 +1363,8 @@ function bindDayNav(root, key, rerender){
   root.querySelectorAll("[data-dn]").forEach(b=>b.onclick=()=>{ S[key]=addDays(S[key], +b.dataset.d); rerender(); });
   const inp=root.querySelector("input[type=date][id]"); if(inp) inp.onchange=e=>{ if(e.target.value){ S[key]=e.target.value; rerender(); } };
 }
-const myIni = ()=>S.profile?.initial || null;
+const myIni = ()=>{ if(S.profile?.initial && OWNERS[S.profile.initial]) return S.profile.initial; const n=String(S.profile?.name||"").trim().toLowerCase().split(/\s+/)[0]; const k=n?Object.keys(OWNERS).find(k=>OWNERS[k].name.toLowerCase().startsWith(n)):null; return k||S.profile?.initial||null; };
+const canTalep = ()=>kreAdmin() || (myIni() && myIni()===S.kreRoles.talep);
 const kreAdmin = ()=>canFin();                       // yönetici + ortaklar
 const KRE_INIS = ()=>Object.keys(OWNERS);
 const kdOf = (ini,day)=>S.kdaily.find(r=>r.initial===ini && r.day===day);
@@ -1398,14 +1411,14 @@ function renderGun(){
       <tr><th>Gün</th><th>Giriş</th><th>Çıkış</th><th>Sıfır V</th><th>Sıfır G</th><th>Var V</th><th>Var G</th><th>Mesai</th></tr>
       ${last7.map(x=>`<tr><td>${trShort(x.day)}</td><td class="${mins(x.in_time)>LATE_MIN?"late":""}">${esc(x.in_time||"—")}</td><td>${esc(x.out_time||"—")}</td><td>${x.new_video??"—"}</td><td>${x.new_image??"—"}</td><td>${x.var_video??"—"}</td><td>${x.var_image??"—"}</td><td>${durTxt(x.ot_min)}</td></tr>`).join("")}
     </table></div></div>`:""}
-    <div class="sect"><h3>🛒 Talepler & ofis alışverişi <span class="cnt">${open.length} açık</span></h3>
+    ${canTalep()?`<div class="sect"><h3>🛒 Talepler & ofis alışverişi <span class="cnt">${open.length} açık</span></h3>
       <div class="card" style="margin-bottom:12px"><div class="fgrid c2">
         <div><div class="flabel">Tür</div><select id="rq_kind"><option value="talep">Talep (ekipman, ihtiyaç)</option><option value="alisveris">Ofis alışverişi (mutfak, sarf)</option></select></div>
         <div><div class="flabel">Tutar ₺ (alışverişse)</div><input type="number" inputmode="numeric" id="rq_amount" placeholder="—"></div></div>
         <textarea id="rq_text" rows="2" placeholder="Örn: kablosuz mouse, mouse pad · ya da alışveriş listesi"></textarea>
         <button class="btn" id="rqAdd">Ekle</button></div>
       ${open.length||done.length?`<div class="card" style="padding:6px 14px">${open.map(reqRow).join("")}${done.map(reqRow).join("")}</div>`:`<div class="empty">Talep yok</div>`}
-    </div>
+    </div>`:""}
     ${kreAdmin()?gunSummary(day):""}
   `;
   bindDayNav(el,"gunDay",renderGun);
@@ -1423,7 +1436,7 @@ function renderGun(){
       toast("Kaydedildi ✓"); renderGun();
     }catch(e){ toast("Hata: "+e.message); $("gunSave").disabled=false; }
   };
-  $("rqAdd").onclick=async ()=>{
+  if($("rqAdd")) $("rqAdd").onclick=async ()=>{
     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
     const text=$("rq_text").value.trim(); if(!text){ toast("Metin boş."); return; }
     const row={day:today(), kind:$("rq_kind").value, text, amount:numOrNull($("rq_amount").value), by_initial:myIni(), by_name:S.profile?.name||null, done:false, created_by:S.profile?.id||null, created_at:nowIso()};

@@ -337,3 +337,28 @@ create policy "kr_select" on public.kre_requests for select using (auth.uid() is
 create policy "kr_insert" on public.kre_requests for insert with check (auth.uid() = created_by);
 create policy "kr_update" on public.kre_requests for update using (public.is_kre_admin() or auth.uid() = created_by);
 create policy "kr_delete" on public.kre_requests for delete using (public.is_kre_admin() or auth.uid() = created_by);
+
+-- ============================================================
+-- v1.8: İ = İmkan düzeltmesi, hesap-harf bağı, talep sorumlusu
+-- ============================================================
+update public.team_members set name = 'İmkan' where initial = 'İ' and name = 'İnka';
+-- İmkan'ın hesabına harfini yaz (e-posta biliniyor)
+update public.profiles set initial = 'İ'
+  where id = (select id from auth.users where email = 'imkan.kilicay33@gmail.com');
+
+create table if not exists public.kre_settings (
+  key        text primary key,
+  value      jsonb not null,
+  updated_at timestamptz default now()
+);
+alter table public.kre_settings enable row level security;
+create policy "kset_select" on public.kre_settings for select using (auth.uid() is not null and public.my_role() <> 'ops');
+create policy "kset_write"  on public.kre_settings for all using (public.is_kre_admin()) with check (public.is_kre_admin());
+insert into public.kre_settings (key, value) values ('roles', '{"talep":"İ"}') on conflict (key) do nothing;
+
+-- talepler: yalnızca yönetici/ortak, talep sorumlusu ve kaydı ekleyen görür
+drop policy if exists "kr_select" on public.kre_requests;
+create policy "kr_select" on public.kre_requests for select using (
+  public.is_kre_admin() or by_initial = public.my_initial()
+  or public.my_initial() = (select value->>'talep' from public.kre_settings where key = 'roles')
+);
