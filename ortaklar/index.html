@@ -589,7 +589,7 @@ function bindTasks(root, rerender){
 }
 function renderGun(){
   const el=$("tabGun"); const day=S.day;
-  if(!DEMO&&!S.prtTables){ el.innerHTML=`<h2>Günüm</h2><div class="empty">Supabase'de <b>ortaklar/schema.sql</b> henüz çalıştırılmamış.</div>`; return; }
+  if(!DEMO&&!S.prtTables){ el.innerHTML=`<h2>Günüm</h2><div class="empty">Supabase'de <b>ortaklar/schema.sql</b> henüz çalıştırılmamış ya da okunamıyor.<br><small>${esc(S.missing.filter(x=>x.startsWith("prt_")).join(" · ")||"")}</small></div>`; return; }
   const users=S.partners; const u=users.find(x=>x.id===(S.gunUser||S.profile.id))||S.profile; const mine=u.id===S.profile.id;
   const r=S.prtDaily.find(x=>x.user_id===u.id&&x.day===day)||{};
   const filled=users.map(x=>{ const ok=S.prtDaily.some(d=>d.user_id===x.id&&d.day===day); return `<span class="w ${ok?"ok":"no"}">${ok?"✓":"✗"} ${esc(x.name)}</span>`; }).join("");
@@ -623,7 +623,7 @@ function renderGun(){
 /* ================= GÖREVLER ================= */
 function renderGorev(){
   const el=$("tabGorev");
-  if(!DEMO&&!S.prtTables){ el.innerHTML=`<h2>Görevler</h2><div class="empty">ortaklar/schema.sql çalıştırılmamış.</div>`; return; }
+  if(!DEMO&&!S.prtTables){ el.innerHTML=`<h2>Görevler</h2><div class="empty">ortaklar/schema.sql çalıştırılmamış ya da okunamıyor.<br><small>${esc(S.missing.filter(x=>x.startsWith("prt_")).join(" · ")||"")}</small></div>`; return; }
   const open=S.prtTasks.filter(t=>!t.done), done=S.prtTasks.filter(t=>t.done).slice(0,20);
   const byUser=S.partners.map(u=>({u,ts:open.filter(t=>t.assigned_to===u.id)})).filter(x=>x.ts.length);
   el.innerHTML=`
