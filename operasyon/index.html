@@ -783,28 +783,35 @@ function renderKontrol(){
   const chk = item=>S.checks.find(c=>c.day===day && c.item===item);
   const duty = dutyFor(day);
   const wk = monday(day); const days=[0,1,2,3,4,5].map(i=>addDays(wk,i));
+  const groups = CHECK_GROUPS.filter(g=>!/^mesaj/.test(g.k) || canTab("mesaj_kanali"));
+  const mFirst = day.slice(0,8)+"01", mLast = monthEnd(mFirst);
+  const mDays = []; for(let d=mFirst; d<=mLast; d=addDays(d,1)) if(dow(d)!==0) mDays.push(d);
+  const rosterRows = mDays.map(d=>{ const o=S.duty.find(x=>x.day===d); const p=dutyFor(d); return `<tr style="${d===today()?"background:var(--mustard-s)":""}"><td>${trDateW(d)}</td><td style="font-family:var(--fb);font-weight:700">${p.map(m=>esc(m.name)).join(" + ")||"—"}</td><td>${o?"listeden":"<span style='color:var(--mut)'>otomatik</span>"}</td></tr>`; }).join("");
   el.innerHTML = `
     <h2>Nöbet & Kontrol</h2>
     <div class="sub">Yapılanı tıkla; kim, saat kaçta yaptı kaydedilir.</div>
     ${dayNav("kontrolDay", day)}
     <div class="card" style="margin-bottom:16px">
-      <div class="sect" style="margin-bottom:0"><h3>🧹 Bugünün nöbetçileri</h3>
+      <div class="sect" style="margin-bottom:0"><h3>Bugünün nöbetçileri</h3>
         ${dow(day)===0?`<div class="empty" style="padding:14px">Pazar — nöbet yok</div>`:`
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           ${duty.map(m=>`<span class="w" style="display:inline-flex;align-items:center;gap:8px;border:var(--b2);border-radius:99px;padding:6px 12px 6px 6px;font-weight:800;background:var(--mustard-s)">${av(m)} ${esc(m.name)}</span>`).join("")||"<span class='note'>Aktif üye yok</span>"}
           <button class="btn ghost sm" id="dutyEdit">Değiştir</button>
-          ${S.duty.find(d=>d.day===day)?`<span class="pill">elle atandı</span>`:`<span class="pill">otomatik sıra</span>`}
+          ${isAdmin()?`<button class="btn ghost sm" id="dutyMonth">📅 Aylık liste</button>`:""}
+          ${S.duty.find(d=>d.day===day)?`<span class="pill">listeden</span>`:`<span class="pill">otomatik sıra</span>`}
         </div>`}
       </div>
     </div>
-    ${CHECK_GROUPS.map(g=>`<div class="sect"><h3>${esc(g.l)} <span class="cnt">${g.items.filter(i=>chk(i[0])).length}/${g.items.length}</span></h3>
+    ${groups.map(g=>`<div class="sect"><h3>${esc(g.l)} <span class="cnt">${g.items.filter(i=>chk(i[0])).length}/${g.items.length}</span></h3>
       ${g.items.map(([k,l])=>{ const c=chk(k); return `<div class="chk ${c?"on":""}" data-item="${k}"><div class="bx">${c?"✓":""}</div><div class="lbl">${esc(l)}</div>${c?`<div class="by">${esc(memName(c.done_by))} · ${new Date(c.done_at).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"})}</div>`:""}</div>`; }).join("")}
     </div>`).join("")}
     <div class="sect"><h3>📆 Bu hafta</h3><div class="tblwrap"><table class="compact">
       <tr><th>Grup</th>${days.map(d=>`<th>${trShort(d)}</th>`).join("")}</tr>
-      ${CHECK_GROUPS.map(g=>`<tr><td>${esc(g.l)}</td>${days.map(d=>{ const n=g.items.filter(i=>S.checks.find(c=>c.day===d&&c.item===i[0])).length; const cls=n===g.items.length?"up":n?"":"down"; return `<td class="${cls}">${n}/${g.items.length}</td>`; }).join("")}</tr>`).join("")}
+      ${groups.map(g=>`<tr><td>${esc(g.l)}</td>${days.map(d=>{ const n=g.items.filter(i=>S.checks.find(c=>c.day===d&&c.item===i[0])).length; const cls=n===g.items.length?"up":n?"":"down"; return `<td class="${cls}">${n}/${g.items.length}</td>`; }).join("")}</tr>`).join("")}
       <tr><td>Nöbet</td>${days.map(d=>`<td style="font-family:var(--fb);font-size:.66rem">${dutyFor(d).map(m=>initials(m.name)).join("+")||"—"}</td>`).join("")}</tr>
     </table></div></div>
+    <div class="sect"><h3>📅 Nöbet listesi · ${trMonth(mFirst)}</h3><div class="tblwrap"><table class="compact"><tr><th>Gün</th><th>Nöbetçiler</th><th>Kaynak</th></tr>${rosterRows}</table></div>
+      ${isAdmin()&&S.duty.some(x=>inRange(x.day,[mFirst,mLast]))?`<div class="btnrow"><button class="btn ghost sm" id="dutyClear">Bu ayın listesini sil (otomatiğe dön)</button></div>`:""}</div>
   `;
   bindDayNav(el,"kontrolDay",renderKontrol);
   el.querySelectorAll(".chk").forEach(b=>b.onclick=async ()=>{
@@ -824,6 +831,31 @@ function renderKontrol(){
       renderKontrol();
     }catch(e){ toast("Hata: "+e.message); }
   });
+  const dm=$("dutyMonth"); if(dm) dm.onclick=()=>{
+    modal(`<h3>Aylık nöbet listesi</h3><div class="sub">İsimleri sırayla yaz (her satıra bir isim). Sıra, ay boyunca ikili nöbetin dönüş sırası olur; herkes herkesle eşit sayıda denk gelir.</div>
+      <div class="flabel">Ay</div><input type="month" id="dm_month" value="${mFirst.slice(0,7)}">
+      <div class="flabel">İsimler (sırayla)</div><textarea id="dm_names" rows="7">${actives().map(m=>esc(m.name)).join("\n")}</textarea>
+      <button class="btn" id="dmSave">Listeyi oluştur</button>`);
+    $("dmSave").onclick=async ()=>{
+      if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
+      const first=$("dm_month").value+"-01"; if(!/^\d{4}-\d{2}-01$/.test(first)){ toast("Ay seç."); return; }
+      const names=$("dm_names").value.split(/\n|,/).map(x=>x.trim()).filter(Boolean);
+      const L=[]; const bad=[];
+      names.forEach(n=>{ const m=S.members.find(x=>x.name.toLowerCase()===n.toLowerCase()) || S.members.find(x=>x.name.toLowerCase().startsWith(n.toLowerCase())); if(m&&!L.includes(m)) L.push(m); else if(!m) bad.push(n); });
+      if(bad.length){ toast("Bulunamadı: "+bad.join(", ")); return; }
+      if(L.length<2){ toast("En az 2 isim gerekli."); return; }
+      const arr=[...L]; if(arr.length%2) arr.push(null); const n=arr.length; const pairs=[];
+      for(let r=0;r<n-1;r++){ for(let i=0;i<n/2;i++) pairs.push([arr[i],arr[n-1-i]]); arr.splice(1,0,arr.pop()); }
+      const last=monthEnd(first); const rows=[]; let k=0;
+      for(let d=first; d<=last; d=addDays(d,1)){ if(dow(d)===0) continue; const [a,b]=pairs[k++%pairs.length]; rows.push({day:d, a_id:a?.id||null, b_id:b?.id||null, updated_at:nowIso()}); }
+      try{ await upsert("ops_duty",rows,"day"); S.duty=S.duty.filter(x=>!inRange(x.day,[first,last])); S.duty.push(...rows); S.kontrolDay=first<=today()&&today()<=last?today():first; closeModal(); toast(`${rows.length} günlük nöbet listesi oluşturuldu ✓`); renderKontrol(); }
+      catch(e){ toast("Hata: "+e.message); }
+    };
+  };
+  const dc=$("dutyClear"); if(dc) dc.onclick=async ()=>{
+    if(!confirm(trMonth(mFirst)+" nöbet listesi silinsin mi? Otomatik sıraya dönülür.")) return;
+    try{ if(!DEMO){ const {error}=await sb.from("ops_duty").delete().gte("day",mFirst).lte("day",mLast); if(error) throw error; } S.duty=S.duty.filter(x=>!inRange(x.day,[mFirst,mLast])); renderKontrol(); }catch(e){ toast("Hata: "+e.message); }
+  };
   const de=$("dutyEdit"); if(de) de.onclick=()=>{
     const cur=dutyFor(day);
     modal(`<h3>Nöbetçiler · ${trDate(day)}</h3>
@@ -1030,14 +1062,13 @@ function renderEkip(){
     <div class="card"><div class="mcard">${av(m,"big")}<div style="flex:1"><div class="nm">${esc(m.name)}</div><div class="tk">${esc(m.tasks||"—")}</div>
       <div class="mrow">${myRoles(m).map(k=>`<span class="pill">${ROLES[k].i} ${esc(ROLES[k].l)}</span>`).join("")}<span class="m">Son 14 gün doldurma <b>${n}/${d14.length}</b></span><span class="m">${m.user_id?"🔗 hesap bağlı":"⚠️ hesap bağlı değil"}</span>${m.active?"":chip("pasif","var(--gray-s)")}</div></div>
       ${isAdmin()?`<button class="editbtn" data-medit="${m.id}">✏️</button>`:""}</div></div>`; };
-  const passive=S.members.filter(m=>!m.active);
   el.innerHTML=`
     <h2>Ekip</h2>
     <div class="sub">Herkes aynı pozisyonda, görevler farklı.${isAdmin()?" Düzenlemek için ✏️.":""}</div>
     ${rolesCard()}
     <div class="sect"><h3>👥 Üyeler</h3><div class="cards">${actives().map(card).join("")}</div></div>
     ${isAdmin()?`<div class="btnrow" style="margin-top:14px"><button class="btn ghost sm" id="memAdd">+ Üye ekle</button><button class="btn ghost sm" id="ekipTask">📌 Görev ata</button></div>`:""}
-    ${passive.length?`<div class="sect" style="margin-top:22px"><h3>Ayrılanlar <span class="cnt">${passive.length}</span></h3><div class="cards">${passive.map(card).join("")}</div></div>`:""}
+
   `;
   if(!isAdmin()) return;
   bindRoles(el, renderEkip); $("ekipTask").onclick=()=>openTaskModal(null, renderEkip);
@@ -1074,6 +1105,7 @@ const ROLES = {
   kargo:            {l:"Kargo & mesaj toplamları girişi",   i:"📦", tab:"kargo",   d:"Kargo sekmesi yalnızca bu kişiye görünür."},
   mesaj_kontrol:    {l:"Mesaj kontrolü",                    i:"💬", tab:"denetim", d:"Herkesin günlük mesaj sayılarını görür ve kontrol eder."},
   temizlik_kontrol: {l:"Temizlik kontrolü",                 i:"🧹", tab:"denetim", d:"Nöbetçilerin temizlik tiklerini görür ve denetler."},
+  mesaj_kanali:     {l:"Mesaj kanalı temizleme (sabah/akşam)", i:"📨", tab:"kontrol", d:"Kontrol sekmesindeki WhatsApp/Instagram/Mail temizleme maddeleri yalnızca bu kişide görünür."},
 };
 const roleHolder = k=>{ const a=S.assign.find(x=>x.role_key===k); return a?.member_id ? memById(a.member_id) : null; };
 const holdsRole  = k=>{ const h=roleHolder(k); return !!(h && S.me && h.id===S.me.id); };
@@ -1084,6 +1116,7 @@ const checkOf    = (day,item)=>S.checks.find(c=>c.day===day && c.item===item);
 function roleStatus(k, day){ // o gün sorumluluk yerine getirildi mi
   if(k==="stok")  return S.stock.some(s=>s.day===day);
   if(k==="kargo") return S.team.some(t=>t.day===day && t.cargo_total!=null);
+  if(k==="mesaj_kanali") return CHECK_GROUPS.filter(g=>/^mesaj/.test(g.k)).every(g=>g.items.every(i=>checkOf(day,i[0])));
   return !!checkOf(day,k);
 }
 const tasksOf = (mid, day)=>S.tasks.filter(t=>t.member_id===mid && (!t.done || (t.done_at||"").slice(0,10)===day || t.due===day)).sort((a,b)=>(a.due||"9")<(b.due||"9")?-1:1);
@@ -1517,7 +1550,7 @@ function demoData(){
     ALL_ITEMS.forEach(it=>{ if(Math.random()<.7) S.checks.push({id:uid(),day:d,item:it,done_by:S.members[rnd(0,5)].id,done_at:d+"T09:30:00"}); });
     const h=rnd(80,200),y=rnd(300,700),dh=rnd(0,20); S.team.push({day:d,hepsijet:h,yurtici:y,dhl:dh,cargo_total:h+y+dh,failed:rnd(0,10),returns:rnd(0,5),cancels:rnd(0,5),wp_total:rnd(50,200),ig_total:rnd(100,400),mail_total:rnd(5,40),note:null});
   }
-  S.assign=[{role_key:"stok",member_id:"m_sait"},{role_key:"kargo",member_id:"m_halil"},{role_key:"mesaj_kontrol",member_id:"m_melek"},{role_key:"temizlik_kontrol",member_id:"m_rabia"}];
+  S.assign=[{role_key:"stok",member_id:"m_sait"},{role_key:"kargo",member_id:"m_halil"},{role_key:"mesaj_kontrol",member_id:"m_melek"},{role_key:"temizlik_kontrol",member_id:"m_rabia"},{role_key:"mesaj_kanali",member_id:"m_melek"}];
   S.tasks=[{id:uid(),title:"Stoğa bak, eksikleri yaz",detail:"Ozvenia ve çilek öncelikli",member_id:"m_melek",due:today(),done:false,created_at:nowIso()},{id:uid(),title:"İade kargoları say",member_id:"m_halil",due:addDays(today(),-1),done:true,done_at:nowIso(),done_note:"12 iade, 3'ü hasarlı",created_at:nowIso()}];
   S.voice=[{id:uid(),day:addDays(today(),-1),kind:"sikayet",brand:"uzbionik",tags:["erimis"],text:"3 müşteri ürün erimiş geldi dedi",by_id:"m_melek"},{id:uid(),day:addDays(today(),-2),kind:"soru",brand:"uzbionik",tags:["kullanim","icerik"],text:"Kaç yaş için uygun, günde kaç tane?",by_id:"m_melek"}];
   [10,5,1].forEach(i=>S.products.forEach(p=>S.stock.push({id:uid(),day:addDays(today(),-i),product:p.key,qty:rnd(100,5000)})));

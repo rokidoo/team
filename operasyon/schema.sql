@@ -374,3 +374,8 @@ update public.ops_products set brand = 'uzbionik',
   name = case key when 'uz_cilek' then 'uzbionik Çilek' else 'uzbionik Ananaslı' end,
   sort = case key when 'uz_cilek' then 1 else 2 end
   where key in ('uz_cilek','uz_ananas');
+
+-- v1.5: mesaj kanalı temizleme sorumluluğu (Kontrol listesindeki sabah/akşam mesaj maddeleri)
+insert into public.ops_assignments (role_key, member_id) values
+  ('mesaj_kanali', (select id from public.ops_members where key='melek'))
+on conflict (role_key) do nothing;
