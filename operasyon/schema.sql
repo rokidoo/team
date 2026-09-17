@@ -311,3 +311,42 @@ begin
   order by r.total desc, r.puan desc
   limit case when p_full then 100 else 1 end;
 end $$;
+
+-- ============================================================
+-- v1.2: SORUMLULUKLAR + GÖREV ATAMA + DENETİM NOTU
+-- ============================================================
+create table if not exists public.ops_assignments (      -- sabit sorumluluk -> tek kişi
+  role_key   text primary key,                           -- stok | kargo | mesaj_kontrol | temizlik_kontrol
+  member_id  uuid references public.ops_members(id) on delete set null,
+  note       text,
+  updated_at timestamptz default now()
+);
+create table if not exists public.ops_tasks (            -- yöneticinin verdiği tek seferlik işler
+  id          uuid primary key default gen_random_uuid(),
+  title       text not null,
+  detail      text,
+  member_id   uuid not null references public.ops_members(id) on delete cascade,
+  due         date,
+  created_by  uuid references auth.users on delete set null,
+  created_at  timestamptz default now(),
+  done        boolean default false,
+  done_at     timestamptz,
+  done_note   text
+);
+alter table public.ops_checks add column if not exists note text;
+
+alter table public.ops_assignments enable row level security;
+alter table public.ops_tasks       enable row level security;
+create policy "oas_select" on public.ops_assignments for select using (public.is_ops());
+create policy "oas_write"  on public.ops_assignments for all using (public.is_admin()) with check (public.is_admin());
+create policy "otk_select" on public.ops_tasks for select using (public.is_admin() or member_id = public.my_member());
+create policy "otk_insert" on public.ops_tasks for insert with check (public.is_admin());
+create policy "otk_update" on public.ops_tasks for update using (public.is_admin() or member_id = public.my_member());
+create policy "otk_delete" on public.ops_tasks for delete using (public.is_admin());
+
+insert into public.ops_assignments (role_key, member_id) values
+  ('stok',             (select id from public.ops_members where key='sait')),
+  ('kargo',            (select id from public.ops_members where key='halil')),
+  ('mesaj_kontrol',    (select id from public.ops_members where key='melek')),
+  ('temizlik_kontrol', (select id from public.ops_members where key='rabia'))
+on conflict (role_key) do nothing;
