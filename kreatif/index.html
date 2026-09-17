@@ -280,6 +280,32 @@
   .btn.danger{background:var(--red)}
   .btn.ghost{background:var(--card); color:var(--ink)}
   .btn.sm{width:auto; padding:9px 14px; font-size:.8rem}
+  nav.bottom{overflow-x:auto; scrollbar-width:none} nav.bottom::-webkit-scrollbar{display:none} nav.bottom button{min-width:50px}
+  .fgrid{display:grid; grid-template-columns:repeat(2,1fr); gap:0 10px}
+  @media(min-width:700px){.fgrid{grid-template-columns:repeat(4,1fr)} .fgrid.c2{grid-template-columns:repeat(2,1fr)}}
+  .fgrid input,.fgrid select{margin-bottom:10px}
+  .dayrow{display:flex; gap:8px; align-items:center; margin-bottom:14px; flex-wrap:wrap}
+  .dayrow input[type=date],.dayrow select{width:auto; margin:0; padding:9px 12px; font-size:.85rem}
+  .dayrow .nb{background:var(--card); border:var(--b2); border-radius:10px; width:38px; height:38px; cursor:pointer; font-weight:800; font-family:var(--fm); box-shadow:var(--sh-sm)}
+  .dayrow .dl{font-family:var(--fh); font-weight:700; font-size:1rem}
+  .who{display:flex; flex-wrap:wrap; gap:8px}
+  .who .w{display:inline-flex; align-items:center; gap:6px; border:var(--b2); border-radius:99px; padding:6px 12px; font-size:.74rem; font-weight:800; background:var(--card)}
+  .who .w.ok{background:var(--green-s)} .who .w.no{background:var(--red-s)}
+  .scrow{display:flex; gap:4px; flex-wrap:wrap; margin:8px 0}
+  .scbtn{width:32px; height:32px; border:var(--b2); border-radius:9px; background:var(--card); font-family:var(--fm); font-weight:700; cursor:pointer; font-size:.8rem; padding:0}
+  .scbtn.on{background:var(--ink); color:var(--card); box-shadow:var(--sh-sm)}
+  .pill{display:inline-block; border:var(--b2); border-radius:8px; padding:2px 8px; font-size:.66rem; font-weight:800; background:var(--card)}
+  .crow{display:flex; gap:8px; align-items:center; padding:8px 0; border-bottom:2px solid var(--cream2); font-size:.78rem}
+  .crow:last-child{border-bottom:none} .crow b{white-space:nowrap} .crow .ct{color:var(--ink-soft); font-weight:600; min-width:0; flex:1}
+  .note{font-size:.74rem; color:var(--mut); font-weight:600; margin-top:8px}
+  .disc{display:grid; gap:4px; overflow-x:auto}
+  .disc .r{display:grid; grid-template-columns:110px repeat(var(--n),minmax(18px,1fr)); gap:3px; align-items:center; font-size:.7rem; font-weight:700}
+  .disc .c{height:22px; border:2px solid var(--ink); border-radius:6px; background:var(--red-s)} .disc .c.ok{background:var(--green)} .disc .c.na{background:var(--gray-s); border-style:dashed; border-color:var(--mut)}
+  .disc .h{font-size:.58rem; text-align:center; color:var(--mut); font-family:var(--fm)}
+  table.compact{min-width:0} table.compact th,table.compact td{padding:7px 8px}
+  .late{color:var(--red); font-weight:800}
+  .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(92px + env(safe-area-inset-bottom)); background:var(--ink); color:#fff; padding:10px 16px; border-radius:12px; font-weight:700; font-size:.8rem; z-index:90; border:var(--b2); box-shadow:var(--sh-sm); max-width:90vw}
+  @media(min-width:960px){.toast{bottom:24px}}
   .eye{width:38px;height:38px;border:var(--b2);border-radius:50%;background:var(--card);cursor:pointer;box-shadow:var(--sh-sm);font-size:1rem;flex-shrink:0}
   .viewbar{background:var(--purple-s);border:var(--b2);border-radius:12px;padding:9px 13px;margin-bottom:16px;font-size:.78rem;font-weight:800;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .viewbar button{margin-left:auto}
@@ -390,6 +416,8 @@
     </div>
 
     <div id="tabBoard"></div>
+    <div id="tabGun" class="hidden"></div>
+    <div id="tabPuan" class="hidden"></div>
     <div id="tabGallery" class="hidden"></div>
     <div id="tabHooks" class="hidden"></div>
     <div id="tabProd" class="hidden"></div>
@@ -403,6 +431,7 @@
 </div>
 
 <div id="modalHost"></div>
+<div id="toastHost"></div>
 
 <script type="module">
 /* ================= AYARLAR ================= */
@@ -449,6 +478,7 @@ const S = {
   profile:null, weeks:[], week:null,
   creatives:[], results:[], fins:[], hooks:[],
   tab:"board", galFilter:{owner:"", status:"", format:""},
+  gunDay:null, puanDay:null, gunIni:null, gunPeriod:"hafta", kdaily:[], kscores:[], kreq:[], kreTables:true,
   boardFmt:"", boardOwner:"", boardView:"hafta", teamView:"tumu", teamFmt:"", teamMonth:"", hookFilter:{format:"", status:""}, teamTable:true,
   pipeline:[], ideas:[], prodView:"akis", prodTables:true,
   links:[], linksTable:true, waLast:null, importsTable:true, linkFilter:{durum:"acik", kat:"", plat:"", q:""},
@@ -499,6 +529,10 @@ const statusAtWeek = c => (resFor(c.code)?.status_at_week) || c.status;
 
 /* ================= DEMO VERİSİ ================= */
 function demoData(){
+  const _t=today(); const _r=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+  for(let i=1;i<=8;i++){ const d=addDays(_t,-i); if(dow(d)===0) continue; ["İ","M","C","E"].forEach(k=>{ if(Math.random()<.2) return; S.kdaily.push({id:uid(),initial:k,day:d,in_time:`09:${pad(_r(0,20))}`,out_time:"18:00",leave_min:0,ot_min:Math.random()<.3?_r(15,60):0,new_video:_r(0,3),new_image:_r(0,4),var_video:_r(0,5),var_image:_r(0,6),note:"verimli gündü",wish:null}); });
+    S.kscores.push({id:uid(),day:d,rater:"M",ratee:"İ",score:_r(8,10),comment:"yardımcı oldu"},{id:uid(),day:d,rater:"İ",ratee:"M",score:_r(7,10),comment:null}); }
+  S.kreq=[{id:uid(),day:_t,kind:"talep",text:"kablosuz mouse, mouse pad",by_initial:"M",by_name:"Mustafa Kemal",done:false},{id:uid(),day:addDays(_t,-3),kind:"alisveris",text:"yüzey temizleyici, kağıt havlu, çay",amount:2200,by_initial:"İ",by_name:"İmkan",done:true,done_note:"alındı"}];
   const w1="2026-08-03", w2="2026-08-10";
   S.weeks=[{week:w2,note:"Okula dönüş dalgası başladı; 2 yeni test."},{week:w1,note:"İlk pilot haftası."}];
   S.week=w2;
@@ -601,6 +635,13 @@ async function loadAll(){
   if(ln.error){ S.linksTable=false; S.links=[]; } else { S.linksTable=true; S.links=ln.data||[]; }
   const li = await sb.from("link_imports").select("last_message_at").order("last_message_at",{ascending:false}).limit(1);
   if(li.error){ S.importsTable=false; S.waLast=null; } else { S.importsTable=true; S.waLast = li.data?.[0]?.last_message_at || null; }
+  const [kd,ks,kr]=await Promise.all([
+    sb.from("kre_daily").select("*").order("day",{ascending:false}).limit(3000),
+    sb.from("kre_scores").select("*").order("day",{ascending:false}).limit(5000),
+    sb.from("kre_requests").select("*").order("created_at",{ascending:false}).limit(500),
+  ]);
+  if(kd.error||ks.error||kr.error){ S.kreTables=false; S.kdaily=[]; S.kscores=[]; S.kreq=[]; }
+  else { S.kreTables=true; S.kdaily=kd.data||[]; S.kscores=ks.data||[]; S.kreq=kr.data||[]; }
   S.fins=[];
   if(canFin()){
     const f = await sb.from("weekly_financials").select("*");
@@ -1247,7 +1288,7 @@ function renderImport(){
 
 function renderNav(){
   const tabs = [
-    ["board","📊","Board"],["gallery","🖼","Galeri"],["hooks","🪝","Hooklar"],["prod","🛠","Üretim"],["links","🔗","Linkler"],["team","👥","Ekip"],
+    ["board","📊","Board"],["gun","📝","Günüm"],["puan","⭐","Puan"],["gallery","🖼","Galeri"],["hooks","🪝","Hooklar"],["prod","🛠","Üretim"],["links","🔗","Linkler"],["team","👥","Ekip"],
   ];
   if(canFin()) tabs.push(["finance","💰","Finans"]);
   if(isAdmin()) tabs.push(["import","📥","Aktar"]);
@@ -1255,6 +1296,10 @@ function renderNav(){
     `<button data-tab="${id}" class="${S.tab===id?"on":""}"><span class="ic">${ic}</span>${l}</button>`).join("");
   $("sideNav").innerHTML = tabs.map(([id,ic,l])=>
     `<button data-tab="${id}" class="navbtn ${S.tab===id?"on":""}"><span class="ic">${ic}</span><span class="lbl">${l}</span></button>`).join("");
+  if(canFin()){
+    $("nav").insertAdjacentHTML("beforeend", `<button onclick="location.href='/operasyon/'"><span class="ic">🏭</span>Operasyon</button>`);
+    $("sideNav").insertAdjacentHTML("beforeend", `<a class="navbtn" href="/operasyon/" style="text-decoration:none;margin-top:10px;border-style:dashed;border-color:var(--mut)"><span class="ic">🏭</span><span class="lbl">Operasyon paneline geç</span></a>`);
+  }
   document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab; renderAll();});
 }
 
@@ -1266,17 +1311,202 @@ function renderWeeks(){
 
 function renderAll(){
   renderNav(); renderWeeks();
-  ["Board","Gallery","Hooks","Prod","Links","Team","Finance","Import"].forEach(t=>$("tab"+t).classList.add("hidden"));
-  const map={board:"Board",gallery:"Gallery",hooks:"Hooks",prod:"Prod",links:"Links",team:"Team",finance:"Finance",import:"Import"};
+  ["Board","Gun","Puan","Gallery","Hooks","Prod","Links","Team","Finance","Import"].forEach(t=>$("tab"+t).classList.add("hidden"));
+  const map={board:"Board",gun:"Gun",puan:"Puan",gallery:"Gallery",hooks:"Hooks",prod:"Prod",links:"Links",team:"Team",finance:"Finance",import:"Import"};
   if((S.tab==="finance"&&!canFin())||(S.tab==="import"&&!isAdmin())) S.tab="board";
   $("tab"+map[S.tab]).classList.remove("hidden");
   document.querySelector("main").classList.toggle("wide", S.tab==="prod");
-  renderBoard(); renderGallery(); renderHooks(); renderProd(); renderLinks(); renderTeam(); renderFinance(); renderImport();
+  renderBoard(); renderGun(); renderPuan(); renderGallery(); renderHooks(); renderProd(); renderLinks(); renderTeam(); renderFinance(); renderImport();
   const ini = (S.profile?.initial || S.profile?.name?.[0] || "?").toUpperCase();
   $("avatar").textContent = ini; $("avatarSide").textContent = ini;
   $("userName").textContent = S.profile?.name || "";
   $("userRole").textContent = S.profile?.role==="admin"?"Yönetici":S.profile?.role==="partner"?"Ortak":"Kreatif Ekip";
   renderViewBar();
+}
+
+/* ================= GÜNÜM · PUAN · TALEPLER (kreatif ekip) ================= */
+const pad = n=>String(n).padStart(2,"0");
+const iso = d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const today = ()=>iso(new Date());
+const addDays = (s,n)=>{ const d=new Date(s+"T00:00:00"); d.setDate(d.getDate()+n); return iso(d); };
+const dow = s=>new Date(s+"T00:00:00").getDay();
+const monday = s=>addDays(s, -((dow(s)+6)%7));
+const monthEnd = f=>{ const d=new Date(f+"T00:00:00"); d.setMonth(d.getMonth()+1); d.setDate(0); return iso(d); };
+const trDateW = s=>new Date(s+"T00:00:00").toLocaleDateString("tr-TR",{day:"numeric",month:"short",weekday:"long"});
+const trMonth = s=>new Date(s+"T00:00:00").toLocaleDateString("tr-TR",{month:"long",year:"numeric"});
+const mins = t=>{ if(!t||!/^\d{1,2}:\d{2}/.test(t)) return null; const [h,m]=t.split(":").map(Number); return h*60+m; };
+const hhmm = m=> m==null? "—" : `${pad(Math.floor(m/60))}:${pad(Math.round(m%60))}`;
+const durTxt = m=> !m? "—" : m>=60? `${Math.floor(m/60)} sa${m%60? " "+(m%60)+" dk":""}` : `${m} dk`;
+const numOrNull = v=>{ const s=String(v??"").trim(); if(s==="") return null; const n=parseInt(s.replace(/[^\d-]/g,""),10); return isNaN(n)?null:n; };
+const sum = (arr,f)=>arr.reduce((a,x)=>a+(+(f?f(x):x)||0),0);
+const avg = arr=>arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : null;
+const nowIso = ()=>new Date().toISOString();
+const uid = ()=>"d"+Math.random().toString(36).slice(2,10);
+const inRange = (d,[a,b])=>d>=a && d<=b;
+const LATE_MIN = 9*60+10;
+let toastT=null;
+function toast(msg){ $("toastHost").innerHTML=`<div class="toast">${esc(msg)}</div>`; clearTimeout(toastT); toastT=setTimeout(()=>$("toastHost").innerHTML="",2600); }
+const dayNav = (id,val,extra="")=>`<div class="dayrow"><button class="nb" data-dn="${id}" data-d="-1">‹</button><input type="date" id="${id}" value="${val}"><button class="nb" data-dn="${id}" data-d="1">›</button><span class="dl">${trDateW(val)}</span>${extra}</div>`;
+function bindDayNav(root, key, rerender){
+  root.querySelectorAll("[data-dn]").forEach(b=>b.onclick=()=>{ S[key]=addDays(S[key], +b.dataset.d); rerender(); });
+  const inp=root.querySelector("input[type=date][id]"); if(inp) inp.onchange=e=>{ if(e.target.value){ S[key]=e.target.value; rerender(); } };
+}
+const myIni = ()=>S.profile?.initial || null;
+const kreAdmin = ()=>canFin();                       // yönetici + ortaklar
+const KRE_INIS = ()=>Object.keys(OWNERS);
+const kdOf = (ini,day)=>S.kdaily.find(r=>r.initial===ini && r.day===day);
+const prodOf = r=>(r.new_video||0)+(r.new_image||0)+(r.var_video||0)+(r.var_image||0);
+function gunIni(){
+  if(kreAdmin()) return (S.gunIni && OWNERS[S.gunIni]) ? S.gunIni : (myIni()&&OWNERS[myIni()] ? myIni() : KRE_INIS()[0]);
+  return (myIni()&&OWNERS[myIni()]) ? myIni() : null;
+}
+function renderGun(){
+  const el=$("tabGun"); if(!el) return;
+  S.gunDay=S.gunDay||today(); const day=S.gunDay; const ini=gunIni();
+  if(!DEMO && !S.kreTables){ el.innerHTML=`<h2>Günüm</h2><div class="empty">Supabase'de <b>schema-v1.7-gunum.sql</b> henüz çalıştırılmamış.</div>`; return; }
+  if(!ini){ el.innerHTML=`<h2>Günüm</h2><div class="empty">Profilinde kreatif harfin (C/İ/E/M/R) yok. Yönetici Ekip sekmesinden atasın.</div>`; return; }
+  const r=kdOf(ini,day)||{}; const v=k=>r[k]==null?"":r[k];
+  const num=(k,l)=>`<div><div class="flabel">${l}</div><input type="number" inputmode="numeric" min="0" id="g_${k}" value="${v(k)}" placeholder="0"></div>`;
+  const sel = kreAdmin()?`<select id="gunIni">${KRE_INIS().map(k=>`<option value="${esc(k)}" ${k===ini?"selected":""}>${esc(k)} · ${esc(OWNERS[k].name)}</option>`).join("")}</select>`:"";
+  const filled = KRE_INIS().map(k=>{ const ok=!!kdOf(k,day); return `<span class="w ${ok?"ok":"no"}">${ok?"✓":"✗"} ${esc(OWNERS[k].name)}</span>`; }).join("");
+  const last7 = S.kdaily.filter(x=>x.initial===ini && x.day<day).sort((a,b)=>b.day<a.day?-1:1).slice(0,7);
+  // talepler
+  const open=S.kreq.filter(q=>!q.done); const done=S.kreq.filter(q=>q.done).slice(0,8);
+  const reqRow=q=>`<div class="crow"><span class="pill" style="background:${q.done?"var(--green-s)":q.kind==="alisveris"?"var(--mustard-s)":"var(--cobalt-s)"}">${q.done?"✓":q.kind==="alisveris"?"alışveriş":"talep"}</span><b>${esc(q.by_name||q.by_initial||"")}</b><span class="ct">${esc(q.text)}${q.amount?` · <b>${nf.format(q.amount)} ₺</b>`:""}${q.done_note?` · <i>${esc(q.done_note)}</i>`:""} <small style="color:var(--mut)">${trShort(q.day)}</small></span>${(kreAdmin()||q.created_by===S.profile?.id)?`<button class="editbtn" data-req="${q.id}">${q.done?"✏️":"✓"}</button>`:""}</div>`;
+  el.innerHTML=`
+    <h2>Günüm</h2>
+    <div class="sub">Akşam çıkmadan 2 dakikada doldur: saatler, bugün ürettiklerin, notun.</div>
+    ${dayNav("gunDay", day, sel)}
+    <div class="card" style="margin-bottom:16px">
+      <div class="sect"><h3>⏰ Saatler</h3><div class="fgrid">
+        <div><div class="flabel">Giriş</div><input type="time" id="g_in_time" value="${v("in_time")}"></div>
+        <div><div class="flabel">Çıkış</div><input type="time" id="g_out_time" value="${v("out_time")}"></div>
+        ${num("leave_min","İzin (dk)")}${num("ot_min","Mesai (dk)")}
+      </div></div>
+      <div class="sect"><h3>🎬 Bugün ürettiklerim</h3><div class="fgrid">
+        ${num("new_video","Sıfır video")}${num("new_image","Sıfır görsel")}${num("var_video","Varyasyon video")}${num("var_image","Varyasyon görsel")}
+      </div></div>
+      <div class="flabel">Bugün nasıl geçti / ne yaptım</div>
+      <textarea id="g_note" rows="3" placeholder="Kısaca: ne yaptın, ne aksadı?">${esc(v("note"))}</textarea>
+      <div class="flabel">Yapılmasını istediğim iş / ihtiyaç</div>
+      <textarea id="g_wish" rows="2" placeholder="İsteğe bağlı">${esc(v("wish"))}</textarea>
+      <button class="btn" id="gunSave">${r.id?"Güncelle":"Kaydet"}</button>
+      ${r.updated_at?`<div class="note">Son kayıt: ${new Date(r.updated_at).toLocaleString("tr-TR")}</div>`:""}
+    </div>
+    <div class="sect"><h3>👥 ${trDate(day)} · kim doldurdu</h3><div class="who">${filled}</div></div>
+    ${last7.length?`<div class="sect"><h3>📅 Son günlerim</h3><div class="tblwrap"><table class="compact">
+      <tr><th>Gün</th><th>Giriş</th><th>Çıkış</th><th>Sıfır V</th><th>Sıfır G</th><th>Var V</th><th>Var G</th><th>Mesai</th></tr>
+      ${last7.map(x=>`<tr><td>${trShort(x.day)}</td><td class="${mins(x.in_time)>LATE_MIN?"late":""}">${esc(x.in_time||"—")}</td><td>${esc(x.out_time||"—")}</td><td>${x.new_video??"—"}</td><td>${x.new_image??"—"}</td><td>${x.var_video??"—"}</td><td>${x.var_image??"—"}</td><td>${durTxt(x.ot_min)}</td></tr>`).join("")}
+    </table></div></div>`:""}
+    <div class="sect"><h3>🛒 Talepler & ofis alışverişi <span class="cnt">${open.length} açık</span></h3>
+      <div class="card" style="margin-bottom:12px"><div class="fgrid c2">
+        <div><div class="flabel">Tür</div><select id="rq_kind"><option value="talep">Talep (ekipman, ihtiyaç)</option><option value="alisveris">Ofis alışverişi (mutfak, sarf)</option></select></div>
+        <div><div class="flabel">Tutar ₺ (alışverişse)</div><input type="number" inputmode="numeric" id="rq_amount" placeholder="—"></div></div>
+        <textarea id="rq_text" rows="2" placeholder="Örn: kablosuz mouse, mouse pad · ya da alışveriş listesi"></textarea>
+        <button class="btn" id="rqAdd">Ekle</button></div>
+      ${open.length||done.length?`<div class="card" style="padding:6px 14px">${open.map(reqRow).join("")}${done.map(reqRow).join("")}</div>`:`<div class="empty">Talep yok</div>`}
+    </div>
+    ${kreAdmin()?gunSummary(day):""}
+  `;
+  bindDayNav(el,"gunDay",renderGun);
+  const gs=$("gunIni"); if(gs) gs.onchange=e=>{ S.gunIni=e.target.value; renderGun(); };
+  $("gunSave").onclick=async ()=>{
+    if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
+    const row={initial:ini, day, in_time:$("g_in_time").value||null, out_time:$("g_out_time").value||null, updated_at:nowIso()};
+    ["leave_min","ot_min","new_video","new_image","var_video","var_image"].forEach(k=>row[k]=numOrNull($("g_"+k).value));
+    row.note=$("g_note").value.trim()||null; row.wish=$("g_wish").value.trim()||null;
+    $("gunSave").disabled=true;
+    try{
+      if(DEMO){ const i=S.kdaily.findIndex(x=>x.initial===ini&&x.day===day); if(i>=0) S.kdaily[i]={...S.kdaily[i],...row}; else S.kdaily.unshift({id:uid(),...row}); }
+      else{ const {data,error}=await sb.from("kre_daily").upsert(row,{onConflict:"initial,day"}).select().single(); if(error) throw error;
+        const i=S.kdaily.findIndex(x=>x.initial===ini&&x.day===day); if(i>=0) S.kdaily[i]=data; else S.kdaily.unshift(data); }
+      toast("Kaydedildi ✓"); renderGun();
+    }catch(e){ toast("Hata: "+e.message); $("gunSave").disabled=false; }
+  };
+  $("rqAdd").onclick=async ()=>{
+    if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
+    const text=$("rq_text").value.trim(); if(!text){ toast("Metin boş."); return; }
+    const row={day:today(), kind:$("rq_kind").value, text, amount:numOrNull($("rq_amount").value), by_initial:myIni(), by_name:S.profile?.name||null, done:false, created_by:S.profile?.id||null, created_at:nowIso()};
+    try{ if(DEMO) S.kreq.unshift({id:uid(),...row}); else { const {data,error}=await sb.from("kre_requests").insert(row).select().single(); if(error) throw error; S.kreq.unshift(data); }
+      toast("Eklendi ✓"); renderGun(); }catch(e){ toast("Hata: "+e.message); }
+  };
+  el.querySelectorAll("[data-req]").forEach(b=>b.onclick=()=>{
+    const q=S.kreq.find(x=>x.id===b.dataset.req); if(!q) return;
+    modal(`<h3>${esc(q.text)}</h3>
+      <div class="flabel">Tutar ₺</div><input type="number" id="rq_e_amount" value="${q.amount??""}">
+      <div class="flabel">Not (alındı, ne zaman, kaça)</div><textarea id="rq_e_note" rows="2">${esc(q.done_note||"")}</textarea>
+      <div class="btnrow">${q.done?`<button class="btn ghost" id="rqUndo">Açığa al</button>`:""}<button class="btn" id="rqDone">${q.done?"Kaydet":"Tamamlandı ✓"}</button></div>
+      <button class="btn danger sm" id="rqDel" style="margin-top:10px">Sil</button>`);
+    const save=async upd=>{ if(VIEW()){ toast("👁 Görüntüleme modu"); return; } try{ if(!DEMO){ const {error}=await sb.from("kre_requests").update(upd).eq("id",q.id); if(error) throw error; } Object.assign(q,upd); closeModal(); renderGun(); }catch(e){ toast("Hata: "+e.message); } };
+    $("rqDone").onclick=()=>save({done:true, amount:numOrNull($("rq_e_amount").value), done_note:$("rq_e_note").value.trim()||null});
+    const u=$("rqUndo"); if(u) u.onclick=()=>save({done:false, amount:numOrNull($("rq_e_amount").value), done_note:$("rq_e_note").value.trim()||null});
+    $("rqDel").onclick=async ()=>{ if(!confirm("Silinsin mi?")) return; try{ if(!DEMO){ const {error}=await sb.from("kre_requests").delete().eq("id",q.id); if(error) throw error; } S.kreq=S.kreq.filter(x=>x.id!==q.id); closeModal(); renderGun(); }catch(e){ toast("Hata: "+e.message); } };
+  });
+  el.querySelectorAll("[data-gp]").forEach(b=>b.onclick=()=>{ S.gunPeriod=b.dataset.gp; renderGun(); });
+}
+function gunSummary(day){
+  const p=S.gunPeriod||"hafta";
+  const range = p==="hafta" ? [monday(day), addDays(monday(day),6)] : p==="ay" ? [day.slice(0,8)+"01", monthEnd(day.slice(0,8)+"01")] : ["2000-01-01","2999-12-31"];
+  const D=S.kdaily.filter(x=>inRange(x.day,range)); const SC=S.kscores.filter(x=>inRange(x.day,range)&&x.score!=null);
+  const row=k=>{ const r=D.filter(x=>x.initial===k); const ins=r.map(x=>mins(x.in_time)).filter(x=>x!=null); const recv=SC.filter(s=>s.ratee===k).map(s=>s.score);
+    return `<tr><td>${esc(OWNERS[k].name)}</td><td>${r.length}</td><td>${sum(r,x=>x.new_video)}</td><td>${sum(r,x=>x.new_image)}</td><td>${sum(r,x=>x.var_video)}</td><td>${sum(r,x=>x.var_image)}</td><td><b>${sum(r,prodOf)}</b></td><td>${hhmm(avg(ins))}</td><td class="${ins.filter(x=>x>LATE_MIN).length?"late":""}">${ins.filter(x=>x>LATE_MIN).length}</td><td>${durTxt(sum(r,x=>x.ot_min))}</td><td>${durTxt(sum(r,x=>x.leave_min))}</td><td><b>${recv.length?nf1.format(avg(recv)):"—"}</b> <small>(${recv.length})</small></td></tr>`; };
+  const d14=[]; for(let i=0;d14.length<14;i++){ const d=addDays(today(),-i); if(dow(d)!==0) d14.unshift(d); }
+  const comments=S.kscores.filter(s=>inRange(s.day,range)&&s.comment).sort((a,b)=>b.day<a.day?-1:1).slice(0,25);
+  const title = p==="hafta"?`${trDate(range[0])} – ${trDate(range[1])}`: p==="ay"?trMonth(range[0]):"Tüm zamanlar";
+  return `<div class="sect" style="margin-top:26px"><h3>📈 Ekip özeti · ${esc(title)} <span class="pill">sadece yönetici/ortak</span></h3>
+    <div class="filters">${[["hafta","Hafta"],["ay","Ay"],["tumu","Tümü"]].map(([k,l])=>`<button class="fchip ${p===k?"on":""}" data-gp="${k}">${l}</button>`).join("")}</div>
+    <div class="tblwrap"><table class="compact"><tr><th>Kişi</th><th>Gün</th><th>Sıfır V</th><th>Sıfır G</th><th>Var V</th><th>Var G</th><th>Toplam</th><th>Ort. giriş</th><th>Geç</th><th>Mesai</th><th>İzin</th><th>Aldığı puan</th></tr>${KRE_INIS().map(row).join("")}</table></div>
+    <div class="note">Geç = 09:10'dan sonra giriş. Aldığı puan = ekip arkadaşlarının gizli puan ortalaması.</div>
+    <div class="card" style="margin-top:12px"><div class="flabel">Doldurma disiplini · son 14 iş günü</div><div class="disc" style="--n:${d14.length}"><div class="r"><div></div>${d14.map(d=>`<div class="h">${d.slice(8)}</div>`).join("")}</div>${KRE_INIS().map(k=>`<div class="r"><div>${esc(OWNERS[k].name)}</div>${d14.map(d=>`<div class="c ${kdOf(k,d)?"ok":(d===today()?"na":"")}"></div>`).join("")}</div>`).join("")}</div></div>
+    ${comments.length?`<div class="card" style="margin-top:12px;padding:6px 14px">${comments.map(s=>`<div class="crow"><span class="pill">${trShort(s.day)}</span><b>${esc(s.rater)} → ${esc(OWNERS[s.ratee]?.name||s.ratee)}</b>${s.score!=null?`<span class="pill" style="background:${s.score>=9?"var(--green-s)":s.score>=7?"var(--mustard-s)":"var(--red-s)"}">${s.score}</span>`:""}<span class="ct">${esc(s.comment)}</span></div>`).join("")}</div>`:""}
+  </div>`;
+}
+function renderPuan(){
+  const el=$("tabPuan"); if(!el) return;
+  S.puanDay=S.puanDay||today(); const day=S.puanDay; const me=myIni();
+  if(!DEMO && !S.kreTables){ el.innerHTML=`<h2>Ekip Puanı</h2><div class="empty">schema-v1.7-gunum.sql çalıştırılmamış.</div>`; return; }
+  if(!me||!OWNERS[me]){ el.innerHTML=`<h2>Ekip Puanı</h2><div class="empty">${kreAdmin()?"Puanlama kreatif ekip içindir; rapor Günüm altındaki Ekip özetinde.":"Profilinde kreatif harfin yok."}</div>`; return; }
+  const others=KRE_INIS().filter(k=>k!==me);
+  const mine=k=>S.kscores.find(s=>s.day===day&&s.rater===me&&s.ratee===k)||{};
+  el.innerHTML=`<h2>Ekip Puanı</h2><div class="sub">Her akşam ekip arkadaşlarını 1–10 arası puanla. Puanlar <b>yalnızca yöneticiye</b> görünür.</div>
+    ${dayNav("puanDay",day)}
+    ${others.map(k=>{ const s=mine(k); return `<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:10px;align-items:center">${ownBadge(k)}<b style="font-family:var(--fh);font-size:1.05rem">${esc(OWNERS[k].name)}</b></div>
+      <div class="scrow" data-ratee="${esc(k)}">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="scbtn ${s.score===n?"on":""}" data-n="${n}">${n}</button>`).join("")}</div>
+      <input type="text" id="pc_${esc(k)}" placeholder="Kısa not (isteğe bağlı)" value="${esc(s.comment||"")}" style="margin-bottom:0"></div>`; }).join("")}
+    <button class="btn" id="puanSave">Puanları Kaydet</button>`;
+  bindDayNav(el,"puanDay",renderPuan);
+  const picked={}; others.forEach(k=>{ const s=mine(k); if(s.score!=null) picked[k]=s.score; });
+  el.querySelectorAll(".scrow").forEach(row=>row.querySelectorAll(".scbtn").forEach(b=>b.onclick=()=>{ row.querySelectorAll(".scbtn").forEach(z=>z.classList.remove("on")); b.classList.add("on"); picked[row.dataset.ratee]=+b.dataset.n; }));
+  $("puanSave").onclick=async ()=>{
+    if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
+    const rows=others.filter(k=>picked[k]!=null).map(k=>({day,rater:me,ratee:k,score:picked[k],comment:$("pc_"+k).value.trim()||null,updated_at:nowIso()}));
+    if(!rows.length){ toast("Önce puan seç."); return; }
+    try{ if(DEMO){ rows.forEach(r=>{ const i=S.kscores.findIndex(s=>s.day===r.day&&s.rater===r.rater&&s.ratee===r.ratee); if(i>=0) S.kscores[i]={...S.kscores[i],...r}; else S.kscores.unshift({id:uid(),...r}); }); }
+      else{ const {data,error}=await sb.from("kre_scores").upsert(rows,{onConflict:"day,rater,ratee"}).select(); if(error) throw error; data.forEach(r=>{ const i=S.kscores.findIndex(s=>s.id===r.id); if(i>=0) S.kscores[i]=r; else S.kscores.unshift(r); }); }
+      toast(`${rows.length} puan kaydedildi ✓`); renderPuan(); }catch(e){ toast("Hata: "+e.message); }
+  };
+}
+async function importKre(data, say){
+  const chunk=async (table,rows,onConflict)=>{ for(let i=0;i<rows.length;i+=400){ const {error}=await sb.from(table).upsert(rows.slice(i,i+400),{onConflict}); if(error) throw error; } };
+  if(Array.isArray(data.daily)&&data.daily.length){
+    const rows=data.daily.filter(r=>r.initial&&r.day).map(r=>({...r,updated_at:nowIso()}));
+    say(`→ ${rows.length} kreatif günlük kaydı…`);
+    if(DEMO) rows.forEach(r=>{ if(!kdOf(r.initial,r.day)) S.kdaily.push({id:uid(),...r}); }); else await chunk("kre_daily",rows,"initial,day");
+  }
+  if(Array.isArray(data.scores)&&data.scores.length){
+    const rows=data.scores.filter(s=>s.rater&&s.ratee).map(s=>({day:s.day,rater:s.rater,ratee:s.ratee,score:s.score??null,comment:s.comment||null,updated_at:nowIso()}));
+    say(`→ ${rows.length} puan…`);
+    if(DEMO) rows.forEach(r=>S.kscores.push({id:uid(),...r})); else await chunk("kre_scores",rows,"day,rater,ratee");
+  }
+  if(Array.isArray(data.requests)&&data.requests.length){
+    const have=new Set(S.kreq.map(q=>`${q.day}|${q.text}`));
+    const rows=data.requests.filter(q=>!have.has(`${q.day}|${q.text}`)).map(q=>({day:q.day,kind:q.kind||"talep",text:q.text,amount:q.amount??null,by_initial:q.by_initial||null,by_name:q.by_name||null,done:!!q.done,created_by:S.profile?.id||null,created_at:q.day+"T12:00:00+03:00"}));
+    say(`→ ${rows.length} talep/alışveriş (${data.requests.length-rows.length} zaten vardı)…`);
+    if(DEMO) rows.forEach(r=>S.kreq.push({id:uid(),...r})); else for(let i=0;i<rows.length;i+=400){ const {error}=await sb.from("kre_requests").insert(rows.slice(i,i+400)); if(error) throw error; }
+  }
+  if(!DEMO) await loadAll();
+  S.kdaily.sort((a,b)=>b.day<a.day?-1:1);
+  say("✅ Günlük aktarımı tamam."); renderGun();
 }
 
 /* ================= GÖZÜNDEN GÖR (yönetici) ================= */
@@ -1933,6 +2163,10 @@ async function doImport(){
   let data;
   try{ data = JSON.parse($("impJson").value); }
   catch(e){ say("❌ JSON okunamadı: "+e.message); return; }
+  if(Array.isArray(data.daily)||Array.isArray(data.scores)||Array.isArray(data.requests)){
+    try{ await importKre(data, say); }catch(e){ say("❌ Hata: "+(e.message||e)); }
+    if(!data.week) return;
+  }
   if(!data.week){ say("❌ 'week' alanı zorunlu (haftanın pazartesi tarihi, YYYY-AA-GG)."); return; }
   if(DEMO){ say("⚠️ DEMO modundasın — Supabase ayarları doldurulunca gerçek içe aktarma çalışır."); return; }
   try{

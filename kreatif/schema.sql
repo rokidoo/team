@@ -270,3 +270,70 @@ create table if not exists public.link_imports (
 alter table public.link_imports enable row level security;
 create policy "li_select" on public.link_imports for select using (auth.uid() is not null);
 create policy "li_insert" on public.link_imports for insert with check (auth.uid() = imported_by);
+
+-- ============================================================
+-- v1.7: KREATİF EKİP GÜNLÜĞÜ (Günüm) + gizli puan + talepler
+-- Kişi anahtarı = profiles.initial (C / İ / E / M / R)
+-- ============================================================
+create or replace function public.my_initial()
+returns text language sql security definer stable
+set search_path = public
+as $$ select initial from public.profiles where id = auth.uid() $$;
+
+create or replace function public.is_kre_admin()
+returns boolean language sql security definer stable
+set search_path = public
+as $$ select coalesce(public.my_role() in ('admin','partner'), false) $$;
+
+create table if not exists public.kre_daily (
+  id         uuid primary key default gen_random_uuid(),
+  initial    text not null,
+  day        date not null,
+  in_time    text, out_time text,
+  leave_min  integer, ot_min integer,
+  new_video  integer, new_image integer, var_video integer, var_image integer,
+  note       text, wish text,
+  updated_at timestamptz default now(),
+  unique (initial, day)
+);
+create table if not exists public.kre_scores (
+  id         uuid primary key default gen_random_uuid(),
+  day        date not null,
+  rater      text not null,
+  ratee      text not null,
+  score      integer check (score is null or (score between 0 and 10)),
+  comment    text,
+  updated_at timestamptz default now(),
+  unique (day, rater, ratee)
+);
+create table if not exists public.kre_requests (
+  id         uuid primary key default gen_random_uuid(),
+  day        date not null default current_date,
+  kind       text not null default 'talep',   -- talep | alisveris
+  text       text not null,
+  amount     numeric,
+  by_initial text, by_name text,
+  done       boolean default false,
+  done_note  text,
+  created_by uuid references auth.users on delete set null,
+  created_at timestamptz default now()
+);
+alter table public.kre_daily    enable row level security;
+alter table public.kre_scores   enable row level security;
+alter table public.kre_requests enable row level security;
+
+-- günlük: kreatif ekip + yönetici/ortak okur; herkes sadece kendi harfini yazar
+create policy "kd_select" on public.kre_daily for select using (auth.uid() is not null and public.my_role() <> 'ops');
+create policy "kd_insert" on public.kre_daily for insert with check (public.is_kre_admin() or initial = public.my_initial());
+create policy "kd_update" on public.kre_daily for update using (public.is_kre_admin() or initial = public.my_initial());
+create policy "kd_delete" on public.kre_daily for delete using (public.is_kre_admin());
+-- puan: veren kendi verdiklerini görür, alan asla görmez, yönetici/ortak hepsini görür
+create policy "ks_select" on public.kre_scores for select using (public.is_kre_admin() or rater = public.my_initial());
+create policy "ks_insert" on public.kre_scores for insert with check (public.is_kre_admin() or rater = public.my_initial());
+create policy "ks_update" on public.kre_scores for update using (public.is_kre_admin() or rater = public.my_initial());
+create policy "ks_delete" on public.kre_scores for delete using (public.is_kre_admin());
+-- talepler: herkes ekler ve görür, yönetici/ortak kapatır
+create policy "kr_select" on public.kre_requests for select using (auth.uid() is not null and public.my_role() <> 'ops');
+create policy "kr_insert" on public.kre_requests for insert with check (auth.uid() = created_by);
+create policy "kr_update" on public.kre_requests for update using (public.is_kre_admin() or auth.uid() = created_by);
+create policy "kr_delete" on public.kre_requests for delete using (public.is_kre_admin() or auth.uid() = created_by);
