@@ -370,6 +370,9 @@
     .modal { padding: 18px; max-height: 92vh; }
     .field.row { flex-direction: column; gap: 12px !important; }
   }
+  .hub{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 20px;background:var(--card);border-bottom:1px solid var(--line, #e5e2da)}
+  .hub-lbl{font-size:12px;font-weight:800;color:var(--ink-soft)}
+  .hub-link{text-decoration:none;font-size:12px;padding:6px 10px}
 </style>
 </head>
 <body>
@@ -406,7 +409,7 @@
       </form>
       <form id="signupForm" style="display:none">
         <div class="field"><label>Ad Soyad</label><input type="text" id="suName" placeholder="Elif Yılmaz" autocomplete="name" /></div>
-        <div class="field"><label>Rol / Ünvan</label><input type="text" id="suRole" placeholder="Frontend Lideri" /></div>
+        <div class="field"><label>Ekip</label><select id="suTeam"><option value="creative">Kreatif ekibi</option><option value="ops">Operasyon ekibi</option></select></div>
         <div class="field"><label>E-posta</label><input type="email" id="suEmail" autocomplete="email" /></div>
         <div class="field"><label>Şifre (min. 6 karakter)</label><input type="password" id="suPass" autocomplete="new-password" /></div>
         <button type="submit" class="btn btn-primary full" id="suBtn">Kayıt Ol</button>
@@ -449,6 +452,7 @@
       </div>
       <button class="btn btn-ghost" id="exportBtn">📤 Sheets'e Aktar</button>
     </header>
+    <div id="hub" class="hub" style="display:none"></div>
 
     <!-- ============ TAKIM PANOSU ============ -->
     <div id="teamArea">
@@ -470,7 +474,7 @@
 
           <div class="panel" id="teamPanel" style="display:none">
             <div class="panel-head">
-              <h3>Takım Liderleri</h3>
+              <h3>Kullanıcılar</h3>
               <span class="count-chip" id="teamCount">0</span>
             </div>
             <div class="cat-list" id="teamList"></div>
@@ -654,10 +658,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 /* ============================================================
    ⚙️ AYARLAR (CONFIG)
    ============================================================ */
-const SUPABASE_URL      = "https://drbkiuxnwmixuhfiybsm.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_3lMIgCXnZwrRGXLlr63gLg_4GhCKtsP";
+const SUPABASE_URL      = "https://ciwpxeqqrwfsuoggdync.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpd3B4ZXFxcndmc3VvZ2dkeW5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MjI4ODQsImV4cCI6MjEwMjE5ODg4NH0.S_vgxYMAjQ9RtkRHxyMJs0NG9aj94_Jn2FfaGszzTOI";
 const SHEETS_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzOfv2NX3k_KjYcVgly7BvnGcXNRN_hEYmaD0ehd74z5FCDdjwEYDA92TFX8nBZZyaSVA/exec";
-const VAPID_PUBLIC_KEY  = "BDvlTbg4VotfnOwp-NaDM8aI0PVZKKZ0NJkIycUkyR-NzfDFBDUUl1bnkZkeTKhLfBZ2egpvW6Y2bE583XT08ik";
+const VAPID_PUBLIC_KEY  = "BK2bD83oZ2ePuEnF4HAhdFF9ZmnRO-H09KpzlHiU3cPGy4ojx3in-TChfUUDe5fpOuXCbWCq-5Iz5RwE_Kj6Zcg";
 /* ============================================================ */
 
 const $  = (s, r=document) => r.querySelector(s);
@@ -670,6 +674,15 @@ const COLUMNS = [
   { id:"done",  title:"Tamamlandı",   cls:"col-done"  },
 ];
 const STATUS_LABEL = { todo:"Yapılacak", doing:"Süreçte", done:"Tamamlandı" };
+const ROLE_LABEL = { admin:"Yönetici", partner:"Ortak", ops:"Operasyon ekibi", creative:"Kreatif ekibi" };
+const PANELS = { kreatif:{href:"/kreatif/", l:"🎬 Kreatif paneli"}, operasyon:{href:"/operasyon/", l:"🏭 Operasyon paneli"}, ortaklar:{href:"/ortaklar/", l:"🤝 Ortaklar paneli"} };
+function panelsFor(role){ return role==="admin"||role==="partner" ? ["kreatif","operasyon","ortaklar"] : role==="ops" ? ["operasyon"] : role==="creative" ? ["kreatif"] : []; }
+function renderHub(){
+  const el = $("#hub"); if(!el) return;
+  const ps = panelsFor(profile.role);
+  el.innerHTML = ps.length ? `<span class="hub-lbl">Panellerin:</span>` + ps.map(k => `<a class="btn btn-ghost hub-link" href="${PANELS[k].href}">${PANELS[k].l}</a>`).join("") : "";
+  el.style.display = ps.length ? "flex" : "none";
+}
 const PRIORITY_LABEL = { kritik:"Kritik", yuksek:"Yüksek", normal:"Normal", dusuk:"Düşük" };
 const PRIORITY_ORDER = { kritik:0, yuksek:1, normal:2, dusuk:3 };
 const PRIORITY_COLOR = { kritik:"var(--pri-kritik)", yuksek:"var(--pri-yuksek)", normal:"var(--pri-normal)", dusuk:"var(--pri-dusuk)" };
@@ -762,10 +775,12 @@ async function ensureProfile() {
   let { data } = await sb.from("profiles").select("*").eq("id", me.id).maybeSingle();
   if (!data) {
     const md = me.user_metadata || {};
-    await sb.from("profiles").insert({ id: me.id, name: md.name || me.email, role: md.role || "Takım Lideri" });
+    await sb.from("profiles").insert({ id: me.id, name: md.name || me.email, role: ["ops","creative"].includes(md.role) ? md.role : "creative" });
     ({ data } = await sb.from("profiles").select("*").eq("id", me.id).maybeSingle());
   }
-  profile = data;
+  profile = data || { id: me.id, name: me.email, role: "creative" };
+  profile.is_admin = ["admin","partner"].includes(profile.role);   // yönetici + ortaklar görev yöneticisi
+  profile.is_realadmin = profile.role === "admin";
 }
 
 async function reloadAll() {
@@ -776,7 +791,7 @@ async function reloadAll() {
     sb.from("inbox_notes").select("*").eq("user_id", me.id).order("created_at", { ascending:false }),
     sb.from("task_assignees").select("*"),
   ]);
-  profiles = {}; (p.data||[]).forEach(x => profiles[x.id] = x);
+  profiles = {}; (p.data||[]).forEach(x => { x.is_admin = ["admin","partner"].includes(x.role); profiles[x.id] = x; });
   categories = c.data || [];
   tasks = t.data || [];
   inboxNotes = ib.data || [];
@@ -811,7 +826,8 @@ function renderMe() {
   $("#meAvatar").textContent = initials(profile.name);
   $("#meAvatar").style.background = colorFor(me.id);
   $("#meName").textContent = profile.name;
-  $("#meRole").textContent = profile.role || "Takım Lideri";
+  $("#meRole").textContent = ROLE_LABEL[profile.role] || profile.title || profile.role || "";
+  renderHub();
   $("#mePill").style.display = profile.is_admin ? "" : "none";
   $("#viewToggle").style.display = profile.is_admin ? "flex" : "none";
   $("#addCatBtn").style.display = profile.is_admin ? "" : "none";
@@ -862,10 +878,12 @@ function renderTeamList() {
         <span class="mini-avatar" style="background:${colorFor(id)}; flex-shrink:0">${esc(initials(p.name))}</span>
         <span class="cat-name" style="flex:1; min-width:0">
           ${esc(p.name)}
+          <br><span style="color:var(--ink-soft); font-weight:700; font-size:10px">${esc(ROLE_LABEL[p.role]||p.role||"")}${p.initial?" · "+esc(p.initial):""}</span>
           ${pending ? `<br><span style="color:var(--pri-yuksek); font-weight:800; font-size:10px">Onay bekliyor</span>` : ""}
         </span>
+        ${profile.is_realadmin ? `<select data-role-user="${id}" style="font-size:10.5px; padding:3px 4px; border-radius:8px; border:1px solid var(--line); background:var(--card)">${["creative","ops","partner","admin"].map(r=>`<option value="${r}" ${p.role===r?"selected":""}>${ROLE_LABEL[r]}</option>`).join("")}</select>` : ""}
         ${pending ? `<button type="button" class="btn btn-mustard" data-approve-user="${id}" style="padding:4px 9px; font-size:10.5px; flex-shrink:0">Onayla</button>` : ""}
-        <button type="button" class="cat-del" data-del-user="${id}" title="Kalıcı sil" style="opacity:1">✕</button>
+        ${profile.is_realadmin ? `<button type="button" class="cat-del" data-del-user="${id}" title="Kalıcı sil" style="opacity:1">✕</button>` : ""}
       </div>`;
   }).join("") || `<div class="inbox-empty">Başka üye yok</div>`;
 }
@@ -1069,6 +1087,15 @@ async function approveUser(id) {
   toast("Onaylandı ✅"); reloadAndRender();
 }
 
+async function changeRole(id, role) {
+  if (!profile.is_realadmin) return;
+  const { error } = await sb.from("profiles").update({ role }).eq("id", id);
+  if (error) { toast("Rol değiştirilemedi: " + error.message); return; }
+  toast("Rol güncellendi: " + (ROLE_LABEL[role]||role)); reloadAndRender();
+}
+document.addEventListener("change", e => {
+  const r = e.target.closest("[data-role-user]"); if (r) changeRole(r.dataset.roleUser, r.value);
+});
 async function deleteUser(id) {
   const p = profiles[id];
   if (!confirm(`${p?.name || "Bu kullanıcı"} kalıcı olarak silinsin mi? Tüm görevleri, yorumları ve verileri de silinecek. Bu işlem geri alınamaz.`)) return;
@@ -1259,7 +1286,7 @@ $("#loginForm").addEventListener("submit", async e => {
 
 $("#signupForm").addEventListener("submit", async e => {
   e.preventDefault();
-  const name = $("#suName").value.trim(), role = $("#suRole").value.trim();
+  const name = $("#suName").value.trim(), role = $("#suTeam").value;
   const email = $("#suEmail").value.trim(), password = $("#suPass").value;
   if (!name || !email || password.length < 6) return authMsg("Ad, e-posta ve en az 6 karakter şifre gerekli.");
   $("#suBtn").disabled = true;
