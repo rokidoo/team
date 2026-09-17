@@ -233,3 +233,81 @@ on conflict (key) do nothing;
 -- create policy "pc_select" on public.pipeline_cards for select using (auth.uid() is not null and public.my_role() <> 'ops');
 -- drop policy if exists "ip_select" on public.idea_pool;
 -- create policy "ip_select" on public.idea_pool for select using (auth.uid() is not null and public.my_role() <> 'ops');
+
+-- ============================================================
+-- v1.1: HAFTANIN / AYIN BİRİNCİSİ
+-- Puanlar gizli kaldığı için sıralama sunucuda hesaplanır:
+-- ekip sadece kazananın adını görür, yönetici tam tabloyu görür.
+-- ============================================================
+create table if not exists public.ops_settings (
+  key        text primary key,
+  value      jsonb not null,
+  updated_at timestamptz default now()
+);
+create table if not exists public.ops_awards (          -- elle atanan birinci (isteğe bağlı)
+  kind         text not null,                            -- hafta | ay
+  period_start date not null,
+  member_id    uuid references public.ops_members(id) on delete cascade,
+  note         text,
+  updated_at   timestamptz default now(),
+  primary key (kind, period_start)
+);
+alter table public.ops_settings enable row level security;
+alter table public.ops_awards   enable row level security;
+create policy "oset_select" on public.ops_settings for select using (public.is_ops());
+create policy "oset_write"  on public.ops_settings for all using (public.is_admin()) with check (public.is_admin());
+create policy "oaw_select"  on public.ops_awards for select using (public.is_ops());
+create policy "oaw_write"   on public.ops_awards for all using (public.is_admin()) with check (public.is_admin());
+
+insert into public.ops_settings (key, value) values
+  ('rank_weights', '{"puan":40,"disiplin":20,"devam":15,"kontrol":10,"hacim":15}')
+on conflict (key) do nothing;
+
+-- Sıralama: p_full=true sadece yönetici (tüm bileşenler), aksi halde sadece lider (ad).
+create or replace function public.ops_ranking(p_from date, p_to date, p_full boolean default false)
+returns table(member_id uuid, name text, puan numeric, n_puan integer, disiplin numeric,
+              devam numeric, kontrol numeric, hacim numeric, total numeric)
+language plpgsql security definer
+set search_path = public
+as $$
+declare w jsonb; wdays integer;
+begin
+  if p_full and not public.is_admin() then raise exception 'sadece yönetici'; end if;
+  if not public.is_ops() then raise exception 'yetki yok'; end if;
+  select value into w from public.ops_settings where key = 'rank_weights';
+  w := coalesce(w, '{"puan":40,"disiplin":20,"devam":15,"kontrol":10,"hacim":15}'::jsonb);
+  select count(*) into wdays
+    from generate_series(p_from, least(p_to, current_date), interval '1 day') d
+    where extract(dow from d) <> 0;
+  return query
+  with m as (select id, ops_members.name from public.ops_members where active),
+  d as (select od.member_id, count(*)::numeric filled,
+               count(*) filter (where in_time is not null)::numeric n_in,
+               count(*) filter (where in_time is not null and in_time <= '09:10')::numeric ontime,
+               sum(coalesce(call_total,0)+coalesce(wp_msg,0)+coalesce(ig_msg,0)+coalesce(mail_msg,0)+coalesce(cargo,0))::numeric vol
+        from public.ops_daily od where day between p_from and p_to group by od.member_id),
+  s as (select ratee_id, avg(score)::numeric sc, count(score)::integer n
+        from public.ops_scores where day between p_from and p_to and score is not null group by ratee_id),
+  c as (select done_by, count(*)::numeric ticks from public.ops_checks where day between p_from and p_to group by done_by),
+  base as (select m.id, m.name,
+             coalesce(s.sc,0)*10 puan, coalesce(s.n,0) n_puan,
+             least(100, coalesce(d.filled,0)/greatest(wdays,1)*100) disiplin,
+             case when coalesce(d.n_in,0) > 0 then d.ontime/d.n_in*100 else 0 end devam,
+             coalesce(c.ticks,0) ticks,
+             coalesce(d.vol,0)/greatest(coalesce(d.filled,1),1) volpd
+           from m left join d on d.member_id = m.id left join s on s.ratee_id = m.id left join c on c.done_by = m.id),
+  mx as (select greatest(max(ticks),1) mt, greatest(max(volpd),1) mv from base),
+  r as (select b.id, b.name, b.puan, b.n_puan, b.disiplin, b.devam,
+               b.ticks/mx.mt*100 kontrol, b.volpd/mx.mv*100 hacim,
+               (b.puan*(w->>'puan')::numeric + b.disiplin*(w->>'disiplin')::numeric + b.devam*(w->>'devam')::numeric
+                + b.ticks/mx.mt*100*(w->>'kontrol')::numeric + b.volpd/mx.mv*100*(w->>'hacim')::numeric)/100 total
+        from base b, mx)
+  select r.id, r.name,
+         case when p_full then round(r.puan,1) end, case when p_full then r.n_puan end,
+         case when p_full then round(r.disiplin,1) end, case when p_full then round(r.devam,1) end,
+         case when p_full then round(r.kontrol,1) end, case when p_full then round(r.hacim,1) end,
+         case when p_full then round(r.total,1) end
+  from r where r.total > 0
+  order by r.total desc, r.puan desc
+  limit case when p_full then 100 else 1 end;
+end $$;

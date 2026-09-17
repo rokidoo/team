@@ -361,6 +361,8 @@
   .mcard .tk{font-size:.76rem; color:var(--ink-soft); font-weight:600; margin-top:2px}
   .kpi small{display:block; font-size:.66rem; font-weight:700; margin-top:2px; font-family:var(--fm)}
   .btn.sm{width:auto; padding:9px 14px; font-size:.8rem}
+  .wcard{position:relative; margin-bottom:10px} .wcard.gold{background:var(--mustard-s)} .wcard .editbtn{position:absolute; top:10px; right:10px}
+  .winner{display:flex; gap:14px; align-items:center} .winner.soft{opacity:.75} .winner .wname{font-family:var(--fh); font-weight:700; font-size:1.15rem} .winner .wsub{font-size:.76rem; color:var(--ink-soft); font-weight:600; margin-top:2px}
   .crow{display:flex; gap:8px; align-items:center; padding:8px 0; border-bottom:2px solid var(--cream2); font-size:.78rem}
   .crow:last-child{border-bottom:none} .crow b{white-space:nowrap} .crow .ct{color:var(--ink-soft); font-weight:600; min-width:0}
 </style>
@@ -426,6 +428,7 @@
     <div id="tabSes" class="hidden"></div>
     <div id="tabStok" class="hidden"></div>
     <div id="tabEkip" class="hidden"></div>
+    <div id="tabBirinci" class="hidden"></div>
     <div id="tabPano" class="hidden"></div>
     <div id="tabImport" class="hidden"></div>
   </main>
@@ -476,7 +479,7 @@ const LATE_MIN = 9*60+10;
 const S = {
   profile:null, me:null, members:[], products:[], daily:[], scores:[], checks:[], duty:[], team:[], voice:[], stock:[],
   tab:"gun", day:null, gunMember:null, puanDay:null, kontrolDay:null, kargoDay:null, stokDay:null,
-  panoPeriod:"hafta", panoRef:null, voiceFilter:{kind:"", brand:"", tag:""}, dbOk:true, dbErr:"",
+  panoPeriod:"hafta", panoRef:null, birMonth:null, birWeek:null, awards:[], weights:null, voiceFilter:{kind:"", brand:"", tag:""}, dbOk:true, dbErr:"",
 };
 
 /* ---------- yardımcılar ---------- */
@@ -577,6 +580,7 @@ async function loadAll(){
       fetchAll("ops_stock",     q=>q.gte("day",since).order("day")),
     ]);
     Object.assign(S,{members,products,daily,scores,checks,duty,team,voice,stock, dbOk:true, dbErr:""});
+    try{ const [{data:aw},{data:st}]=await Promise.all([sb.from("ops_awards").select("*"), sb.from("ops_settings").select("*").eq("key","rank_weights").maybeSingle()]); S.awards=aw||[]; S.weights=st?.value||null; }catch(e){}
   }catch(e){
     S.dbOk=false; S.dbErr=e.message||String(e);
   }
@@ -585,14 +589,14 @@ async function loadAll(){
 
 /* ================= NAV ================= */
 function renderNav(){
-  const tabs = [["gun","📝","Günüm"],["puan","⭐","Puan"],["kontrol","✅","Kontrol"],["kargo","📦","Kargo"],["ses","💬","Müşteri"],["stok","📊","Stok"],["ekip","👥","Ekip"]];
+  const tabs = [["gun","📝","Günüm"],["puan","⭐","Puan"],["kontrol","✅","Kontrol"],["kargo","📦","Kargo"],["ses","💬","Müşteri"],["stok","📊","Stok"],["birinci","🏆","Birinci"],["ekip","👥","Ekip"]];
   if(isAdmin()) tabs.push(["pano","📈","Pano"],["import","📥","Aktar"]);
   $("nav").innerHTML = tabs.map(([id,ic,l])=>`<button data-tab="${id}" class="${S.tab===id?"on":""}"><span class="ic">${ic}</span>${l}</button>`).join("");
   $("sideNav").innerHTML = tabs.map(([id,ic,l])=>`<button data-tab="${id}" class="navbtn ${S.tab===id?"on":""}"><span class="ic">${ic}</span><span class="lbl">${l}</span></button>`).join("");
   document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab; renderAll(); window.scrollTo(0,0);});
 }
-const TABS = {gun:"Gun", puan:"Puan", kontrol:"Kontrol", kargo:"Kargo", ses:"Ses", stok:"Stok", ekip:"Ekip", pano:"Pano", import:"Import"};
-const RENDER = {gun:renderGun, puan:renderPuan, kontrol:renderKontrol, kargo:renderKargo, ses:renderSes, stok:renderStok, ekip:renderEkip, pano:renderPano, import:renderImport};
+const TABS = {gun:"Gun", puan:"Puan", kontrol:"Kontrol", kargo:"Kargo", ses:"Ses", stok:"Stok", birinci:"Birinci", ekip:"Ekip", pano:"Pano", import:"Import"};
+const RENDER = {gun:renderGun, puan:renderPuan, kontrol:renderKontrol, kargo:renderKargo, ses:renderSes, stok:renderStok, birinci:renderBirinci, ekip:renderEkip, pano:renderPano, import:renderImport};
 function renderAll(){
   renderNav();
   if((S.tab==="pano"||S.tab==="import") && !isAdmin()) S.tab="gun";
@@ -1001,6 +1005,116 @@ async function openMemberModal(id){
   };
 }
 
+/* ================= HAFTANIN / AYIN BİRİNCİSİ ================= */
+const RANK_DEF = {puan:40, disiplin:20, devam:15, kontrol:10, hacim:15};
+const RANK_L   = {puan:"Ekip puanı", disiplin:"Doldurma", devam:"Zamanında geliş", kontrol:"Kontrol tikleri", hacim:"İş hacmi"};
+const weights  = ()=>({...RANK_DEF, ...(S.weights||{})});
+const monthEnd = f=>{ const d=new Date(f+"T00:00:00"); d.setMonth(d.getMonth()+1); d.setDate(0); return iso(d); };
+function monthWeeks(first){ // pazartesi'si bu ayda olan haftalar
+  const last=monthEnd(first); let m=monday(first); if(m<first) m=addDays(m,7);
+  const out=[]; while(m<=last){ out.push([m, addDays(m,6)]); m=addDays(m,7); } return out;
+}
+function rankLocal(from,to){ // DEMO: sunucudaki ops_ranking ile aynı formül
+  const w=weights(); const toC=to<today()?to:today(); let wdays=0;
+  for(let d=from; d<=toC; d=addDays(d,1)) if(dow(d)!==0) wdays++;
+  const rows=actives().map(m=>{
+    const D=S.daily.filter(x=>x.member_id===m.id&&inRange(x.day,[from,to]));
+    const ins=D.map(x=>mins(x.in_time)).filter(x=>x!=null);
+    const sc=S.scores.filter(s=>s.ratee_id===m.id&&inRange(s.day,[from,to])&&s.score!=null).map(s=>s.score);
+    const ticks=S.checks.filter(c=>c.done_by===m.id&&inRange(c.day,[from,to])).length;
+    const vol=sum(D,x=>(x.call_total||0)+msgOf(x)+(x.cargo||0));
+    return {member_id:m.id,name:m.name,puan:(avg(sc)||0)*10,n_puan:sc.length,disiplin:Math.min(100,D.length/Math.max(wdays,1)*100),devam:ins.length?ins.filter(x=>x<=LATE_MIN).length/ins.length*100:0,ticks,volpd:D.length?vol/D.length:0};
+  });
+  const mt=Math.max(1,...rows.map(r=>r.ticks)), mv=Math.max(1,...rows.map(r=>r.volpd));
+  rows.forEach(r=>{ r.kontrol=r.ticks/mt*100; r.hacim=r.volpd/mv*100; r.total=(r.puan*w.puan+r.disiplin*w.disiplin+r.devam*w.devam+r.kontrol*w.kontrol+r.hacim*w.hacim)/100; });
+  return rows.filter(r=>r.total>0).sort((a,b)=>b.total-a.total||b.puan-a.puan);
+}
+async function ranking(from,to){
+  if(DEMO) return isAdmin()? rankLocal(from,to) : rankLocal(from,to).slice(0,1).map(r=>({member_id:r.member_id,name:r.name}));
+  const {data,error}=await sb.rpc("ops_ranking",{p_from:from,p_to:to,p_full:isAdmin()});
+  if(error){ if(/ops_ranking/.test(error.message)) throw new Error("schema.sql v1.1 bloğu çalıştırılmamış."); throw error; }
+  return data||[];
+}
+const awardOf=(kind,start)=>S.awards.find(a=>a.kind===kind&&a.period_start===start);
+function winnerCard(kind,start,end,rows){
+  const done = kind==="hafta" ? today()>=addDays(start,7) : today()>monthEnd(start);
+  const ov=awardOf(kind,start); const top=rows[0];
+  const who = ov ? memById(ov.member_id) : (top?memById(top.member_id):null);
+  const label = kind==="hafta" ? `${trDate(start)} – ${trDate(addDays(start,5))}` : trMonth(start);
+  const title = kind==="hafta" ? "Haftanın Birincisi" : "Ayın Birincisi";
+  const ctl = isAdmin()&&(done||kind==="ay") ? `<button class="editbtn" data-award="${kind}|${start}" title="Elle ata">✏️</button>` : "";
+  let body;
+  if(done){
+    body = who ? `<div class="winner">${av(who,"big")}<div><div class="wname">🏆 ${esc(who.name)}</div><div class="wsub">${title} · ${esc(label)}${ov?` · <span class="pill">elle</span>`:""}${isAdmin()&&top&&!ov?` · ${nf1.format(top.total)} puan`:""}</div>${ov?.note?`<div class="wsub">${esc(ov.note)}</div>`:""}</div></div>`
+               : `<div class="empty" style="padding:14px">${esc(label)} · veri yok</div>`;
+  }else{
+    body = `<div class="winner soft">${who?av(who,"big"):""}<div><div class="wname">${esc(label)}</div><div class="wsub">devam ediyor${isAdmin()&&top?` · şu an önde: <b>${esc(top.name)}</b> (${nf1.format(top.total)})`:""}</div></div></div>`;
+  }
+  return `<div class="card wcard ${done&&who?"gold":""}">${ctl}${body}</div>`;
+}
+function rankTable(rows){
+  if(!isAdmin()||!rows.length) return "";
+  return `<div class="tblwrap" style="margin-top:10px"><table class="compact">
+    <tr><th>#</th><th>Kişi</th><th>Toplam</th><th>Ekip puanı</th><th>Doldurma</th><th>Zamanında</th><th>Kontrol</th><th>Hacim</th></tr>
+    ${rows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.name)}</td><td><b>${nf1.format(r.total)}</b></td><td>${nf1.format(r.puan/10)} <small>(${r.n_puan})</small></td><td>${nf1.format(r.disiplin)}%</td><td>${nf1.format(r.devam)}%</td><td>${nf1.format(r.kontrol)}</td><td>${nf1.format(r.hacim)}</td></tr>`).join("")}
+  </table></div>`;
+}
+async function renderBirinci(){
+  const el=$("tabBirinci"); const first=S.birMonth; const last=monthEnd(first);
+  el.innerHTML=`<h2>Birinci</h2><div class="sub">Hesaplanıyor…</div>`;
+  const weeks=monthWeeks(first);
+  const months=[]; for(let i=1;i<=6;i++){ const d=new Date(first+"T00:00:00"); d.setMonth(d.getMonth()-i); months.push(iso(d).slice(0,8)+"01"); }
+  let mRows=[], wRows=[], pastRows=[];
+  try{
+    [mRows, wRows, pastRows] = await Promise.all([
+      ranking(first,last),
+      Promise.all(weeks.map(([a,b])=>ranking(a,b))),
+      Promise.all(months.map(m=>ranking(m,monthEnd(m)))),
+    ]);
+  }catch(e){ el.innerHTML=`<h2>Birinci</h2><div class="empty">${esc(e.message)}</div>`; return; }
+  if(S.birMonth!==first) return;
+  const w=weights();
+  const wins={}; weeks.forEach(([a],i)=>{ if(today()<addDays(a,7)) return; const ov=awardOf("hafta",a); const id=ov?ov.member_id:wRows[i][0]?.member_id; if(id) wins[id]=(wins[id]||0)+1; });
+  const past=months.map((m,i)=>{ const ov=awardOf("ay",m); const id=ov?ov.member_id:pastRows[i][0]?.member_id; return {m, who:id?memById(id):null}; }).filter(x=>x.who);
+  el.innerHTML=`
+    <h2>Birinci</h2>
+    <div class="sub">Her hafta bitince haftanın, ay bitince ayın birincisi otomatik belli olur.${isAdmin()?" Formül: "+Object.entries(w).map(([k,v])=>`${RANK_L[k]} %${v}`).join(" · "):""}</div>
+    <div class="dayrow"><button class="nb" data-bm="-1">‹</button><span class="dl">${trMonth(first)}</span><button class="nb" data-bm="1">›</button>${isAdmin()?`<button class="btn ghost sm" id="wEdit">⚙️ Ağırlıklar</button>`:""}</div>
+    <div class="sect"><h3>🏆 Ayın birincisi</h3>${winnerCard("ay",first,last,mRows)}${rankTable(mRows)}</div>
+    <div class="sect"><h3>📅 Haftalar</h3>
+      ${weeks.map(([a,b],i)=>winnerCard("hafta",a,b,wRows[i])).join("")}
+      ${Object.keys(wins).length?`<div class="note">Bu ay haftalık birincilik: ${Object.entries(wins).sort((x,y)=>y[1]-x[1]).map(([id,n])=>`<b>${esc(memName(id))}</b> ${n}`).join(" · ")}</div>`:""}
+    </div>
+    ${isAdmin()&&weeks.length?`<div class="sect"><h3>🔎 Hafta detayı</h3><div class="filters">${weeks.map(([a],i)=>`<button class="fchip ${i===(S.birWeek??weeks.length-1)?"on":""}" data-bw="${i}">${trShort(a)}</button>`).join("")}</div><div id="wDetail">${rankTable(wRows[S.birWeek??weeks.length-1]||[])}</div></div>`:""}
+    ${past.length?`<div class="sect"><h3>🏛 Önceki aylar</h3><div class="card" style="padding:6px 14px">${past.map(p=>`<div class="crow">${av(p.who)}<b>${esc(p.who.name)}</b><span class="ct">${trMonth(p.m)}</span></div>`).join("")}</div></div>`:""}
+  `;
+  el.querySelectorAll("[data-bm]").forEach(b=>b.onclick=()=>{ const d=new Date(S.birMonth+"T00:00:00"); d.setMonth(d.getMonth()+ +b.dataset.bm); S.birMonth=iso(d).slice(0,8)+"01"; S.birWeek=null; renderBirinci(); });
+  el.querySelectorAll("[data-bw]").forEach(b=>b.onclick=()=>{ S.birWeek=+b.dataset.bw; el.querySelectorAll("[data-bw]").forEach(x=>x.classList.toggle("on",x===b)); $("wDetail").innerHTML=rankTable(wRows[S.birWeek]||[]); });
+  el.querySelectorAll("[data-award]").forEach(b=>b.onclick=()=>{
+    const [kind,start]=b.dataset.award.split("|"); const ov=awardOf(kind,start);
+    modal(`<h3>${kind==="hafta"?"Haftanın":"Ayın"} birincisini elle ata</h3>
+      <select id="aw_m">${actives().map(m=>opt(m.id,m.name,ov?.member_id||"")).join("")}</select>
+      <input id="aw_n" placeholder="Not (isteğe bağlı, herkes görür)" value="${esc(ov?.note||"")}">
+      <div class="btnrow">${ov?`<button class="btn ghost" id="awAuto">Otomatiğe dön</button>`:""}<button class="btn" id="awSave">Kaydet</button></div>`);
+    $("awSave").onclick=async ()=>{ const row={kind,period_start:start,member_id:$("aw_m").value,note:$("aw_n").value.trim()||null,updated_at:nowIso()};
+      try{ if(!DEMO){ const {error}=await sb.from("ops_awards").upsert(row,{onConflict:"kind,period_start"}); if(error) throw error; }
+        S.awards=S.awards.filter(a=>!(a.kind===kind&&a.period_start===start)); S.awards.push(row); closeModal(); renderBirinci(); }catch(e){ toast("Hata: "+e.message); } };
+    const aa=$("awAuto"); if(aa) aa.onclick=async ()=>{ try{ if(!DEMO){ const {error}=await sb.from("ops_awards").delete().eq("kind",kind).eq("period_start",start); if(error) throw error; }
+        S.awards=S.awards.filter(a=>!(a.kind===kind&&a.period_start===start)); closeModal(); renderBirinci(); }catch(e){ toast("Hata: "+e.message); } };
+  });
+  const we=$("wEdit"); if(we) we.onclick=()=>{
+    modal(`<h3>Sıralama ağırlıkları</h3><div class="sub">Toplam 100 olmalı.</div>
+      ${Object.keys(RANK_DEF).map(k=>`<div class="flabel">${RANK_L[k]}</div><input type="number" min="0" max="100" id="w_${k}" value="${w[k]}">`).join("")}
+      <button class="btn" id="wSave">Kaydet</button>`);
+    $("wSave").onclick=async ()=>{
+      const nw={}; Object.keys(RANK_DEF).forEach(k=>nw[k]=numOrNull($("w_"+k).value)||0);
+      const tot=Object.values(nw).reduce((a,b)=>a+b,0); if(tot!==100){ toast(`Toplam ${tot}, 100 olmalı.`); return; }
+      try{ if(!DEMO){ const {error}=await sb.from("ops_settings").upsert({key:"rank_weights",value:nw,updated_at:nowIso()},{onConflict:"key"}); if(error) throw error; }
+        S.weights=nw; closeModal(); renderBirinci(); }catch(e){ toast("Hata: "+e.message); }
+    };
+  };
+}
+
 /* ================= PANO (yönetici) ================= */
 function periodRange(p=S.panoPeriod, ref=S.panoRef){
   if(p==="hafta"){ const m=monday(ref); return [m, addDays(m,6)]; }
@@ -1203,7 +1317,7 @@ function showAuth(msg,err){
   const m=$("authMsg"); m.textContent=msg||""; m.className="authmsg"+(err?" err":"");
 }
 async function showApp(){ $("vAuth").classList.add("hidden"); $("vApp").classList.remove("hidden"); renderAll(); }
-function initDays(){ const t=today(); S.day=S.day||t; S.puanDay=S.puanDay||t; S.kontrolDay=S.kontrolDay||t; S.kargoDay=S.kargoDay||t; S.stokDay=S.stokDay||t; S.panoRef=S.panoRef||t; }
+function initDays(){ const t=today(); S.day=S.day||t; S.puanDay=S.puanDay||t; S.kontrolDay=S.kontrolDay||t; S.kargoDay=S.kargoDay||t; S.stokDay=S.stokDay||t; S.panoRef=S.panoRef||t; S.birMonth=S.birMonth||t.slice(0,8)+"01"; }
 function openClaimModal(){
   const free=actives().filter(m=>!m.user_id);
   modal(`<h3>Sen kimsin?</h3><div class="sub">Hesabını ekipteki adınla eşleştir. Bir kez yapılır.</div>
