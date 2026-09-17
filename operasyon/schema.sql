@@ -379,3 +379,24 @@ update public.ops_products set brand = 'uzbionik',
 insert into public.ops_assignments (role_key, member_id) values
   ('mesaj_kanali', (select id from public.ops_members where key='melek'))
 on conflict (role_key) do nothing;
+
+-- ============================================================
+-- v1.6: KONTROL LİSTESİ MADDELERİ (yönetici ekler/değiştirir)
+-- ============================================================
+create table if not exists public.ops_check_items (
+  key       text primary key,
+  group_key text not null,      -- mesaj_sabah | mesaj_aksam | temizlik_sabah | temizlik_aksam | kapanis
+  label     text not null,
+  sort      integer default 0,
+  active    boolean default true
+);
+alter table public.ops_check_items enable row level security;
+create policy "oci_select" on public.ops_check_items for select using (public.is_ops());
+create policy "oci_write"  on public.ops_check_items for all using (public.is_admin()) with check (public.is_admin());
+insert into public.ops_check_items (key, group_key, label, sort) values
+  ('wp_sabah','mesaj_sabah','WhatsApp temizlendi',1), ('ig_sabah','mesaj_sabah','Instagram temizlendi',2), ('mail_sabah','mesaj_sabah','Mail temizlendi',3),
+  ('wp_aksam','mesaj_aksam','WhatsApp temizlendi',1), ('ig_aksam','mesaj_aksam','Instagram temizlendi',2), ('mail_aksam','mesaj_aksam','Mail temizlendi',3),
+  ('masa_sabah','temizlik_sabah','Masa ve içerinin temizliği',1), ('bulasik_sabah','temizlik_sabah','Bulaşık',2), ('cop_sabah','temizlik_sabah','Çöpler toplandı ve atıldı',3),
+  ('masa_aksam','temizlik_aksam','Masa ve içerinin temizliği',1), ('bulasik_aksam','temizlik_aksam','Bulaşık',2), ('cop_aksam','temizlik_aksam','Çöpler toplandı ve atıldı',3),
+  ('fis','kapanis','Fişler çekildi',1), ('klima','kapanis','Klima kapatıldı',2), ('alan','kapanis','Herkes kendi alanını topladı',3), ('tuvalet','kapanis','Tuvalet temizliği',4)
+on conflict (key) do nothing;

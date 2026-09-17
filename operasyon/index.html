@@ -465,15 +465,21 @@ if(!DEMO){
 
 /* ---------- sözlükler ---------- */
 const MEMBER_SEED = [["sait","Sait"],["halil","Halil İbrahim"],["melek","Melek"],["rabia","Rabia"],["furkan","Furkan"],["anil","Anıl"]];
-const CHECK_GROUPS = [
+const GROUP_DEFS = [["mesaj_sabah","Mesaj kanalı · sabah"],["mesaj_aksam","Mesaj kanalı · akşam"],["temizlik_sabah","Temizlik · sabah (nöbetçiler)"],["temizlik_aksam","Temizlik · akşam (nöbetçiler)"],["kapanis","Kapanış (nöbetçiler)"]];
+let CHECK_GROUPS = [
   {k:"mesaj_sabah",    l:"Mesaj kanalı · sabah",   items:[["wp_sabah","WhatsApp temizlendi"],["ig_sabah","Instagram temizlendi"],["mail_sabah","Mail temizlendi"]]},
   {k:"mesaj_aksam",    l:"Mesaj kanalı · akşam",   items:[["wp_aksam","WhatsApp temizlendi"],["ig_aksam","Instagram temizlendi"],["mail_aksam","Mail temizlendi"]]},
   {k:"temizlik_sabah", l:"Temizlik · sabah (nöbetçiler)", items:[["masa_sabah","Masa ve içerinin temizliği"],["bulasik_sabah","Bulaşık"],["cop_sabah","Çöpler toplandı ve atıldı"]]},
   {k:"temizlik_aksam", l:"Temizlik · akşam (nöbetçiler)", items:[["masa_aksam","Masa ve içerinin temizliği"],["bulasik_aksam","Bulaşık"],["cop_aksam","Çöpler toplandı ve atıldı"]]},
   {k:"kapanis",        l:"Kapanış",                items:[["fis","Fişler çekildi"],["klima","Klima kapatıldı"],["alan","Herkes kendi alanını topladı"],["tuvalet","Tuvalet temizliği"]]},
 ];
-const ALL_ITEMS = CHECK_GROUPS.flatMap(g=>g.items.map(i=>i[0]));
-const ITEM_LABEL = Object.fromEntries(CHECK_GROUPS.flatMap(g=>g.items));
+let ALL_ITEMS = CHECK_GROUPS.flatMap(g=>g.items.map(i=>i[0]));
+let ITEM_LABEL = Object.fromEntries(CHECK_GROUPS.flatMap(g=>g.items));
+function applyCheckItems(rows){ // veritabanındaki maddeler varsa varsayılanların yerine geçer
+  if(!rows||!rows.length) return;
+  CHECK_GROUPS = GROUP_DEFS.map(([k,l])=>({k,l,items:rows.filter(r=>r.group_key===k&&r.active!==false).sort((a,b)=>(a.sort||0)-(b.sort||0)).map(r=>[r.key,r.label])})).filter(g=>g.items.length);
+  ALL_ITEMS = CHECK_GROUPS.flatMap(g=>g.items.map(i=>i[0])); ITEM_LABEL = Object.fromEntries(CHECK_GROUPS.flatMap(g=>g.items));
+}
 const VOICE_KINDS = {
   sikayet:    {l:"Şikayet",                 s:"var(--red-s)"},
   soru:       {l:"Soru",                    s:"var(--cobalt-s)"},
@@ -491,7 +497,7 @@ const LATE_MIN = 9*60+10;
 const S = {
   profile:null, me:null, members:[], products:[], daily:[], scores:[], checks:[], duty:[], team:[], voice:[], stock:[],
   tab:"gun", day:null, gunMember:null, puanDay:null, kontrolDay:null, kargoDay:null, stokDay:null,
-  panoPeriod:"hafta", panoRef:null, birMonth:null, birWeek:null, awards:[], weights:null, assign:[], tasks:[], denetimDay:null, brands:[], voiceFilter:{kind:"", brand:"", tag:""}, dbOk:true, dbErr:"",
+  panoPeriod:"hafta", panoRef:null, birMonth:null, birWeek:null, awards:[], weights:null, assign:[], tasks:[], denetimDay:null, brands:[], checkItems:[], voiceFilter:{kind:"", brand:"", tag:""}, dbOk:true, dbErr:"",
 };
 
 /* ---------- yardımcılar ---------- */
@@ -595,6 +601,7 @@ async function loadAll(){
     try{ const [{data:aw},{data:st}]=await Promise.all([sb.from("ops_awards").select("*"), sb.from("ops_settings").select("*").eq("key","rank_weights").maybeSingle()]); S.awards=aw||[]; S.weights=st?.value||null; }catch(e){}
     try{ const [{data:asg},{data:tk}]=await Promise.all([sb.from("ops_assignments").select("*"), sb.from("ops_tasks").select("*").order("created_at",{ascending:false}).limit(500)]); S.assign=asg||[]; S.tasks=tk||[]; }catch(e){}
     try{ const {data:br}=await sb.from("ops_brands").select("*").order("sort"); S.brands=br||[]; }catch(e){}
+    try{ const {data:ci}=await sb.from("ops_check_items").select("*"); S.checkItems=ci||[]; applyCheckItems(S.checkItems); }catch(e){}
   }catch(e){
     S.dbOk=false; S.dbErr=e.message||String(e);
   }
@@ -783,14 +790,20 @@ function renderKontrol(){
   const chk = item=>S.checks.find(c=>c.day===day && c.item===item);
   const duty = dutyFor(day);
   const wk = monday(day); const days=[0,1,2,3,4,5].map(i=>addDays(wk,i));
-  const groups = CHECK_GROUPS.filter(g=>!/^mesaj/.test(g.k) || canTab("mesaj_kanali"));
+  const onDuty = !!(S.me && duty.some(m=>m.id===S.me.id));
+  const seeClean = isAdmin() || holdsRole("temizlik_kontrol") || onDuty;
+  const groups = CHECK_GROUPS.filter(g=>/^mesaj/.test(g.k) ? canTab("mesaj_kanali") : seeClean);
   const mFirst = day.slice(0,8)+"01", mLast = monthEnd(mFirst);
   const mDays = []; for(let d=mFirst; d<=mLast; d=addDays(d,1)) if(dow(d)!==0) mDays.push(d);
-  const rosterRows = mDays.map(d=>{ const o=S.duty.find(x=>x.day===d); const p=dutyFor(d); return `<tr style="${d===today()?"background:var(--mustard-s)":""}"><td>${trDateW(d)}</td><td style="font-family:var(--fb);font-weight:700">${p.map(m=>esc(m.name)).join(" + ")||"—"}</td><td>${o?"listeden":"<span style='color:var(--mut)'>otomatik</span>"}</td></tr>`; }).join("");
+  const mine = d=>!!(S.me && dutyFor(d).some(m=>m.id===S.me.id));
+  const myDays = mDays.filter(mine);
+  const rosterRows = mDays.map(d=>{ const o=S.duty.find(x=>x.day===d); const p=dutyFor(d); const bg=mine(d)?"background:var(--green-s)":d===today()?"background:var(--mustard-s)":""; return `<tr style="${bg}"><td>${d===today()?"▶ ":""}${trDateW(d)}</td><td style="font-family:var(--fb);font-weight:700">${p.map(m=>`<span class="${S.me&&m.id===S.me.id?"up":""}">${esc(m.name)}</span>`).join(" + ")||"—"}</td><td>${o?"listeden":"<span style='color:var(--mut)'>otomatik</span>"}</td></tr>`; }).join("");
+  const myDaysHtml = S.me ? `<div class="note" style="margin:0 0 12px">${myDays.length?`🧹 Bu ay nöbet günlerin: <b>${myDays.map(d=>trShort(d)).join(" · ")}</b>`:"Bu ay nöbetin yok."}${onDuty?" — <b>bugün nöbetçisin</b>, temizlik listesi aşağıda.":""}</div>` : "";
   el.innerHTML = `
     <h2>Nöbet & Kontrol</h2>
     <div class="sub">Yapılanı tıkla; kim, saat kaçta yaptı kaydedilir.</div>
-    ${dayNav("kontrolDay", day)}
+    ${dayNav("kontrolDay", day, isAdmin()?`<button class="btn ghost sm" id="itemsEdit">✏️ Maddeler</button>`:"")}
+    ${myDaysHtml}
     <div class="card" style="margin-bottom:16px">
       <div class="sect" style="margin-bottom:0"><h3>Bugünün nöbetçileri</h3>
         ${dow(day)===0?`<div class="empty" style="padding:14px">Pazar — nöbet yok</div>`:`
@@ -802,6 +815,7 @@ function renderKontrol(){
         </div>`}
       </div>
     </div>
+    ${!seeClean?`<div class="empty" style="margin-bottom:18px">Bugün nöbetçi değilsin. Temizlik listesi nöbet günlerinde burada açılır; nöbetçiler: <b>${duty.map(m=>esc(m.name)).join(" + ")||"—"}</b></div>`:""}
     ${groups.map(g=>`<div class="sect"><h3>${esc(g.l)} <span class="cnt">${g.items.filter(i=>chk(i[0])).length}/${g.items.length}</span></h3>
       ${g.items.map(([k,l])=>{ const c=chk(k); return `<div class="chk ${c?"on":""}" data-item="${k}"><div class="bx">${c?"✓":""}</div><div class="lbl">${esc(l)}</div>${c?`<div class="by">${esc(memName(c.done_by))} · ${new Date(c.done_at).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"})}</div>`:""}</div>`; }).join("")}
     </div>`).join("")}
@@ -810,10 +824,25 @@ function renderKontrol(){
       ${groups.map(g=>`<tr><td>${esc(g.l)}</td>${days.map(d=>{ const n=g.items.filter(i=>S.checks.find(c=>c.day===d&&c.item===i[0])).length; const cls=n===g.items.length?"up":n?"":"down"; return `<td class="${cls}">${n}/${g.items.length}</td>`; }).join("")}</tr>`).join("")}
       <tr><td>Nöbet</td>${days.map(d=>`<td style="font-family:var(--fb);font-size:.66rem">${dutyFor(d).map(m=>initials(m.name)).join("+")||"—"}</td>`).join("")}</tr>
     </table></div></div>
-    <div class="sect"><h3>📅 Nöbet listesi · ${trMonth(mFirst)}</h3><div class="tblwrap"><table class="compact"><tr><th>Gün</th><th>Nöbetçiler</th><th>Kaynak</th></tr>${rosterRows}</table></div>
+    <div class="sect"><h3>📅 Nöbet listesi · ${trMonth(mFirst)} <button class="editbtn" data-km="-1">‹</button><button class="editbtn" data-km="1">›</button></h3><div class="note" style="margin:0 0 10px">Yeşil: senin günlerin · Sarı: bugün</div><div class="tblwrap"><table class="compact"><tr><th>Gün</th><th>Nöbetçiler</th><th>Kaynak</th></tr>${rosterRows}</table></div>
       ${isAdmin()&&S.duty.some(x=>inRange(x.day,[mFirst,mLast]))?`<div class="btnrow"><button class="btn ghost sm" id="dutyClear">Bu ayın listesini sil (otomatiğe dön)</button></div>`:""}</div>
   `;
   bindDayNav(el,"kontrolDay",renderKontrol);
+  el.querySelectorAll("[data-km]").forEach(b=>b.onclick=()=>{ const d=new Date(mFirst+"T00:00:00"); d.setMonth(d.getMonth()+ +b.dataset.km); S.kontrolDay=iso(d).slice(0,8)+"01"; renderKontrol(); });
+  const ie=$("itemsEdit"); if(ie) ie.onclick=()=>{
+    const rows = S.checkItems.length ? [...S.checkItems] : CHECK_GROUPS.flatMap(g=>g.items.map(([key,label],i)=>({key,group_key:g.k,label,sort:i+1,active:true})));
+    modal(`<h3>Kontrol listesi maddeleri</h3><div class="sub">Adı değiştir, pasif yap ya da gruba yeni madde ekle.</div>
+      ${GROUP_DEFS.map(([k,l])=>`<div class="flabel" style="margin-top:8px">${esc(l)}</div>
+        ${rows.filter(r=>r.group_key===k).sort((a,b)=>(a.sort||0)-(b.sort||0)).map(r=>`<div class="frow" style="grid-template-columns:1fr 60px;align-items:center"><input type="text" data-il="${r.key}" value="${esc(r.label)}"><label style="font-size:.7rem;font-weight:800;margin-bottom:12px"><input type="checkbox" data-ia="${r.key}" ${r.active!==false?"checked":""} style="width:auto;margin:0 4px 0 0">aktif</label></div>`).join("")}
+        <input type="text" data-inew="${k}" placeholder="+ yeni madde">`).join("")}
+      <button class="btn" id="itemsSave" style="margin-top:10px">Kaydet</button>`);
+    $("itemsSave").onclick=async ()=>{
+      if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
+      const out=rows.map(r=>({key:r.key,group_key:r.group_key,label:document.querySelector(`[data-il="${r.key}"]`).value.trim()||r.label,sort:r.sort||0,active:document.querySelector(`[data-ia="${r.key}"]`).checked}));
+      GROUP_DEFS.forEach(([k])=>{ const v=document.querySelector(`[data-inew="${k}"]`).value.trim(); if(v){ let key=k+"_"+v.toLowerCase().replace(/ğ/g,"g").replace(/ü/g,"u").replace(/ş/g,"s").replace(/ı/g,"i").replace(/ö/g,"o").replace(/ç/g,"c").replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,""); if(out.find(x=>x.key===key)) key+="_"+Date.now()%1000; out.push({key,group_key:k,label:v,sort:out.filter(x=>x.group_key===k).length+1,active:true}); } });
+      try{ await upsert("ops_check_items",out,"key"); S.checkItems=out; applyCheckItems(out); closeModal(); toast("Maddeler güncellendi ✓"); renderKontrol(); }catch(e){ toast("Hata: "+e.message); }
+    };
+  };
   el.querySelectorAll(".chk").forEach(b=>b.onclick=async ()=>{
     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
     const item=b.dataset.item; const c=chk(item);
@@ -1123,10 +1152,14 @@ const tasksOf = (mid, day)=>S.tasks.filter(t=>t.member_id===mid && (!t.done || (
 
 function taskList(m, day){
   const ts=tasksOf(m.id, day); const roles=myRoles(m);
-  if(!ts.length && !roles.length) return "";
+  const onDuty = dutyFor(day).some(x=>x.id===m.id);
+  const cleanItems = CHECK_GROUPS.filter(g=>!/^mesaj/.test(g.k)).flatMap(g=>g.items.map(i=>i[0]));
+  const cleanDone = cleanItems.filter(k=>checkOf(day,k)).length;
+  const dutyRow = onDuty ? `<div class="chk ${cleanDone===cleanItems.length?"on":""}" data-rtab="kontrol"><div class="bx">${cleanDone===cleanItems.length?"✓":""}</div><div class="lbl">🧹 Bugün nöbetçisin — temizlik & kapanış listesi</div><div class="by">${cleanDone}/${cleanItems.length}</div></div>` : "";
+  if(!ts.length && !roles.length && !onDuty) return "";
   return `<div class="card" style="margin-bottom:16px">
     <div class="sect" style="margin-bottom:${ts.length?"14px":"0"}"><h3>🎯 Sorumluluklar · ${trDate(day)}</h3>
-      ${roles.length?roles.map(k=>{ const ok=roleStatus(k,day); return `<div class="chk ${ok?"on":""}" data-rtab="${ROLES[k].tab}"><div class="bx">${ok?"✓":""}</div><div class="lbl">${ROLES[k].i} ${esc(ROLES[k].l)}</div><div class="by">${ok?"yapıldı":"bekliyor →"}</div></div>`; }).join(""):`<div class="note" style="margin:0">Sabit sorumluluk yok.</div>`}
+      ${dutyRow}${roles.length?roles.map(k=>{ const ok=roleStatus(k,day); return `<div class="chk ${ok?"on":""}" data-rtab="${ROLES[k].tab}"><div class="bx">${ok?"✓":""}</div><div class="lbl">${ROLES[k].i} ${esc(ROLES[k].l)}</div><div class="by">${ok?"yapıldı":"bekliyor →"}</div></div>`; }).join(""):(onDuty?"":`<div class="note" style="margin:0">Sabit sorumluluk yok.</div>`)}
     </div>
     ${ts.length?`<div class="sect" style="margin-bottom:0"><h3>📌 Sana verilen işler <span class="cnt">${ts.filter(t=>!t.done).length} açık</span></h3>
       ${ts.map(t=>`<div class="chk ${t.done?"on":""}" data-task="${t.id}"><div class="bx">${t.done?"✓":""}</div><div class="lbl">${esc(t.title)}${t.detail?`<div class="note" style="margin:2px 0 0">${esc(t.detail)}</div>`:""}${t.done_note?`<div class="note" style="margin:2px 0 0;color:var(--green)">↳ ${esc(t.done_note)}</div>`:""}</div><div class="by">${t.due?trShort(t.due):""}${t.done&&t.done_at?` · ${new Date(t.done_at).toLocaleDateString("tr-TR",{day:"2-digit",month:"2-digit"})}`:""}${(t.due&&!t.done&&t.due<today())?" ⚠️ gecikti":""}</div></div>`).join("")}
