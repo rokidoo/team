@@ -304,6 +304,8 @@
   .disc .h{font-size:.58rem; text-align:center; color:var(--mut); font-family:var(--fm)}
   table.compact{min-width:0} table.compact th,table.compact td{padding:7px 8px}
   .late{color:var(--red); font-weight:800}
+  .okbox{width:26px;height:26px;border:var(--b2);border-radius:8px;background:var(--cream2);display:inline-flex;align-items:center;justify-content:center;font-weight:800;color:#fff;cursor:pointer;flex-shrink:0;padding:0;font-family:inherit}
+  .okbox.on{background:var(--green)}
   .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(92px + env(safe-area-inset-bottom)); background:var(--ink); color:#fff; padding:10px 16px; border-radius:12px; font-weight:700; font-size:.8rem; z-index:90; border:var(--b2); box-shadow:var(--sh-sm); max-width:90vw}
   @media(min-width:960px){.toast{bottom:24px}}
   .eye{width:38px;height:38px;border:var(--b2);border-radius:50%;background:var(--card);cursor:pointer;box-shadow:var(--sh-sm);font-size:1rem;flex-shrink:0}
@@ -532,7 +534,7 @@ function demoData(){
   const _t=today(); const _r=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
   for(let i=1;i<=8;i++){ const d=addDays(_t,-i); if(dow(d)===0) continue; ["İ","M","C","E"].forEach(k=>{ if(Math.random()<.2) return; S.kdaily.push({id:uid(),initial:k,day:d,in_time:`09:${pad(_r(0,20))}`,out_time:"18:00",leave_min:0,ot_min:Math.random()<.3?_r(15,60):0,new_video:_r(0,3),new_image:_r(0,4),var_video:_r(0,5),var_image:_r(0,6),note:"verimli gündü",wish:null}); });
     S.kscores.push({id:uid(),day:d,rater:"M",ratee:"İ",score:_r(8,10),comment:"yardımcı oldu"},{id:uid(),day:d,rater:"İ",ratee:"M",score:_r(7,10),comment:null}); }
-  S.kreq=[{id:uid(),day:_t,kind:"talep",text:"kablosuz mouse, mouse pad",by_initial:"M",by_name:"Mustafa Kemal",done:false},{id:uid(),day:addDays(_t,-3),kind:"alisveris",text:"yüzey temizleyici, kağıt havlu, çay",amount:2200,by_initial:"İ",by_name:"İmkan",done:true,done_note:"alındı"}];
+  S.kreq=[{id:uid(),day:_t,kind:"talep",text:"kablosuz mouse, mouse pad",by_initial:"M",by_name:"Mustafa Kemal",done:false,approved:false},{id:uid(),day:addDays(_t,-3),kind:"alisveris",text:"yüzey temizleyici, kağıt havlu, çay",amount:2200,by_initial:"İ",by_name:"İmkan",done:true,done_note:"alındı"}];
   const w1="2026-08-03", w2="2026-08-10";
   S.weeks=[{week:w2,note:"Okula dönüş dalgası başladı; 2 yeni test."},{week:w1,note:"İlk pilot haftası."}];
   S.week=w2;
@@ -1385,7 +1387,7 @@ function renderGun(){
   const last7 = S.kdaily.filter(x=>x.initial===ini && x.day<day).sort((a,b)=>b.day<a.day?-1:1).slice(0,7);
   // talepler
   const open=S.kreq.filter(q=>!q.done); const done=S.kreq.filter(q=>q.done).slice(0,8);
-  const reqRow=q=>`<div class="crow"><span class="pill" style="background:${q.done?"var(--green-s)":q.kind==="alisveris"?"var(--mustard-s)":"var(--cobalt-s)"}">${q.done?"✓":q.kind==="alisveris"?"alışveriş":"talep"}</span><b>${esc(q.by_name||q.by_initial||"")}</b><span class="ct">${esc(q.text)}${q.amount?` · <b>${nf.format(q.amount)} ₺</b>`:""}${q.done_note?` · <i>${esc(q.done_note)}</i>`:""} <small style="color:var(--mut)">${trShort(q.day)}</small></span>${(kreAdmin()||q.created_by===S.profile?.id)?`<button class="editbtn" data-req="${q.id}">${q.done?"✏️":"✓"}</button>`:""}</div>`;
+  const reqRow=q=>`<div class="crow">${kreAdmin()?`<button class="okbox ${q.approved||q.done?"on":""}" data-appr="${q.id}" title="${q.approved?"Onayı kaldır":"Onayla"}">${q.approved||q.done?"✓":""}</button>`:`<span class="okbox ${q.approved||q.done?"on":""}" style="cursor:default">${q.approved||q.done?"✓":""}</span>`}<span class="pill" style="background:${q.done?"var(--green-s)":q.approved?"var(--cobalt-s)":"var(--mustard-s)"}">${q.done?"tamamlandı":q.approved?"onaylandı":"onay bekliyor"}</span><span class="pill">${q.kind==="alisveris"?"alışveriş":"talep"}</span><b>${esc(q.by_name||q.by_initial||"")}</b><span class="ct">${esc(q.text)}${q.amount?` · <b>${nf.format(q.amount)} ₺</b>`:""}${q.done_note?` · <i>${esc(q.done_note)}</i>`:""}${q.approved&&q.approved_by?` · <small>onay: ${esc(q.approved_by)}${q.approved_at?" "+new Date(q.approved_at).toLocaleDateString("tr-TR",{day:"2-digit",month:"2-digit"}):""}</small>`:""} <small style="color:var(--mut)">${trShort(q.day)}</small></span>${(kreAdmin()||q.created_by===S.profile?.id)?`<button class="editbtn" data-req="${q.id}">${q.done?"✏️":"✓"}</button>`:""}</div>`;
   el.innerHTML=`
     <h2>Günüm</h2>
     <div class="sub">Akşam çıkmadan 2 dakikada doldur: saatler, bugün ürettiklerin, notun.</div>
@@ -1443,6 +1445,12 @@ function renderGun(){
     try{ if(DEMO) S.kreq.unshift({id:uid(),...row}); else { const {data,error}=await sb.from("kre_requests").insert(row).select().single(); if(error) throw error; S.kreq.unshift(data); }
       toast("Eklendi ✓"); renderGun(); }catch(e){ toast("Hata: "+e.message); }
   };
+  el.querySelectorAll("[data-appr]").forEach(b=>b.onclick=async ()=>{
+    if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
+    const q=S.kreq.find(x=>x.id===b.dataset.appr); if(!q) return;
+    const upd = q.approved ? {approved:false, approved_by:null, approved_at:null} : {approved:true, approved_by:S.profile?.name||null, approved_at:nowIso()};
+    try{ if(!DEMO){ const {error}=await sb.from("kre_requests").update(upd).eq("id",q.id); if(error) throw error; } Object.assign(q,upd); toast(q.approved?"Onaylandı ✓":"Onay kaldırıldı"); renderGun(); }catch(e){ toast("Hata: "+e.message); }
+  });
   el.querySelectorAll("[data-req]").forEach(b=>b.onclick=()=>{
     const q=S.kreq.find(x=>x.id===b.dataset.req); if(!q) return;
     modal(`<h3>${esc(q.text)}</h3>

@@ -362,3 +362,8 @@ create policy "kr_select" on public.kre_requests for select using (
   public.is_kre_admin() or by_initial = public.my_initial()
   or public.my_initial() = (select value->>'talep' from public.kre_settings where key = 'roles')
 );
+
+-- v1.9: taleplerde onay tiki (yönetici/ortak onaylar)
+alter table public.kre_requests add column if not exists approved    boolean default false;
+alter table public.kre_requests add column if not exists approved_by text;
+alter table public.kre_requests add column if not exists approved_at timestamptz;
