@@ -384,6 +384,7 @@
     <div id="tabGallery" class="hidden"></div>
     <div id="tabHooks" class="hidden"></div>
     <div id="tabProd" class="hidden"></div>
+    <div id="tabLinks" class="hidden"></div>
     <div id="tabTeam" class="hidden"></div>
     <div id="tabFinance" class="hidden"></div>
     <div id="tabImport" class="hidden"></div>
@@ -441,6 +442,7 @@ const S = {
   tab:"board", galFilter:{owner:"", status:"", format:""},
   boardFmt:"", boardOwner:"", boardView:"hafta", teamView:"tumu", teamFmt:"", teamMonth:"", hookFilter:{format:"", status:""}, teamTable:true,
   pipeline:[], ideas:[], prodView:"akis", prodTables:true,
+  links:[], linksTable:true, linkFilter:{durum:"acik", kat:"", plat:"", q:""},
   ideaFilter:{tur:"", format:"", durum:"acik"},
 };
 const STAGES = [
@@ -543,6 +545,11 @@ function demoData(){
     {creative_code:S.creatives[4].code, week:w2, spend:3400,  revenue:2900,  roas:0.85, cpr:3400, gpt:-508, rel_gpt:0.4},
     {creative_code:S.creatives[5].code, week:w2, spend:900,   revenue:1700,  roas:1.89, cpr:900,  gpt:800,  rel_gpt:0.67},
   ];
+  S.links=[
+    {id:"l1", url:"https://www.facebook.com/ads/library/?id=1234567890", url_key:"facebook.com/ads/library?id=1234567890", description:"Rakip gummy markası 3 aydır aynı videoyu basıyor, hook: 'Çocuğun sebze yemiyorsa'", category:"rakip", platform:"meta_ads", status:"yeni", shared_by:"Çağdaş", shared_at:"2026-09-15T10:20:00Z", source:"whatsapp"},
+    {id:"l2", url:"https://www.instagram.com/reel/ABC123/", url_key:"instagram.com/reel/ABC123", description:"Claymation kahvaltı sahnesi — 419 iskeletine çok uygun", category:"ilham", platform:"instagram", status:"incelendi", shared_by:"Erdem", shared_at:"2026-09-14T18:05:00Z", source:"whatsapp"},
+    {id:"l3", url:"https://www.tiktok.com/@anne/video/99", url_key:"tiktok.com/@anne/video/99", description:"Bu ses trend, anne-çocuk UGC'lerde çok kullanılıyor", category:"trend", platform:"tiktok", status:"kullanildi", shared_by:"İnka", shared_at:"2026-09-12T09:00:00Z", source:"manuel"},
+  ];
   S.pipeline=[
     {id:"d1", title:"Pazar tezgahı sahnesi — 369 mekaniği", note:"Komşu karakteri pazarcıyla konuşuyor", stage:"fikirler", format:"gorsel", owner_initial:"C", created_name:"Demo Yönetici"},
     {id:"d2", title:"uz video 452 claymation kış", note:"419 iskeleti, kış sahnesi", stage:"k_yapiliyor", format:"video", owner_initial:"E", created_name:"Demo Çağdaş"},
@@ -581,6 +588,8 @@ async function loadAll(){
   ]);
   if(pc.error || ip.error){ S.prodTables=false; S.pipeline=[]; S.ideas=[]; }
   else { S.prodTables=true; S.pipeline=pc.data||[]; S.ideas=ip.data||[]; }
+  const ln = await sb.from("links").select("*").order("created_at",{ascending:false});
+  if(ln.error){ S.linksTable=false; S.links=[]; } else { S.linksTable=true; S.links=ln.data||[]; }
   S.fins=[];
   if(canFin()){
     const f = await sb.from("weekly_financials").select("*");
@@ -1227,7 +1236,7 @@ function renderImport(){
 
 function renderNav(){
   const tabs = [
-    ["board","📊","Board"],["gallery","🖼","Galeri"],["hooks","🪝","Hooklar"],["prod","🛠","Üretim"],["team","👥","Ekip"],
+    ["board","📊","Board"],["gallery","🖼","Galeri"],["hooks","🪝","Hooklar"],["prod","🛠","Üretim"],["links","🔗","Linkler"],["team","👥","Ekip"],
   ];
   if(canFin()) tabs.push(["finance","💰","Finans"]);
   if(isAdmin()) tabs.push(["import","📥","Aktar"]);
@@ -1246,16 +1255,322 @@ function renderWeeks(){
 
 function renderAll(){
   renderNav(); renderWeeks();
-  ["Board","Gallery","Hooks","Prod","Team","Finance","Import"].forEach(t=>$("tab"+t).classList.add("hidden"));
-  const map={board:"Board",gallery:"Gallery",hooks:"Hooks",prod:"Prod",team:"Team",finance:"Finance",import:"Import"};
+  ["Board","Gallery","Hooks","Prod","Links","Team","Finance","Import"].forEach(t=>$("tab"+t).classList.add("hidden"));
+  const map={board:"Board",gallery:"Gallery",hooks:"Hooks",prod:"Prod",links:"Links",team:"Team",finance:"Finance",import:"Import"};
   if((S.tab==="finance"&&!canFin())||(S.tab==="import"&&!isAdmin())) S.tab="board";
   $("tab"+map[S.tab]).classList.remove("hidden");
   document.querySelector("main").classList.toggle("wide", S.tab==="prod");
-  renderBoard(); renderGallery(); renderHooks(); renderProd(); renderTeam(); renderFinance(); renderImport();
+  renderBoard(); renderGallery(); renderHooks(); renderProd(); renderLinks(); renderTeam(); renderFinance(); renderImport();
   const ini = (S.profile?.initial || S.profile?.name?.[0] || "?").toUpperCase();
   $("avatar").textContent = ini; $("avatarSide").textContent = ini;
   $("userName").textContent = S.profile?.name || "";
   $("userRole").textContent = S.profile?.role==="admin"?"Yönetici":S.profile?.role==="partner"?"Ortak":"Kreatif Ekip";
+}
+
+/* ================= LİNK KÜTÜPHANESİ (herkes ekler, herkes görür) ================= */
+const LINK_KATS = {
+  rakip:   {l:"🥊 Rakip reklam",        s:"var(--red-s)"},
+  ilham:   {l:"💡 İlham / referans",    s:"var(--mustard-s)"},
+  trend:   {l:"📈 Trend (ses, format)", s:"var(--purple-s)"},
+  bizim:   {l:"🏠 Bizim reklamımız",    s:"var(--green-s)"},
+  rakip_lp:{l:"🧾 Rakip LP",            s:"var(--orange-s)"},
+  arac:    {l:"🧰 Araç / kaynak",       s:"var(--cobalt-s)"},
+  diger:   {l:"📎 Diğer",               s:"var(--gray-s)"},
+};
+const LINK_DURUM = {
+  yeni:      {l:"Yeni",       s:"var(--cobalt-s)"},
+  incelendi: {l:"İncelendi",  s:"var(--mustard-s)"},
+  kullanildi:{l:"Kullanıldı", s:"var(--green-s)"},
+  arsiv:     {l:"Arşiv",      s:"var(--gray-s)"},
+};
+const PLAT = {
+  meta_ads:{l:"Reklam Kütüphanesi",i:"📚"}, facebook:{l:"Facebook",i:"📘"}, instagram:{l:"Instagram",i:"📸"},
+  tiktok:{l:"TikTok",i:"🎵"}, youtube:{l:"YouTube",i:"▶️"}, drive:{l:"Drive",i:"📁"}, canva:{l:"Canva",i:"🎨"},
+  higgsfield:{l:"Higgsfield",i:"✨"}, web:{l:"Web",i:"🌐"},
+};
+/* WA-PARSER-START */
+const OUR_PAGES = ["2201415620103449","438124863248207"];
+function hostOf(u){ try{ return new URL(u).hostname.replace(/^(www|m|web)\./,"").toLowerCase(); }catch{ return ""; } }
+function urlKey(u){
+  try{
+    const x = new URL(String(u).trim());
+    [...x.searchParams.keys()].forEach(k=>{ if(/^(utm_.*|fbclid|gclid|igsh|igshid|si|mibextid|rdid|share_url|_r|_t)$/i.test(k)) x.searchParams.delete(k); });
+    const q = x.searchParams.toString();
+    return hostOf(x.href) + x.pathname.replace(/\/+$/,"") + (q ? "?"+q : "");
+  }catch{ return String(u).trim().toLowerCase(); }
+}
+function platformOf(u){
+  const h = hostOf(u), s = String(u).toLowerCase();
+  if(s.includes("facebook.com/ads/library")) return "meta_ads";
+  if(/(^|\.)facebook\.com$|fb\.watch|(^|\.)fb\.com$/.test(h)) return "facebook";
+  if(h.includes("instagram.com")) return "instagram";
+  if(h.includes("tiktok.com")) return "tiktok";
+  if(/youtube\.com|youtu\.be/.test(h)) return "youtube";
+  if(/drive\.google|docs\.google/.test(h)) return "drive";
+  if(h.includes("canva.com")) return "canva";
+  if(h.includes("higgsfield")) return "higgsfield";
+  return "web";
+}
+function guessKat(u){
+  const p = platformOf(u);
+  if(OUR_PAGES.some(id=>String(u).includes(id))) return "bizim";
+  if(p==="meta_ads") return "rakip";
+  if(["instagram","tiktok","youtube"].includes(p)) return "ilham";
+  if(["drive","canva","higgsfield"].includes(p)) return "arac";
+  return "diger";
+}
+const maskPhone = t => String(t||"").replace(/\+?\d[\d\s().-]{8,}\d/g, m=>{ const d=m.replace(/\D/g,""); return d.length>=10 ? "•••"+d.slice(-2) : m; });
+const maskSender = n => /^[+\d\s().-]+$/.test(String(n||"").trim()) ? "Kayıtsız numara (…"+String(n).replace(/\D/g,"").slice(-2)+")" : String(n||"").trim();
+function parseWhatsApp(text){
+  text = String(text).replace(/[‎‏‪-‮﻿]/g,"").replace(/[  ]/g," ").replace(/\r\n?/g,"\n");
+  const HEAD = /^\[?(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4}),?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(?:[AaPp][Mm])?\]?\s*(?:-\s*)?(.*)$/;
+  const msgs = []; let cur = null;
+  for(const line of text.split("\n")){
+    const m = line.match(HEAD);
+    if(m){
+      let [, a, b, y, h, mi, se, rest] = m;
+      if(y.length===2) y = "20"+y;
+      let d=+a, mo=+b; if(mo>12 && d<=12){ const t=d; d=mo; mo=t; }
+      const ts = new Date(+y, mo-1, d, +h, +mi, +(se||0));
+      const sm = rest.match(/^([^:]{1,60}):\s?([\s\S]*)$/);
+      if(sm){ cur = {ts, from: sm[1].trim(), text: sm[2]}; msgs.push(cur); } else cur = null;
+    } else if(cur){ cur.text += "\n"+line; }
+  }
+  return msgs;
+}
+function extractLinks(msgs){
+  const URLG = /https?:\/\/[^\s<>"'`]+/g, HASURL = /https?:\/\//;
+  const clean = t => String(t||"").replace(URLG,"").replace(/<[^>]*(dahil edilmedi|omitted)[^>]*>/gi,"").replace(/\s+/g," ").trim();
+  const out = new Map();
+  msgs.forEach((m,i)=>{
+    const urls = (m.text.match(URLG)||[]).map(u=>u.replace(/[.,;:!?)\]]+$/,""));
+    if(!urls.length) return;
+    let desc = clean(m.text);
+    if(!desc){
+      const near = j => { const n=msgs[j]; return (n && n.from===m.from && Math.abs(n.ts-m.ts)<=10*60000 && !HASURL.test(n.text)) ? clean(n.text) : ""; };
+      desc = near(i+1) || near(i-1);
+    }
+    desc = maskPhone(desc);
+    urls.forEach(u=>{
+      const key = urlKey(u);
+      if(out.has(key)){ const o=out.get(key); if(desc && !o.description.includes(desc)) o.description = (o.description? o.description+" · " : "")+desc; return; }
+      out.set(key, {url:u, url_key:key, description:desc, category:guessKat(u), platform:platformOf(u), status:"yeni",
+        shared_by:maskSender(m.from), shared_at: isNaN(m.ts) ? null : m.ts.toISOString(), source:"whatsapp"});
+    });
+  });
+  return [...out.values()];
+}
+/* WA-PARSER-END */
+async function readWaFile(file){
+  if(/\.zip$/i.test(file.name)){
+    const JSZip = (await import("https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm")).default;
+    const zip = await JSZip.loadAsync(file);
+    const f = Object.values(zip.files).find(z=>!z.dir && /\.txt$/i.test(z.name));
+    if(!f) throw new Error("Zip dosyasının içinde sohbet (.txt) bulunamadı");
+    return await f.async("string");
+  }
+  return await file.text();
+}
+const trShort = d => { try{ return new Date(d).toLocaleDateString("tr-TR",{day:"numeric",month:"short",year:"numeric"}); }catch{ return ""; } };
+function linkFiltered(){
+  const f = S.linkFilter;
+  let list = S.links.slice();
+  if(f.durum==="acik") list = list.filter(x=>["yeni","incelendi"].includes(x.status||"yeni"));
+  else if(f.durum!=="tumu") list = list.filter(x=>(x.status||"yeni")===f.durum);
+  if(f.kat)  list = list.filter(x=>(x.category||"diger")===f.kat);
+  if(f.plat) list = list.filter(x=>(x.platform||platformOf(x.url))===f.plat);
+  if(f.q){ const q=f.q.toLocaleLowerCase("tr"); list = list.filter(x=>[x.description,x.url,x.shared_by].join(" ").toLocaleLowerCase("tr").includes(q)); }
+  return list.sort((a,b)=>String(b.shared_at||b.created_at||"").localeCompare(String(a.shared_at||a.created_at||"")));
+}
+function linkCard(x){
+  const pl = PLAT[x.platform||platformOf(x.url)]||PLAT.web;
+  const k = LINK_KATS[x.category]||LINK_KATS.diger, d = LINK_DURUM[x.status]||LINK_DURUM.yeni;
+  const next = {yeni:["✓","İncelendi olarak işaretle"], incelendi:["★","Kullanıldı olarak işaretle"]}[x.status||"yeni"];
+  const short = (hostOf(x.url)+(()=>{ try{ return new URL(x.url).pathname; }catch{ return ""; } })()).slice(0,60);
+  return `<div class="card" style="padding:11px 13px;${(x.status==="arsiv")?"opacity:.65":""}">
+    <div style="display:flex;gap:10px;align-items:flex-start">
+      <div class="thumb" style="width:38px;height:38px;border-radius:10px;font-size:1.05rem;border-width:2px" title="${esc(pl.l)}">${pl.i}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:.84rem;line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${esc(x.description||"(açıklama yok)")}</div>
+        <a href="${esc(x.url)}" target="_blank" rel="noopener" class="mono" style="font-size:.64rem;color:var(--cobalt);display:block;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(short)}</a>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;align-items:center">
+          ${chip(k.l,k.s)} ${chip(d.l,d.s)}
+          <span class="mono" style="font-size:.6rem;color:var(--mut)">${esc(x.shared_by||"")}${x.shared_at?" · "+trShort(x.shared_at):""}${x.source==="whatsapp"?" · 💬":""}</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <a class="editbtn" href="${esc(x.url)}" target="_blank" rel="noopener" title="Aç" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;color:var(--cobalt);font-weight:800">↗</a>
+        ${next?`<button class="editbtn" data-lnext="${esc(x.id)}" title="${next[1]}">${next[0]}</button>`:""}
+        <button class="editbtn" data-ledit="${esc(x.id)}" title="Düzenle">✏️</button>
+      </div>
+    </div>
+  </div>`;
+}
+function renderLinkList(){
+  const box = $("linkList"); if(!box) return;
+  const list = linkFiltered();
+  box.innerHTML = `<div class="sub" style="margin:0 0 10px">${list.length} link</div>
+    <div class="cards">${list.length? list.map(linkCard).join("") : `<div class="empty">Bu filtrede link yok</div>`}</div>`;
+  box.querySelectorAll("[data-ledit]").forEach(b=>b.onclick=()=>openLinkModal(b.dataset.ledit));
+  box.querySelectorAll("[data-lnext]").forEach(b=>b.onclick=()=>linkNext(b.dataset.lnext));
+}
+function renderLinks(){
+  const el = $("tabLinks"); const f = S.linkFilter;
+  const warn = (!DEMO && !S.linksTable) ? `<div class="demo" style="margin-bottom:14px">Bu bölüm için Supabase'de <b>links</b> tablosu gerekli — Claude'un verdiği SQL'i bir kez çalıştır.</div>` : "";
+  const acik = S.links.filter(x=>["yeni","incelendi"].includes(x.status||"yeni")).length;
+  const dchips = [["acik",`🔵 Açık (${acik})`],["kullanildi","✅ Kullanıldı"],["arsiv","🗄 Arşiv"],["tumu","Tümü"]].map(([v,l])=>
+    `<button class="fchip ${f.durum===v?"on":""}" data-ld="${v}">${l}</button>`).join("");
+  const kchips = [["","Tüm kategoriler"],...Object.keys(LINK_KATS).map(k=>[k,LINK_KATS[k].l])].map(([v,l])=>
+    `<button class="fchip ${f.kat===v?"on":""}" data-lk="${v}">${l}</button>`).join("");
+  const pchips = [["","Tüm platformlar"],...Object.keys(PLAT).map(k=>[k,PLAT[k].i+" "+PLAT[k].l])].map(([v,l])=>
+    `<button class="fchip ${f.plat===v?"on":""}" data-lp="${v}">${l}</button>`).join("");
+  el.innerHTML = `
+    <h2>Link Kütüphanesi</h2>
+    <div class="sub">WhatsApp grubunda ve ekipte paylaşılan linkler — herkes ekleyebilir, herkes görür</div>
+    ${warn}
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="btn" id="lnAdd" style="width:auto;padding:11px 16px">＋ Link ekle</button>
+      <button class="btn ghost" id="lnWa" style="width:auto;padding:11px 16px">📥 WhatsApp'tan aktar</button>
+    </div>
+    <input id="lnQ" value="${esc(f.q)}" placeholder="🔍 Açıklamada, linkte ya da paylaşanda ara…" style="margin-bottom:10px">
+    <div class="filters">${dchips}</div>
+    <div class="filters">${kchips}</div>
+    <div class="filters">${pchips}</div>
+    <div id="linkList"></div>
+  `;
+  el.querySelectorAll("[data-ld]").forEach(b=>b.onclick=()=>{S.linkFilter.durum=b.dataset.ld; renderLinks();});
+  el.querySelectorAll("[data-lk]").forEach(b=>b.onclick=()=>{S.linkFilter.kat=b.dataset.lk; renderLinks();});
+  el.querySelectorAll("[data-lp]").forEach(b=>b.onclick=()=>{S.linkFilter.plat=b.dataset.lp; renderLinks();});
+  $("lnQ").oninput = e=>{ S.linkFilter.q = e.target.value; renderLinkList(); };
+  $("lnAdd").onclick = ()=>openLinkModal(null);
+  $("lnWa").onclick  = openWaImportModal;
+  renderLinkList();
+}
+async function linkNext(id){
+  const x = S.links.find(l=>String(l.id)===String(id)); if(!x) return;
+  const next = {yeni:"incelendi", incelendi:"kullanildi"}[x.status||"yeni"]; if(!next) return;
+  const prev = x.status; x.status = next;
+  if(!DEMO){
+    const {error} = await sb.from("links").update({status:next, updated_at:new Date().toISOString()}).eq("id", x.id);
+    if(error){ alert("Kaydedilemedi: "+error.message); x.status=prev; return; }
+  }
+  renderLinks();
+}
+function openLinkModal(id){
+  if(!DEMO && !S.linksTable){ alert("Önce links tablosunu oluşturmalısın — Claude'un verdiği SQL'i Supabase'de bir kez çalıştır."); return; }
+  const x = id ? S.links.find(l=>String(l.id)===String(id)) : null;
+  const isNew = !x;
+  const v = x || {url:"", description:"", category:"diger", status:"yeni", shared_by:S.profile?.name||""};
+  const canDel = x && (isAdmin() || DEMO || x.created_by===S.profile?.id);
+  modal(`
+    <h3>${isNew?"＋ Link ekle":"Linki düzenle"}</h3>
+    <div class="flabel">Link</div>
+    <input id="lmUrl" value="${esc(v.url)}" placeholder="https://…">
+    <div class="flabel">Açıklama</div>
+    <textarea id="lmDesc" style="min-height:80px" placeholder="Bu link neden önemli, ne gördün?">${esc(v.description||"")}</textarea>
+    <div class="frow">
+      <div><div class="flabel">Kategori</div><select id="lmKat">${Object.keys(LINK_KATS).map(k=>opt(k,LINK_KATS[k].l,v.category||"diger")).join("")}</select></div>
+      <div><div class="flabel">Durum</div><select id="lmDur">${Object.keys(LINK_DURUM).map(k=>opt(k,LINK_DURUM[k].l,v.status||"yeni")).join("")}</select></div>
+    </div>
+    <div class="flabel">Paylaşan</div>
+    <input id="lmBy" value="${esc(v.shared_by||"")}">
+    <div class="btnrow">
+      <button class="btn" id="lmSave">Kaydet</button>
+      ${canDel?`<button class="btn danger" id="lmDel" style="width:auto;padding:14px 18px">Sil</button>`:""}
+      <button class="btn ghost" id="lmCancel" style="width:auto;padding:14px 18px">Vazgeç</button>
+    </div>`);
+  if(isNew) $("lmUrl").onblur = ()=>{ const u=$("lmUrl").value.trim(); if(u) $("lmKat").value = guessKat(u); };
+  $("lmCancel").onclick = closeModal;
+  $("lmSave").onclick = async ()=>{
+    const url = $("lmUrl").value.trim();
+    if(!/^https?:\/\//i.test(url)){ alert("Geçerli bir link gir (https:// ile başlamalı)."); return; }
+    const key = urlKey(url);
+    const dup = S.links.find(l=>(l.url_key||urlKey(l.url))===key && (!x || l.id!==x.id));
+    if(dup){ alert("Bu link zaten kütüphanede: "+(dup.description||dup.url)); return; }
+    const row = {url, url_key:key, description:$("lmDesc").value.trim()||null, category:$("lmKat").value,
+      status:$("lmDur").value, platform:platformOf(url), shared_by:$("lmBy").value.trim()||null};
+    if(isNew){
+      const full = {...row, shared_at:new Date().toISOString(), source:"manuel", created_by:DEMO?null:S.profile.id, created_name:S.profile?.name||null};
+      if(!DEMO){
+        const {data,error} = await sb.from("links").insert(full).select().single();
+        if(error){ alert("Kaydedilemedi: "+error.message); return; }
+        S.links.unshift(data);
+      } else S.links.unshift({...full, id:"demo-"+Date.now()});
+    } else {
+      if(!DEMO){
+        const {error} = await sb.from("links").update({...row, updated_at:new Date().toISOString()}).eq("id", x.id);
+        if(error){ alert("Kaydedilemedi: "+error.message); return; }
+      }
+      Object.assign(x,row);
+    }
+    closeModal(); renderLinks();
+  };
+  if(canDel) $("lmDel").onclick = async ()=>{
+    if(!confirm("Link silinsin mi?")) return;
+    if(!DEMO){ const {error}=await sb.from("links").delete().eq("id",x.id); if(error){ alert("Silinemedi: "+error.message); return; } }
+    S.links = S.links.filter(l=>l.id!==x.id);
+    closeModal(); renderLinks();
+  };
+}
+function openWaImportModal(){
+  if(!DEMO && !S.linksTable){ alert("Önce links tablosunu oluşturmalısın — Claude'un verdiği SQL'i Supabase'de bir kez çalıştır."); return; }
+  modal(`
+    <h3>📥 WhatsApp'tan link aktar</h3>
+    <div style="font-size:.78rem;font-weight:600;color:var(--ink-soft);line-height:1.5;margin-bottom:12px">
+      WhatsApp'ta grubu aç → grup adına dokun → <b>Sohbeti dışa aktar</b> → <b>Medya olmadan</b>.<br>
+      Çıkan <b>.zip</b> ya da <b>.txt</b> dosyasını buraya yükle. Sadece link içeren mesajlar alınır, telefon numaraları panele taşınmaz. Daha önce eklenmiş linkler atlanır.
+    </div>
+    <input type="file" id="waFile" accept=".txt,.zip,text/plain,application/zip">
+    <div id="waPrev"></div>
+    <div class="btnrow">
+      <button class="btn" id="waGo" disabled>İçe Aktar</button>
+      <button class="btn ghost" id="waCancel" style="width:auto;padding:14px 18px">Vazgeç</button>
+    </div>`);
+  let yeniler = [];
+  $("waCancel").onclick = closeModal;
+  $("waFile").onchange = async e=>{
+    const file = e.target.files[0]; if(!file) return;
+    $("waPrev").innerHTML = `<div class="sub">Okunuyor…</div>`; $("waGo").disabled = true;
+    try{
+      const msgs = parseWhatsApp(await readWaFile(file));
+      if(!msgs.length) throw new Error("Dosyada WhatsApp mesajı bulunamadı — doğru dosyayı seçtiğinden emin ol");
+      const hepsi = extractLinks(msgs);
+      const var_ = new Set(S.links.map(l=>l.url_key||urlKey(l.url)));
+      yeniler = hepsi.filter(l=>!var_.has(l.url_key));
+      const kc = {}; yeniler.forEach(l=>kc[l.category]=(kc[l.category]||0)+1);
+      $("waPrev").innerHTML = `
+        <div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-top:6px">
+          <div class="kpi"><b>${msgs.length}</b><span>Mesaj</span></div>
+          <div class="kpi"><b>${hepsi.length}</b><span>Link</span></div>
+          <div class="kpi"><b>${yeniler.length}</b><span>Yeni</span></div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${Object.entries(kc).map(([k,n])=>chip(`${(LINK_KATS[k]||LINK_KATS.diger).l} · ${n}`,(LINK_KATS[k]||LINK_KATS.diger).s)).join("")}</div>
+        <div style="max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:6px">
+          ${yeniler.slice(0,8).map(l=>`<div style="font-size:.72rem;border:2px solid var(--cream2);border-radius:9px;padding:6px 8px">
+            <b>${esc(l.shared_by)}</b> · ${esc(trShort(l.shared_at))} — ${esc((l.description||"(açıklama yok)").slice(0,90))}
+            <div class="mono" style="font-size:.6rem;color:var(--cobalt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.url)}</div></div>`).join("")}
+          ${yeniler.length>8?`<div class="sub" style="margin:0">…ve ${yeniler.length-8} link daha</div>`:""}
+        </div>
+        <div class="sub" style="margin:8px 0 0">Kategoriler linkin türüne göre tahmin edildi, sonra ✏️ ile değiştirebilirsin.</div>`;
+      $("waGo").disabled = !yeniler.length;
+      if(!yeniler.length) $("waGo").textContent = "Yeni link yok";
+    }catch(err){ $("waPrev").innerHTML = `<div class="demo" style="margin-top:8px">❌ ${esc(err.message||err)}</div>`; }
+  };
+  $("waGo").onclick = async ()=>{
+    if(!yeniler.length) return;
+    $("waGo").disabled = true; $("waGo").textContent = "Aktarılıyor…";
+    const rows = yeniler.map(l=>({...l, created_by:DEMO?null:S.profile.id, created_name:S.profile?.name||null}));
+    if(!DEMO){
+      for(let i=0;i<rows.length;i+=200){
+        const {error} = await sb.from("links").upsert(rows.slice(i,i+200), {onConflict:"url_key", ignoreDuplicates:true});
+        if(error){ alert("Aktarılamadı: "+error.message); $("waGo").disabled=false; $("waGo").textContent="İçe Aktar"; return; }
+      }
+      const {data} = await sb.from("links").select("*").order("created_at",{ascending:false});
+      if(data) S.links = data;
+    } else rows.forEach((r,i)=>S.links.unshift({...r, id:"wa-"+i+"-"+Date.now()}));
+    closeModal(); S.linkFilter.durum="acik"; renderLinks();
+    alert(`✅ ${rows.length} link kütüphaneye eklendi`);
+  };
 }
 
 /* ================= ÜRETİM (akış + havuz — herkes yazabilir) ================= */

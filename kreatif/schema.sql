@@ -232,3 +232,28 @@ alter table public.idea_pool add column if not exists done_at   timestamptz;
 
 -- v1.5: ortak sahip (ör. 'uz video 502-İ VE K' -> İ + M)
 alter table public.creatives add column if not exists co_owner text;
+
+-- ============================================================
+-- v1.6: LİNK KÜTÜPHANESİ (WhatsApp + elle) — herkes ekler, herkes görür
+-- ============================================================
+create table if not exists public.links (
+  id           uuid primary key default gen_random_uuid(),
+  url          text not null,
+  url_key      text unique,              -- tekrar kontrolu icin normalize link
+  description  text,
+  category     text default 'diger',     -- rakip | ilham | trend | bizim | rakip_lp | arac | diger
+  platform     text,
+  status       text default 'yeni',      -- yeni | incelendi | kullanildi | arsiv
+  shared_by    text,
+  shared_at    timestamptz,
+  source       text default 'manuel',    -- manuel | whatsapp
+  created_by   uuid references auth.users on delete set null,
+  created_name text,
+  created_at   timestamptz default now(),
+  updated_at   timestamptz default now()
+);
+alter table public.links enable row level security;
+create policy "ln_select" on public.links for select using (auth.uid() is not null);
+create policy "ln_insert" on public.links for insert with check (auth.uid() = created_by);
+create policy "ln_update" on public.links for update using (auth.uid() is not null);
+create policy "ln_delete" on public.links for delete using (public.is_admin() or auth.uid() = created_by);
