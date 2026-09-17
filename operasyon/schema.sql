@@ -350,3 +350,27 @@ insert into public.ops_assignments (role_key, member_id) values
   ('mesaj_kontrol',    (select id from public.ops_members where key='melek')),
   ('temizlik_kontrol', (select id from public.ops_members where key='rabia'))
 on conflict (role_key) do nothing;
+
+-- ============================================================
+-- v1.4: MARKALAR + ÜRÜN-MARKA BAĞI + diğer markaların temizliği
+-- ============================================================
+create table if not exists public.ops_brands (
+  key    text primary key,
+  name   text not null,
+  sort   integer default 0,
+  active boolean default true
+);
+alter table public.ops_brands enable row level security;
+create policy "ob_select" on public.ops_brands for select using (public.is_ops());
+create policy "ob_write"  on public.ops_brands for all using (public.is_admin()) with check (public.is_admin());
+alter table public.ops_products add column if not exists brand text references public.ops_brands(key) on delete set null;
+
+insert into public.ops_brands (key, name, sort) values ('uzbionik', 'uzbionik', 1) on conflict (key) do nothing;
+
+-- sadece uzbionik kalsın: diğer markaların müşteri notları, ürünleri ve stokları silinir
+delete from public.ops_voice    where brand is not null and brand <> 'uzbionik';
+delete from public.ops_products where key not in ('uz_cilek','uz_ananas');   -- stoklar cascade ile silinir
+update public.ops_products set brand = 'uzbionik',
+  name = case key when 'uz_cilek' then 'uzbionik Çilek' else 'uzbionik Ananaslı' end,
+  sort = case key when 'uz_cilek' then 1 else 2 end
+  where key in ('uz_cilek','uz_ananas');
