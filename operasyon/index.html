@@ -361,6 +361,12 @@
   .mcard .tk{font-size:.76rem; color:var(--ink-soft); font-weight:600; margin-top:2px}
   .kpi small{display:block; font-size:.66rem; font-weight:700; margin-top:2px; font-family:var(--fm)}
   .btn.sm{width:auto; padding:9px 14px; font-size:.8rem}
+  .eye{width:38px;height:38px;border:var(--b2);border-radius:50%;background:var(--card);cursor:pointer;box-shadow:var(--sh-sm);font-size:1rem;flex-shrink:0}
+  .viewbar{background:var(--purple-s);border:var(--b2);border-radius:12px;padding:9px 13px;margin-bottom:16px;font-size:.78rem;font-weight:800;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .viewbar button{margin-left:auto}
+  .vlist button{display:block;width:100%;text-align:left;margin-bottom:8px;padding:11px 14px}
+  .vlist small{color:var(--mut);font-weight:700;margin-left:8px}
+
   .wcard{position:relative; margin-bottom:10px} .wcard.gold{background:var(--mustard-s)} .wcard .editbtn{position:absolute; top:10px; right:10px}
   .winner{display:flex; gap:14px; align-items:center} .winner.soft{opacity:.75} .winner .wname{font-family:var(--fh); font-weight:700; font-size:1.15rem} .winner .wsub{font-size:.76rem; color:var(--ink-soft); font-weight:600; margin-top:2px}
   .crow{display:flex; gap:8px; align-items:center; padding:8px 0; border-bottom:2px solid var(--cream2); font-size:.78rem}
@@ -408,10 +414,12 @@
   <header>
     <div class="mlogo">uzbionik <b>operasyon</b></div>
     <div class="sp"></div>
+    <button class="eye hidden" id="btnView" title="Birinin gözünden gör">👁</button>
     <div class="avatar" id="avatar" title="Çıkış yap">?</div>
   </header>
 
   <main>
+    <div id="viewBar" class="viewbar hidden"></div>
     <div id="demoBar" class="demo hidden">
       DEMO MODU — örnek veri.
       <span>Kim:</span>
@@ -619,7 +627,30 @@ function renderAll(){
   $("avatar").textContent = ini; $("avatarSide").textContent = ini;
   $("userName").textContent = S.profile?.name || "";
   $("userRole").textContent = isAdmin() ? "Yönetici" : (S.me ? "Operasyon · "+S.me.name : "Operasyon");
+  renderViewBar();
 }
+
+/* ================= GÖZÜNDEN GÖR (yönetici) ================= */
+let REAL=null;
+const realAdmin=()=>(REAL?REAL.profile:S.profile)?.role==="admin";
+const VIEW=()=>!!REAL;
+function renderViewBar(){
+  $("btnView").classList.toggle("hidden", !realAdmin());
+  const vb=$("viewBar");
+  if(REAL){ vb.classList.remove("hidden"); vb.innerHTML=`👁 <b>${esc(S.me?.name||S.profile.name)}</b> gözünden görüyorsun · kaydetme kapalı<button class="btn ghost sm" id="viewExit">Kendime dön</button>`; $("viewExit").onclick=()=>viewAs(null); }
+  else vb.classList.add("hidden");
+}
+function viewAs(m){
+  if(m){ if(!REAL) REAL={profile:S.profile, me:S.me, gunMember:S.gunMember}; S.profile={id:m.user_id||("view_"+m.id), name:m.name, role:"ops"}; S.me=m; S.gunMember=m.id; }
+  else if(REAL){ S.profile=REAL.profile; S.me=REAL.me; S.gunMember=REAL.gunMember; REAL=null; }
+  S.tab="gun"; closeModal(); renderAll(); window.scrollTo(0,0);
+}
+function openViewModal(){
+  const list=actives();
+  modal(`<h3>Kimin gözünden?</h3><div class="sub">Panel o kişinin yetkisiyle çizilir: sekmeler, sorumluluklar, puan gizliliği. Kaydetme kapalıdır.</div><div class="vlist">${list.map(m=>`<button class="btn ghost" data-vp="${m.id}">${esc(m.name)}<small>${myRoles(m).map(k=>ROLES[k].l).join(", ")||"sabit sorumluluk yok"}${m.user_id?"":" · hesap bağlı değil"}</small></button>`).join("")}</div>`);
+  document.querySelectorAll("[data-vp]").forEach(b=>b.onclick=()=>viewAs(memById(b.dataset.vp)));
+}
+
 
 /* ================= GÜNÜM ================= */
 function gunMember(){
@@ -672,6 +703,7 @@ function renderGun(){
   bindDayNav(el,"day",renderGun); bindTaskList(el, renderGun);
   if(isAdmin()){ $("gunMember").onchange=e=>{ S.gunMember=e.target.value; renderGun(); }; $("gunTask").onclick=()=>openTaskModal(m.id, renderGun); }
   $("gunSave").onclick = async ()=>{
+    if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
     const row = { member_id:m.id, day, in_time:$("g_in_time").value||null, out_time:$("g_out_time").value||null, updated_at:nowIso() };
     ["leave_min","ot_min","cargo","call_total","call_send","call_nolook","wp_msg","wp_order","ig_msg","ig_order","mail_msg","mail_order"].forEach(k=>row[k]=numOrNull($("g_"+k).value));
     row.note=$("g_note").value.trim()||null; row.wish=$("g_wish").value.trim()||null;
@@ -711,6 +743,7 @@ function renderPuan(){
     row.querySelectorAll(".scbtn").forEach(z=>z.classList.remove("on")); b.classList.add("on"); picked[row.dataset.ratee]=+b.dataset.n;
   }));
   $("puanSave").onclick = async ()=>{
+    if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
     const rows = others.filter(x=>picked[x.id]!=null).map(x=>({day, rater_id:S.me.id, ratee_id:x.id, score:picked[x.id], comment:$("pc_"+x.id).value.trim()||null, updated_at:nowIso()}));
     if(!rows.length){ toast("Önce puan seç."); return; }
     $("puanSave").disabled=true;
@@ -773,6 +806,7 @@ function renderKontrol(){
   `;
   bindDayNav(el,"kontrolDay",renderKontrol);
   el.querySelectorAll(".chk").forEach(b=>b.onclick=async ()=>{
+    if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
     const item=b.dataset.item; const c=chk(item);
     if(!S.me && !isAdmin()){ toast("Hesabın bir ekip üyesine bağlı değil."); return; }
     try{
@@ -853,6 +887,7 @@ function renderKargo(){
   bindDayNav(el,"kargoDay",renderKargo);
   ["hepsijet","yurtici","dhl"].forEach(k=>$("k_"+k).oninput=()=>{ $("k_cargo_total").value=(numOrNull($("k_hepsijet").value)||0)+(numOrNull($("k_yurtici").value)||0)+(numOrNull($("k_dhl").value)||0); });
   $("kargoSave").onclick=async ()=>{
+    if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
     const row={day, updated_by:S.me?.id||null, updated_at:nowIso(), note:$("k_note").value.trim()||null};
     ["hepsijet","yurtici","dhl","cargo_total","failed","returns","cancels","wp_total","ig_total","mail_total"].forEach(k=>row[k]=numOrNull($("k_"+k).value));
     if(row.cargo_total==null && (row.hepsijet!=null||row.yurtici!=null||row.dhl!=null)) row.cargo_total=(row.hepsijet||0)+(row.yurtici||0)+(row.dhl||0);
@@ -904,6 +939,7 @@ function renderSes(){
   const picked=new Set();
   el.querySelectorAll("#v_tags .fchip").forEach(b=>b.onclick=()=>{ b.classList.toggle("on"); b.classList.contains("on")?picked.add(b.dataset.tag):picked.delete(b.dataset.tag); });
   $("vAdd").onclick=async ()=>{
+    if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
     const text=$("v_text").value.trim(); if(!text){ toast("Metin boş."); return; }
     const row={day:$("v_day").value||today(), kind:$("v_kind").value, brand:$("v_brand").value||null, tags:[...picked], text, by_id:S.me?.id||null, created_at:nowIso()};
     try{ if(DEMO) S.voice.unshift({id:uid(),...row}); else { const {data,error}=await sb.from("ops_voice").insert(row).select().single(); if(error) throw error; S.voice.unshift(data); }
@@ -953,6 +989,7 @@ function renderStok(){
   `;
   bindDayNav(el,"stokDay",renderStok);
   $("stokSave").onclick=async ()=>{
+    if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
     const rows=prods.map(p=>({day,product:p.key,qty:numOrNull($("s_"+p.key).value),by_id:S.me?.id||null})).filter(r=>r.qty!=null);
     if(!rows.length){ toast("Adet gir."); return; }
     try{ await upsert("ops_stock",rows,"day,product"); rows.forEach(r=>{ S.stock=S.stock.filter(s=>!(s.day===r.day&&s.product===r.product)); S.stock.push({id:uid(),...r}); });
@@ -1059,7 +1096,7 @@ function bindTaskList(root, rerender){
       <div class="btnrow">${t.done?`<button class="btn ghost" id="tkUndo">Yapılmadı yap</button>`:""}<button class="btn" id="tkDone">${t.done?"Notu güncelle":"Yapıldı ✓"}</button></div>
       ${isAdmin()?`<button class="btn danger sm" id="tkDel" style="margin-top:10px">Görevi sil</button>`:""}`);
     const save=async (upd)=>{ try{ if(!DEMO){ const {error}=await sb.from("ops_tasks").update(upd).eq("id",t.id); if(error) throw error; } Object.assign(t,upd); closeModal(); rerender(); }catch(e){ toast("Hata: "+e.message); } };
-    $("tkDone").onclick=()=>save({done:true, done_at:t.done_at||nowIso(), done_note:$("tk_note").value.trim()||null});
+    $("tkDone").onclick=()=>{ if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; } save({done:true, done_at:t.done_at||nowIso(), done_note:$("tk_note").value.trim()||null}); };
     const u=$("tkUndo"); if(u) u.onclick=()=>save({done:false, done_at:null, done_note:$("tk_note").value.trim()||null});
     const d=$("tkDel"); if(d) d.onclick=async ()=>{ if(!confirm("Görev silinsin mi?")) return; try{ if(!DEMO){ const {error}=await sb.from("ops_tasks").delete().eq("id",t.id); if(error) throw error; } S.tasks=S.tasks.filter(x=>x.id!==t.id); closeModal(); rerender(); }catch(e){ toast("Hata: "+e.message); } };
   });
@@ -1096,7 +1133,8 @@ function bindControl(root, day, rerender){
     const item=b.dataset.ctl; const c=checkOf(day,item);
     modal(`<h3>${c?"Kontrol notu":"Kontrol edildi"}</h3><div class="flabel">Not (eksik, uyarı, gözlem — yöneticiye gider)</div><textarea id="ct_note" rows="3">${esc(c?.note||"")}</textarea>
       <div class="btnrow">${c?`<button class="btn ghost" id="ctOff">Kontrolü kaldır</button>`:""}<button class="btn" id="ctOn">${c?"Notu kaydet":"Kontrol edildi ✓"}</button></div>`);
-    $("ctOn").onclick=async ()=>{ try{ await toggleControl(day,item,true,$("ct_note").value.trim()); closeModal(); rerender(); }catch(e){ toast("Hata: "+e.message); } };
+    $("ctOn").onclick=async ()=>{     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
+try{ await toggleControl(day,item,true,$("ct_note").value.trim()); closeModal(); rerender(); }catch(e){ toast("Hata: "+e.message); } };
     const off=$("ctOff"); if(off) off.onclick=async ()=>{ try{ await toggleControl(day,item,false); closeModal(); rerender(); }catch(e){ toast("Hata: "+e.message); } };
   });
 }
@@ -1541,7 +1579,7 @@ $("btnSignup").onclick=async ()=>{
   boot();
 };
 const logout=async ()=>{ if(DEMO){ alert("Demo modundasın."); return; } if(confirm("Çıkış yapılsın mı?")){ await sb.auth.signOut(); location.reload(); } };
-$("avatar").onclick=logout; $("avatarSide").onclick=logout;
+$("avatar").onclick=logout; $("btnView").onclick=openViewModal; $("avatarSide").onclick=logout;
 $("btnCollapse").onclick=()=>{ document.documentElement.classList.toggle("collapsed"); $("btnCollapse").textContent=document.documentElement.classList.contains("collapsed")?"›":"‹"; };
 
 boot();
