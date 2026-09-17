@@ -600,7 +600,7 @@ async function loadAll(){
     ]);
     Object.assign(S,{members,products,daily,scores,checks,duty,team,voice,stock, dbOk:true, dbErr:""});
     try{ const [{data:aw},{data:st}]=await Promise.all([sb.from("ops_awards").select("*"), sb.from("ops_settings").select("*").eq("key","rank_weights").maybeSingle()]); S.awards=aw||[]; S.weights=st?.value||null; }catch(e){}
-    try{ const [{data:asg},{data:tk}]=await Promise.all([sb.from("ops_assignments").select("*"), sb.from("ops_tasks").select("*").order("created_at",{ascending:false}).limit(500)]); S.assign=asg||[]; S.tasks=tk||[]; }catch(e){}
+    try{ const [{data:asg},{data:tk},{data:ta}]=await Promise.all([sb.from("ops_assignments").select("*"), sb.from("tasks").select("*").order("created_at",{ascending:false}).limit(800), sb.from("task_assignees").select("*")]); S.assign=asg||[]; S.tasks=unifyTasks(tk||[], ta||[]); }catch(e){}
     try{ const {data:br}=await sb.from("ops_brands").select("*").order("sort"); S.brands=br||[]; }catch(e){}
     try{ const {data:ci}=await sb.from("ops_check_items").select("*"); S.checkItems=ci||[]; applyCheckItems(S.checkItems); }catch(e){}
   }catch(e){
@@ -1153,6 +1153,17 @@ function roleStatus(k, day){ // o gün sorumluluk yerine getirildi mi
   if(k==="mesaj_kanali") return CHECK_GROUPS.filter(g=>/^mesaj/.test(g.k)).every(g=>g.items.every(i=>checkOf(day,i[0])));
   return !!checkOf(day,k);
 }
+// ortak görev tablosu (tasks) -> panel içi şekil: her atanan üye için bir satır
+function unifyTasks(rows, assignees){
+  const out=[];
+  rows.forEach(t=>{
+    const uids=[t.user_id, ...assignees.filter(a=>a.task_id===t.id).map(a=>a.user_id)].filter((v,i,a)=>v&&a.indexOf(v)===i);
+    uids.forEach(uid=>{ const m=S.members.find(x=>x.user_id===uid); if(!m) return;
+      out.push({id:t.id, user_id:uid, member_id:m.id, title:t.title, detail:t.descr||null, due:t.due, done:t.status==="done", done_at:t.done_at, done_note:t.done_note, created_at:t.created_at, source:t.source}); });
+  });
+  return out;
+}
+const taskUpd = upd=>({status: upd.done?"done":"todo", done_at: upd.done_at||null, done_note: upd.done_note||null});
 const tasksOf = (mid, day)=>S.tasks.filter(t=>t.member_id===mid && (!t.done || (t.done_at||"").slice(0,10)===day || t.due===day)).sort((a,b)=>(a.due||"9")<(b.due||"9")?-1:1);
 
 function taskList(m, day){
@@ -1179,10 +1190,10 @@ function bindTaskList(root, rerender){
       <div class="flabel">Ne yaptın / not (yöneticiye gider)</div><textarea id="tk_note" rows="3">${esc(t.done_note||"")}</textarea>
       <div class="btnrow">${t.done?`<button class="btn ghost" id="tkUndo">Yapılmadı yap</button>`:""}<button class="btn" id="tkDone">${t.done?"Notu güncelle":"Yapıldı ✓"}</button></div>
       ${isAdmin()?`<button class="btn danger sm" id="tkDel" style="margin-top:10px">Görevi sil</button>`:""}`);
-    const save=async (upd)=>{ try{ if(!DEMO){ const {error}=await sb.from("ops_tasks").update(upd).eq("id",t.id); if(error) throw error; } Object.assign(t,upd); closeModal(); rerender(); }catch(e){ toast("Hata: "+e.message); } };
+    const save=async (upd)=>{ try{ if(!DEMO){ const {error}=await sb.from("tasks").update(taskUpd(upd)).eq("id",t.id); if(error) throw error; } S.tasks.filter(x=>x.id===t.id).forEach(x=>Object.assign(x,upd)); closeModal(); rerender(); }catch(e){ toast("Hata: "+e.message); } };
     $("tkDone").onclick=()=>{ if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; } save({done:true, done_at:t.done_at||nowIso(), done_note:$("tk_note").value.trim()||null}); };
     const u=$("tkUndo"); if(u) u.onclick=()=>save({done:false, done_at:null, done_note:$("tk_note").value.trim()||null});
-    const d=$("tkDel"); if(d) d.onclick=async ()=>{ if(!confirm("Görev silinsin mi?")) return; try{ if(!DEMO){ const {error}=await sb.from("ops_tasks").delete().eq("id",t.id); if(error) throw error; } S.tasks=S.tasks.filter(x=>x.id!==t.id); closeModal(); rerender(); }catch(e){ toast("Hata: "+e.message); } };
+    const d=$("tkDel"); if(d) d.onclick=async ()=>{ if(!confirm("Görev silinsin mi?")) return; try{ if(!DEMO){ const {error}=await sb.from("tasks").delete().eq("id",t.id); if(error) throw error; } S.tasks=S.tasks.filter(x=>x.id!==t.id); closeModal(); rerender(); }catch(e){ toast("Hata: "+e.message); } };
   });
 }
 function openTaskModal(presetMember, rerender){
@@ -1195,7 +1206,9 @@ function openTaskModal(presetMember, rerender){
   $("taSave").onclick=async ()=>{
     const row={title:$("ta_t").value.trim(), detail:$("ta_d").value.trim()||null, member_id:$("ta_m").value, due:$("ta_due").value||null, created_by:S.profile?.id||null, created_at:nowIso(), done:false};
     if(!row.title){ toast("Görev adı gerekli."); return; }
-    try{ if(DEMO) S.tasks.unshift({id:uid(),...row}); else { const {data,error}=await sb.from("ops_tasks").insert(row).select().single(); if(error) throw error; S.tasks.unshift(data); }
+    const mem=memById(row.member_id);
+    if(!DEMO && !mem?.user_id){ toast(mem?.name+" hesabını henüz bağlamamış; önce Ekip'ten hesabı bağla."); return; }
+    try{ if(DEMO) S.tasks.unshift({id:uid(),...row}); else { const {data,error}=await sb.from("tasks").insert({user_id:mem.user_id, title:row.title, descr:row.detail, due:row.due, status:"todo", priority:"normal", source:"operasyon", assigned_by:S.profile.id}).select().single(); if(error) throw error; S.tasks.unshift(...unifyTasks([data],[])); }
       toast("Görev atandı ✓"); closeModal(); rerender(); }catch(e){ toast("Hata: "+e.message); }
   };
 }
