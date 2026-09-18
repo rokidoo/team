@@ -370,10 +370,6 @@
       <input id="suName" type="text" placeholder="Ad Soyad">
       <select id="suInitial">
         <option value="">Kreatif harfin (yoksa boş bırak)</option>
-        <option value="C">C · Çağdaş</option>
-        <option value="İ">İ · İnka</option>
-        <option value="E">E · Erdem</option>
-        <option value="M">M · Mustafa</option>
       </select>
       <input id="suEmail" type="email" placeholder="E-posta" autocomplete="email">
       <input id="suPass" type="password" placeholder="Şifre (en az 6 karakter)" autocomplete="new-password">
@@ -2347,11 +2343,22 @@ async function boot(){
     if(error){ showAuth("Profil oluşturulamadı: "+error.message, true); await sb.auth.signOut(); return; }
     prof = ins;
   }
+  if(prof.is_active === false){ showAuth("Hesabın kapatıldı. Erişimin yönetici tarafından pasife alındı.", true); await sb.auth.signOut(); return; }
   S.profile=prof;
   await loadAll();
   await showApp();
 }
 
+async function fillInitials(){
+  if(DEMO) return;
+  try{
+    const {data,error} = await sb.rpc("kre_team_names");
+    if(error || !data?.length) return;
+    $("suInitial").innerHTML = `<option value="">Kreatif harfin (yoksa boş bırak)</option>` +
+      data.map(m=>`<option value="${esc(m.initial)}">${esc(m.initial)} · ${esc(m.name)}</option>`).join("");
+  }catch(e){}
+}
+fillInitials();
 $("goSignup").onclick=()=>{ $("authLogin").classList.add("hidden"); $("authSignup").classList.remove("hidden"); $("authMsg").textContent=""; };
 $("goLogin").onclick =()=>{ $("authSignup").classList.add("hidden"); $("authLogin").classList.remove("hidden"); $("authMsg").textContent=""; };
 
