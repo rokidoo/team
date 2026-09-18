@@ -956,7 +956,7 @@ function bindDayNav(root,key,rerender){
 const userName=id=>S.partners.find(p=>p.id===id)?.name || "—";
 const ownersOf=c=>c?[c.owner_initial,...String(c.co_owner||"").split(",").map(x=>x.trim())].filter(Boolean):[];
 const kName=k=>S.k.team.find(t=>t.initial===k)?.name || k;
-const oName=id=>S.o.members.find(m=>m.id===id)?.name || "—";
+const oName=id=>(S.o.allMembers||S.o.members).find(m=>m.id===id)?.name || "—";
 const msgOf=r=>(r.wp_msg||0)+(r.ig_msg||0)+(r.mail_msg||0);
 const ordOf=r=>(r.wp_order||0)+(r.ig_order||0)+(r.mail_order||0);
 const prodOf=r=>(r.new_video||0)+(r.new_image||0)+(r.var_video||0)+(r.var_image||0);
@@ -996,7 +996,9 @@ async function loadAll(){
     tryAll("ops_team_daily",q=>q.gte("day",since)), tryAll("ops_checks",q=>q.gte("day",since)), Promise.resolve([]),
     tryAll("ops_voice",q=>q.gte("day",since)), tryAll("ops_stock"), tryAll("ops_products"), tryAll("ops_assignments"),
   ]);
-  Object.assign(S.o,{members:members||[],daily:odaily||[],scores:oscores||[],team:oteam||[],checks:ochecks||[],tasks:[],voice:ovoice||[],stock:ostock||[],products:oprod||[],assign:oassign||[]});
+  // puan + stok yetkilisi (kind=puanci) ekip listelerinde yok; adı notlarda görünsün diye allMembers'ta
+  S.o.allMembers=members||[];
+  Object.assign(S.o,{members:(members||[]).filter(m=>m.kind!=="puanci"),daily:odaily||[],scores:oscores||[],team:oteam||[],checks:ochecks||[],tasks:[],voice:ovoice||[],stock:ostock||[],products:oprod||[],assign:oassign||[]});
   // analiz dosyaları (tablo yoksa sessizce: Verimlilik sekmesi uyarı gösterir)
   { const {data,error}=await sb.from("analyses").select("*"); S.analyses=data||[]; S.anErr=error?error.message:null; }
   // operasyon ekibinin işleri: ortak tasks tablosundan, üye hesabına göre
