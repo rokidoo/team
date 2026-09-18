@@ -1647,6 +1647,7 @@ async function boot(){
     prof=ins;
   }
   S.profile=prof;
+  if(prof.is_active === false){ showAuth("Hesabın kapatıldı. Erişimin yönetici tarafından pasife alındı.",true); await sb.auth.signOut(); return; }
   if(!canOps()){ showAuth("Bu panel operasyon ekibi içindir. Hesabın "+(prof.role||"")+" rolünde — yöneticiye söyle.",true); await sb.auth.signOut(); return; }
   await loadAll();
   if(S.dbOk && !S.me && md.member_key){
@@ -1658,6 +1659,15 @@ async function boot(){
 }
 
 $("suMember").innerHTML+=MEMBER_SEED.map(([k,n])=>`<option value="${k}">${n}</option>`).join("");
+(async ()=>{
+  if(DEMO) return;
+  try{
+    const {data,error} = await sb.rpc("ops_team_names");
+    if(error || !data?.length) return;
+    $("suMember").innerHTML = `<option value="">Ekipteki adın</option>` +
+      data.map(m=>`<option value="${esc(m.key)}">${esc(m.name)}</option>`).join("");
+  }catch(e){}
+})();
 $("goSignup").onclick=()=>{ $("authLogin").classList.add("hidden"); $("authSignup").classList.remove("hidden"); $("authMsg").textContent=""; };
 $("goLogin").onclick =()=>{ $("authSignup").classList.add("hidden"); $("authLogin").classList.remove("hidden"); $("authMsg").textContent=""; };
 $("btnLogin").onclick=async ()=>{
