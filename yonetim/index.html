@@ -896,6 +896,11 @@ const trDateW=s=>new Date(s+"T00:00:00").toLocaleDateString("tr-TR",{day:"numeri
 const trShort=s=>new Date(s+"T00:00:00").toLocaleDateString("tr-TR",{day:"2-digit",month:"2-digit"});
 const trMonth=s=>new Date(s+"T00:00:00").toLocaleDateString("tr-TR",{month:"long",year:"numeric"});
 const mins=t=>{ if(!t||!/^\d{1,2}:\d{2}/.test(t)) return null; const [h,m]=t.split(":").map(Number); return h*60+m; };
+// mesai: kreatif/operasyon panelleriyle aynı kural (09:00–18:00, geç gelme + izin düşer, pazar tümü)
+const otMin=r=>{ const i=mins(r.in_time), o=mins(r.out_time); if(i==null||o==null||o-i<60) return 0; if(dow(r.day)===0) return o-i;
+  const late=Math.max(0,i-540), early=Math.max(0,1080-o), extra=Math.max(0,o-Math.max(1080,i)), lv=Math.max(0,+r.leave_min||0);
+  return extra-late-early-Math.max(0,lv-(late+early)); };
+const otTxt=m=>{ m=Math.round(m||0); if(!m) return "0"; const s=m<0?"−":"+"; m=Math.abs(m); const h=Math.floor(m/60), k=m%60; return s+[h?h+" sa":"", k?k+" dk":""].filter(Boolean).join(" "); };
 const hhmm=m=>m==null?"—":`${pad(Math.floor(m/60))}:${pad(Math.round(m%60))}`;
 const durTxt=m=>!m?"—":m>=60?`${Math.floor(m/60)} sa${m%60?" "+(m%60)+" dk":""}`:`${m} dk`;
 const sum=(arr,f)=>arr.reduce((a,x)=>a+(+(f?f(x):x)||0),0);
@@ -1081,7 +1086,7 @@ function renderRapor(){
     const wr=[monday(a),b]; const finMine=S.k.fins.filter(f=>inRange(f.week,wr)&&mine.some(c=>c.code===f.creative_code));
     body=`<div class="card" style="margin-bottom:16px"><div class="mcard">${av(t?.name||key,key,true)}<div><div class="nm">${esc(t?.name||key)}</div><div class="tk">Kreatif ekip · harf ${esc(key)}</div></div></div></div>
       <div class="kpis">${kpi("Winner",wins.length,`${mine.length} aktif kreatif · isabet ${decided.length?Math.round(wins.length/decided.length*100)+"%":"—"}`)}${kpi("Üretim",sum(D,prodOf),`${sum(D,x=>x.new_video)} sıfır video · ${sum(D,x=>x.new_image)} sıfır görsel`)}${kpi("Varyasyon",sum(D,x=>x.var_video)+sum(D,x=>x.var_image),`${sum(D,x=>x.var_video)} video · ${sum(D,x=>x.var_image)} görsel`)}${kpi("Ekip puanı",SC.length?nf1.format(avg(SC.map(s=>s.score))):"—",`${SC.length} puan`)}</div>
-      <div class="kpis">${kpi("Doldurulan gün",D.length,`${workdays(range)} iş günü`)}${kpi("Ort. giriş",hhmm(avg(ins)),`${ins.filter(x=>x>LATE_MIN).length} geç`)}${kpi("Mesai",durTxt(sum(D,x=>x.ot_min)),`izin ${durTxt(sum(D,x=>x.leave_min))}`)}${kpi("Harcama (kreatifleri)",tl(sum(finMine,f=>f.spend)),`ciro ${tl(sum(finMine,f=>f.revenue))}`)}</div>
+      <div class="kpis">${kpi("Doldurulan gün",D.length,`${workdays(range)} iş günü`)}${kpi("Ort. giriş",hhmm(avg(ins)),`${ins.filter(x=>x>LATE_MIN).length} geç`)}${kpi("Mesai",otTxt(sum(D,otMin)),`izin ${durTxt(sum(D,x=>x.leave_min))}`)}${kpi("Harcama (kreatifleri)",tl(sum(finMine,f=>f.spend)),`ciro ${tl(sum(finMine,f=>f.revenue))}`)}</div>
       <div class="cards">
         <div class="card"><div class="flabel">Kreatif durumları</div><div class="mrow" style="margin-top:4px">${Object.entries(st).map(([s,n])=>chip(`${ST[s]?.l||s} ${n}`,ST[s]?.s||"#eee")).join("")||"<span class='mini'>dönemde aktif kreatif yok</span>"}</div>
           ${wins.length?`<div class="flabel" style="margin-top:12px">Winner'lar</div>${wins.slice(0,12).map(c=>`<div class="mini">🏆 ${esc(c.code)}${c.hook_text?` — ${esc(c.hook_text).slice(0,60)}`:""}</div>`).join("")}`:""}</div>
@@ -1096,7 +1101,7 @@ function renderRapor(){
     const rk=`${a}|${b}`; if(!S.rank[rk]){ S.rank[rk]="…"; ranking(a,b).then(()=>{ if(S.tab==="rapor") renderRapor(); }); }
     const rows=S.rank[rk]; const pos=Array.isArray(rows)?rows.findIndex(r=>r.member_id===key):-1; const rrow=Array.isArray(rows)&&pos>=0?rows[pos]:null;
     body=`<div class="card" style="margin-bottom:16px"><div class="mcard">${av(m?.name,key,true)}<div><div class="nm">${esc(m?.name||"")}</div><div class="tk">Operasyon ekibi · ${esc(m?.tasks||"")}</div><div class="mrow">${roles.map(r=>`<span class="pill">${esc(r)}</span>`).join("")}</div></div></div></div>
-      <div class="kpis">${kpi("Sıralama",rrow?`${pos+1}.`:(rows==="…"?"…":"—"),rrow?`toplam ${nf1.format(rrow.total)} · ${rows.length} kişi`:"")}${kpi("Ekip puanı",SC.length?nf1.format(avg(SC.map(s=>s.score))):"—",`${SC.length} puan`)}${kpi("Doldurulan gün",D.length,`${workdays(range)} iş günü`)}${kpi("Ort. giriş",hhmm(avg(ins)),`${ins.filter(x=>x>LATE_MIN).length} geç · mesai ${durTxt(sum(D,x=>x.ot_min))}`)}</div>
+      <div class="kpis">${kpi("Sıralama",rrow?`${pos+1}.`:(rows==="…"?"…":"—"),rrow?`toplam ${nf1.format(rrow.total)} · ${rows.length} kişi`:"")}${kpi("Ekip puanı",SC.length?nf1.format(avg(SC.map(s=>s.score))):"—",`${SC.length} puan`)}${kpi("Doldurulan gün",D.length,`${workdays(range)} iş günü`)}${kpi("Ort. giriş",hhmm(avg(ins)),`${ins.filter(x=>x>LATE_MIN).length} geç · mesai ${otTxt(sum(D,otMin))}`)}</div>
       <div class="kpis">${kpi("Arama",nf.format(sum(D,x=>x.call_total)),`${nf.format(sum(D,x=>x.call_nolook))} bakmadı`)}${kpi("Mesaj",nf.format(sum(D,msgOf)),`${sum(D,ordOf)} sipariş`)}${kpi("Kargo",nf.format(sum(D,x=>x.cargo)),"")}${kpi("Kontrol tiki",ticks,`işler: ${tasks.filter(t=>t.done).length} ✓ · ${tasks.filter(t=>!t.done).length} açık`)}</div>
       <div class="cards">
         <div class="card"><div class="flabel">Verilen işler</div>${tasks.slice(0,8).map(t=>`<div class="mini">${t.done?"✓":"○"} ${esc(t.title)}${t.due?` (${trShort(t.due)})`:""}${t.done_note?` — <i>${esc(t.done_note)}</i>`:""}</div>`).join("")||"<span class='mini'>iş yok</span>"}
@@ -1602,6 +1607,8 @@ const BACKUP_TABLES = [
   "kre_daily","kre_scores","kre_requests","kre_settings",
   // ortaklar (eski)
   "prt_daily","prt_tasks",
+  // mesai ücretleri
+  "pay_rates",
 ];
 
 async function backupTable(t) {
