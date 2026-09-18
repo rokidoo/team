@@ -488,6 +488,20 @@
   #reportArea .anhead{display:flex;align-items:center;gap:10px} #reportArea .anhead h3{margin:0 0 6px;font-family:var(--fh)}
   #reportArea .anold{margin-bottom:10px} #reportArea .anold summary{cursor:pointer;font-weight:800;font-family:var(--fh)}
   #reportArea .anlatest{margin-bottom:14px}
+  #reportArea .fbper{font-family:var(--fh);font-size:.95rem}
+  #reportArea .fbchip{display:inline-block;font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:99px;border:1.5px solid var(--ink);margin:2px 2px 2px 0;white-space:nowrap}
+  #reportArea .fbchip.neg{background:var(--orange-s)} #reportArea .fbchip.pos{background:var(--green-s)}
+  #reportArea .fbsc{display:inline-block;min-width:30px;text-align:center;font-family:var(--fm);font-weight:800;font-size:.74rem;padding:2px 6px;border-radius:8px;border:1.5px solid var(--ink);background:var(--card)}
+  #reportArea .fbsc.low{background:var(--orange-s)} #reportArea .fbsc.hi{background:var(--green-s)} #reportArea .fbsc.na{color:var(--mut);border-color:var(--mut)}
+  #reportArea .fbcommon .fbc-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+  #reportArea .fbcommon.neg{border-left:8px solid #C2410C} #reportArea .fbcommon.pos{border-left:8px solid #15803D}
+  #reportArea .fbq{font-size:.8rem;margin-top:6px;line-height:1.45}
+  #reportArea .fbday{margin-bottom:12px}
+  #reportArea .fbrow{display:grid;grid-template-columns:44px minmax(150px,210px) 1fr;gap:4px 10px;align-items:start;padding:7px 0;border-top:1px solid var(--gray-s);font-size:.82rem}
+  #reportArea .fbrow:first-of-type{border-top:none}
+  #reportArea .fbchips{grid-column:3}
+  @media(max-width:640px){ #reportArea .fbrow{grid-template-columns:44px 1fr} #reportArea .fbtext,#reportArea .fbchips{grid-column:1/-1} }
+  #reportArea .fbmx td,#reportArea .fbmx th{text-align:center} #reportArea .fbmx td:first-child{text-align:left}
   #reportArea .linkbtn{margin-left:auto;background:none;border:none;color:var(--mut);font-weight:800;cursor:pointer;font-size:.72rem;text-decoration:underline}
   #reportArea .demo{background:var(--mustard-s); border:var(--b2); font-size:.74rem; font-weight:700; padding:9px 13px; border-radius:12px; margin-bottom:16px}
   #reportArea .late{color:var(--red); font-weight:800}
@@ -591,6 +605,7 @@
       <div id="tabOzet" class="hidden"></div>
       <div id="tabRapor" class="hidden"></div>
       <div id="tabVerim" class="hidden"></div>
+      <div id="tabGeri" class="hidden"></div>
     </div>
 
     <!-- ============ TAKIM PANOSU ============ -->
@@ -838,6 +853,7 @@ function renderHub(){
       <button data-main="ozet" class="${mainTab==="ozet"?"active":""}">📊 Özet</button>
       <button data-main="rapor" class="${mainTab==="rapor"?"active":""}">👤 Kişisel</button>
       <button data-main="verim" class="${mainTab==="verim"?"active":""}">📈 Verimlilik</button>
+      ${profile.is_realadmin?`<button data-main="geri" class="${mainTab==="geri"?"active":""}">💬 Geri bildirim</button>`:""}
     </div>` : "";
   el.innerHTML = tabs + links;
   el.style.display = (tabs || links) ? "flex" : "none";
@@ -1417,6 +1433,100 @@ function anExport(){
   setTimeout(()=>URL.revokeObjectURL(url),4000); toast("Analiz verisi indirildi — bu dosyayı Claude'a ver.");
 }
 
+/* ================= GERİ BİLDİRİM (ekibin birbirine yazdıkları · sadece yönetici) ================= */
+// konu tanıma: yorum Türkçe karaktersizleştirilip kalıplarla eşlenir (ör. "çalışkan" ve "calıskan" aynı)
+const FB_THEMES = [
+  {k:"devam",   l:"Devamsızlık / geç kalma", neg:true,  re:/gelmedi|gec\s?(kal|gel)|gecik|erken\s?(cik|git)|birakip\s?(cik|git)/},
+  {k:"isyok",   l:"İş yapmama / yavaşlık",   neg:true,  re:/hic\s?bir\s?sey\s?yapma|bir\s?sey\s?yapmadi|bitireme|yetistireme|yavas|tembel|oyalan|bos\s?dur/},
+  {k:"tavir",   l:"Tavır / söz dinlememe",   neg:true,  re:/uyar(dim|mama|diysam|mama)|dinlemi?y|dinlemedi|bildigini\s?yap|kaba\b|\bters\b|sinirl|gergin|surat|bagir|laf\s?sok|trip|saygisiz|umursam|ilgisiz/},
+  {k:"hata",    l:"Hata / özen",             neg:true,  re:/hata|yanlis|eksik|unut|dikkatsiz|ozensiz|karistir/},
+  {k:"telefon", l:"Telefon / sohbet",        neg:true,  re:/telefon|fazla\s?konus|sohbet|muhabbet|dikkat(i)?\s?dag|oyun\s?oyn/},
+  {k:"duzen",   l:"Temizlik / düzen",        neg:true,  re:/temizlik\s?yapmadi|temizlemedi|daginik|duzensiz|pislik/},
+  {k:"yardim",  l:"Yardımsever / öğretici",  neg:false, re:/yardim|destek|ogret|beraber/},
+  {k:"caliskan",l:"Çalışkan / işini iyi yapıyor", neg:false, re:/caliskan|calisiyor|ozverili|basarili|mukemmel|harika|super|cok\s?iyi|iyiydi|emek|cabal|verimli|isini\s?(iyi\s?)?yap|sagolsun|eline\s?saglik|helal/},
+  {k:"uyum",    l:"Sakin / uyumlu",          neg:false, re:/sakin|uyumlu|kibar|guler\s?yuz|pozitif|neseli|anlayisli|saygili/},
+];
+const fbNorm = s=>String(s||"").toLocaleLowerCase("tr").replace(/ç/g,"c").replace(/ş/g,"s").replace(/ı/g,"i").replace(/ğ/g,"g").replace(/ö/g,"o").replace(/ü/g,"u").replace(/â/g,"a").replace(/î/g,"i").replace(/i̇/g,"i");
+const fbThemes = c=>{ const n=fbNorm(c); return n?FB_THEMES.filter(t=>t.re.test(n)):[]; };
+const FB_LOW = 6;
+function fbRows(team){
+  if(team==="o") return S.o.scores.map(s=>({day:s.day, rater:s.rater_id, ratee:s.ratee_id, rn:oName(s.rater_id), en:oName(s.ratee_id), score:s.score, comment:s.comment||""}));
+  return S.k.scores.map(s=>({day:s.day, rater:s.rater, ratee:s.ratee, rn:kName(s.rater), en:kName(s.ratee), score:s.score, comment:s.comment||""}));
+}
+function fbRange(p,ref){ if(p==="gun") return [ref,ref]; return periodRange(p,ref); }
+function fbShift(p,n){ if(p==="gun") S.fbRef=addDays(S.fbRef,n); else shiftRef("fbRef",p,n); }
+const fbTitle=(p,r)=>p==="gun"?trDateW(r[0]):periodTitle(p,r);
+const fbChip=t=>`<span class="fbchip ${t.neg?"neg":"pos"}">${t.neg?"−":"+"} ${esc(t.l)}</span>`;
+const fbScore=v=>v==null?`<span class="fbsc na">—</span>`:`<span class="fbsc ${v<=FB_LOW?"low":v>=9?"hi":""}">${v<=FB_LOW?"▼ ":""}${nf1.format(v)}</span>`;
+function renderGeri(){
+  const el=$("tabGeri");
+  if(!isAdmin()){ el.innerHTML=`<div class="empty">Bu bölüm yalnızca yöneticiye açık.</div>`; return; }
+  const team=S.fbTeam||"o", per=S.fbPer||"hafta"; S.fbRef=S.fbRef||today();
+  const range=fbRange(per,S.fbRef), [a,b]=range;
+  const prevRef=per==="gun"?addDays(S.fbRef,-1):per==="hafta"?addDays(S.fbRef,-7):(()=>{ const d=new Date(S.fbRef.slice(0,8)+"01T00:00:00"); d.setMonth(d.getMonth()-1); return iso(d); })();
+  const [pa,pb]=fbRange(per,prevRef);
+  const all=fbRows(team);
+  const R=all.filter(x=>x.day>=a&&x.day<=b), P=all.filter(x=>x.day>=pa&&x.day<=pb);
+  const who=S.fbPerson||"";
+  const people=[...new Map(all.map(x=>[x.ratee,x.en])).entries()].sort((x,y)=>x[1].localeCompare(y[1],"tr"));
+  const sc=xs=>xs.filter(x=>x.score!=null).map(x=>x.score);
+  const avgOf=xs=>{ const v=sc(xs); return v.length?avg(v):null; };
+  const dAvg=(c,p)=>c==null||p==null?"":`<span class="vmd"><i class="${c>=p?"vg":"vb"}">${Math.abs(c-p)<0.05?"＝":c>p?"▲":"▼"}</i>${(c>=p?"+":"−")+nf1.format(Math.abs(c-p))}</span>`;
+  // kişi bazlı özet (hakkında yazılanlar)
+  const per_=people.map(([id,name])=>{ const X=R.filter(x=>x.ratee===id), Y=P.filter(x=>x.ratee===id);
+    const th={}; X.forEach(x=>fbThemes(x.comment).forEach(t=>{ (th[t.k] ||= {t, raters:new Set(), n:0}); th[t.k].raters.add(x.rn); th[t.k].n++; }));
+    const v=sc(X); return {id,name,X,avg:avgOf(X),prev:avgOf(Y),n:v.length,min:v.length?Math.min(...v):null,low:X.filter(x=>x.score!=null&&x.score<=FB_LOW),th,cm:X.filter(x=>x.comment).length}; }).filter(p=>p.X.length);
+  // ortak konular: aynı kişi hakkında aynı konuda ≥2 farklı kişi
+  const common=[]; per_.forEach(p=>{
+    Object.values(p.th).forEach(o=>{ if(o.raters.size>=2) common.push({p, t:o.t, raters:[...o.raters], n:o.n}); });
+    const lowR=new Set(p.low.map(x=>x.rn)); if(lowR.size>=2) common.push({p, t:{l:`Düşük puan (≤${FB_LOW})`,neg:true}, raters:[...lowR], n:p.low.length});
+  });
+  common.sort((x,y)=>(y.t.neg-x.t.neg)||(y.raters.length-x.raters.length));
+  const tAvg=avgOf(R), tPrev=avgOf(P);
+  const feed=R.filter(x=>!who||x.ratee===who||x.rater===who).sort((x,y)=>x.day<y.day?1:x.day>y.day?-1:x.en.localeCompare(y.en,"tr"));
+  const byDay={}; feed.forEach(x=>(byDay[x.day] ||= []).push(x));
+  // kim kime (dönem ortalaması)
+  const raters=[...new Map(R.map(x=>[x.rater,x.rn])).entries()].sort((x,y)=>x[1].localeCompare(y[1],"tr"));
+  const ratees=per_.map(p=>[p.id,p.name]);
+  const cell=(r,e)=>{ const v=sc(R.filter(x=>x.rater===r&&x.ratee===e)); return v.length?fbScore(Math.round(avg(v)*10)/10):(r===e?"·":""); };
+  el.innerHTML=`
+    <h2>Geri bildirim</h2><div class="sub">Ekibin birbirine verdiği puanlar ve yazdıkları — yalnızca sen görürsün. Aynı kişi hakkında birden fazla kişi aynı konuda yazdıysa üstte “ortak konu” olarak çıkar.</div>
+    <div class="vmbar-row">
+      <div class="filters">${[["o","🏭 Operasyon"],["k","🎬 Kreatif"]].map(([k,l])=>`<button class="fchip ${team===k?"on":""}" data-fbt="${k}">${l}</button>`).join("")}</div>
+      <div class="filters">${[["gun","Gün"],["hafta","Hafta"],["ay","Ay"]].map(([k,l])=>`<button class="fchip ${per===k?"on":""}" data-fbp="${k}">${l}</button>`).join("")}</div>
+      <button class="nb" data-fbs="-1">‹</button><b class="fbper">${esc(fbTitle(per,range))}</b><button class="nb" data-fbs="1">›</button>
+      <select id="fbWho" class="vmsel"><option value="">Herkes</option>${people.map(([id,n])=>opt(id,n,who)).join("")}</select>
+    </div>
+    <div class="kpis">
+      ${kpi("Ekip ortalaması", tAvg==null?"—":nf1.format(tAvg), `${dAvg(tAvg,tPrev)} önceki ${tPrev==null?"—":nf1.format(tPrev)}`)}
+      ${kpi("Verilen puan", nf.format(sc(R).length), `${R.filter(x=>x.comment).length} yorumlu`)}
+      ${kpi(`Düşük puan (≤${FB_LOW})`, nf.format(R.filter(x=>x.score!=null&&x.score<=FB_LOW).length), `${R.filter(x=>x.score==null).length} puansız`)}
+      ${kpi("Ortak konu", nf.format(common.length), common.filter(c=>c.t.neg).length+" olumsuz · "+common.filter(c=>!c.t.neg).length+" olumlu")}
+    </div>
+    <div class="secthead"><h2>🔎 Ortak konular</h2></div>
+    ${common.length?`<div class="cards">${common.map(c=>`<div class="card fbcommon ${c.t.neg?"neg":"pos"}"><div class="fbc-h"><b>${esc(c.p.name)}</b>${fbChip(c.t)}</div><div class="mini">${c.raters.length} kişi yazdı: ${c.raters.map(esc).join(", ")} · ${c.n} kez</div>
+        ${c.p.X.filter(x=>c.t.re?c.t.re.test(fbNorm(x.comment)):(x.score!=null&&x.score<=FB_LOW)).slice(0,4).map(x=>`<div class="fbq">${fbScore(x.score)} <b>${esc(x.rn)}</b> <small>${trShort(x.day)}</small> ${esc(x.comment||"")}</div>`).join("")}</div>`).join("")}</div>`
+      :`<div class="empty">Bu dönemde aynı kişi hakkında birden fazla kişinin aynı konuda yazdığı bir durum yok.</div>`}
+    <div class="secthead"><h2>👥 Kişi bazlı</h2></div>
+    <div class="tblwrap"><table class="compact vmtbl"><tr><th>Kişi</th><th>Ort. puan</th><th>Değişim</th><th>Puan</th><th>En düşük</th><th>Yorum</th><th>Konular</th></tr>
+      ${per_.sort((x,y)=>(x.avg??99)-(y.avg??99)).map(p=>`<tr><td><a href="#" data-fbw="${esc(p.id)}">${esc(p.name)}</a></td><td>${p.avg==null?"—":`<b>${nf1.format(p.avg)}</b>`}</td><td>${dAvg(p.avg,p.prev)||"—"}</td><td>${p.n}</td><td>${p.min==null?"—":fbScore(p.min)}</td><td>${p.cm}</td>
+        <td class="anwrap">${Object.values(p.th).sort((x,y)=>(y.t.neg-x.t.neg)||(y.n-x.n)).map(o=>`${fbChip(o.t)}<small class="mut">×${o.n}</small>`).join(" ")||"<span class='mut'>—</span>"}</td></tr>`).join("")||`<tr><td colspan="7">Bu dönemde puan yok</td></tr>`}
+    </table></div>
+    <div class="secthead"><h2>🧮 Kim kime · dönem ortalaması</h2></div>
+    ${raters.length?`<div class="tblwrap"><table class="compact vmtbl fbmx"><tr><th>Veren ↓ · Alan →</th>${ratees.map(([,n])=>`<th>${esc(n)}</th>`).join("")}</tr>
+      ${raters.map(([r,rn])=>`<tr><td><b>${esc(rn)}</b></td>${ratees.map(([e])=>`<td>${cell(r,e)}</td>`).join("")}</tr>`).join("")}</table></div><div class="mini">▼ = ${FB_LOW} ve altı. Bir kişinin hep düşük verdiği biri varsa burada görünür.</div>`:`<div class="empty">Puan yok</div>`}
+    <div class="secthead"><h2>💬 Yazılanlar${who?` · ${esc(people.find(p=>p[0]===who)?.[1]||"")} (hakkında + yazdıkları)`:""}</h2></div>
+    ${Object.keys(byDay).length?Object.entries(byDay).map(([d,xs])=>`<div class="card fbday"><div class="flabel">${esc(trDateW(d))}</div>
+      ${xs.map(x=>`<div class="fbrow">${fbScore(x.score)}<span class="fbwho"><b>${esc(x.rn)}</b> → <b>${esc(x.en)}</b></span><span class="fbtext">${esc(x.comment||"—")}</span><span class="fbchips">${fbThemes(x.comment).map(fbChip).join("")}</span></div>`).join("")}</div>`).join("")
+      :`<div class="empty">Bu dönemde yazılan yok.</div>`}
+    <div class="mini" style="margin-top:10px">Konu etiketleri kelimelerden otomatik çıkarılır; kesin yargı değil, bakman gereken yeri gösterir.</div>`;
+  el.querySelectorAll("[data-fbt]").forEach(x=>x.onclick=()=>{ S.fbTeam=x.dataset.fbt; S.fbPerson=""; renderGeri(); });
+  el.querySelectorAll("[data-fbp]").forEach(x=>x.onclick=()=>{ S.fbPer=x.dataset.fbp; renderGeri(); });
+  el.querySelectorAll("[data-fbs]").forEach(x=>x.onclick=()=>{ fbShift(per,+x.dataset.fbs); renderGeri(); });
+  el.querySelectorAll("[data-fbw]").forEach(x=>x.onclick=e=>{ e.preventDefault(); S.fbPerson=x.dataset.fbw; renderGeri(); window.scrollTo(0,0); });
+  $("fbWho").onchange=e=>{ S.fbPerson=e.target.value; renderGeri(); };
+}
+
 /* ---- Ortak günlüğü (ortaklar panelinden taşındı) ---- */
 function renderGunluk(){
   const el=$("tabGunluk"); const day=S.day;
@@ -1451,8 +1561,9 @@ function renderGunluk(){
   };
 }
 let loaded=false, loading=false;
-const VIEWS={gunluk:["tabGunluk",renderGunluk], ozet:["tabOzet",renderOzet], rapor:["tabRapor",renderRapor], verim:["tabVerim",renderVerim]};
+const VIEWS={gunluk:["tabGunluk",renderGunluk], ozet:["tabOzet",renderOzet], rapor:["tabRapor",renderRapor], verim:["tabVerim",renderVerim], geri:["tabGeri",renderGeri]};
 async function show(tab){
+  if(tab==="geri" && profile?.role!=="admin") tab="ozet";   // geri bildirim sadece yöneticiye
   S.profile = profile; S.tab = tab;
   Object.entries(VIEWS).forEach(([k,v])=>$(v[0]).classList.toggle("hidden", k!==tab));
   const el = $(VIEWS[tab][0]);
