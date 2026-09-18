@@ -647,3 +647,90 @@ create policy "an_update" on public.analyses for update
 create policy "an_delete" on public.analyses for delete using (coalesce(public.my_role() = 'admin', false));
 
 select 'analyses hazir' as durum;
+
+-- ============================================================
+-- v2.1 PUAN + STOK YETKİLİSİ (ör. Uğur abi)
+-- • ops_members.kind: 'ekip' (normal) | 'puanci' (herkese puan verir, stok girer;
+--   günlüğü, nöbeti, sıralaması yok; kimse ona puan veremez)
+-- • Adı "Uğur" ile başlayan üye 'puanci' yapılır
+-- ============================================================
+alter table public.ops_members add column if not exists kind text not null default 'ekip';
+alter table public.ops_members drop constraint if exists ops_members_kind_chk;
+alter table public.ops_members add constraint ops_members_kind_chk check (kind in ('ekip','puanci'));
+
+create or replace function public.is_puanci(p_member uuid)
+returns boolean language sql security definer stable
+set search_path = public
+as $$ select coalesce((select kind='puanci' from public.ops_members where id = p_member), false) $$;
+
+-- puan: kimse puan+stok yetkilisine puan veremez (gün kilidi aynen devam)
+drop policy if exists "os_insert" on public.ops_scores;
+drop policy if exists "os_update" on public.ops_scores;
+create policy "os_insert" on public.ops_scores for insert
+  with check (not public.is_puanci(ratee_id)
+              and (public.is_ops_admin() or (rater_id = public.my_member() and day = public.tr_today())));
+create policy "os_update" on public.ops_scores for update
+  using      (public.is_ops_admin() or (rater_id = public.my_member() and day = public.tr_today()))
+  with check (not public.is_puanci(ratee_id)
+              and (public.is_ops_admin() or (rater_id = public.my_member() and day = public.tr_today())));
+
+-- günlük: puan+stok yetkilisinin günlüğü yok
+drop policy if exists "od_insert" on public.ops_daily;
+create policy "od_insert" on public.ops_daily for insert
+  with check (public.is_ops_admin()
+              or (member_id = public.my_member() and day = public.tr_today() and not public.is_puanci(member_id)));
+
+-- sıralama (Birinci / Özet): sadece ekip üyeleri
+create or replace function public.ops_ranking(p_from date, p_to date, p_full boolean default false)
+returns table(member_id uuid, name text, puan numeric, n_puan integer, disiplin numeric,
+              devam numeric, kontrol numeric, hacim numeric, total numeric)
+language plpgsql security definer
+set search_path = public
+as $$
+declare w jsonb; wdays integer;
+begin
+  if p_full and not public.is_ops_admin() then raise exception 'sadece yönetici'; end if;
+  if not public.is_ops() then raise exception 'yetki yok'; end if;
+  select value into w from public.ops_settings where key = 'rank_weights';
+  w := coalesce(w, '{"puan":40,"disiplin":20,"devam":15,"kontrol":10,"hacim":15}'::jsonb);
+  select count(*) into wdays
+    from generate_series(p_from, least(p_to, current_date), interval '1 day') d
+    where extract(dow from d) <> 0;
+  return query
+  with m as (select id, ops_members.name from public.ops_members where active and coalesce(kind,'ekip')='ekip'),
+  d as (select od.member_id, count(*)::numeric filled,
+               count(*) filter (where in_time is not null)::numeric n_in,
+               count(*) filter (where in_time is not null and in_time <= '09:10')::numeric ontime,
+               sum(coalesce(call_total,0)+coalesce(wp_msg,0)+coalesce(ig_msg,0)+coalesce(mail_msg,0)+coalesce(cargo,0))::numeric vol
+        from public.ops_daily od where day between p_from and p_to group by od.member_id),
+  s as (select ratee_id, avg(score)::numeric sc, count(score)::integer n
+        from public.ops_scores where day between p_from and p_to and score is not null group by ratee_id),
+  c as (select done_by, count(*)::numeric ticks from public.ops_checks where day between p_from and p_to group by done_by),
+  base as (select m.id, m.name,
+             coalesce(s.sc,0)*10 puan, coalesce(s.n,0) n_puan,
+             least(100, coalesce(d.filled,0)/greatest(wdays,1)*100) disiplin,
+             case when coalesce(d.n_in,0) > 0 then d.ontime/d.n_in*100 else 0 end devam,
+             coalesce(c.ticks,0) ticks,
+             coalesce(d.vol,0)/greatest(coalesce(d.filled,1),1) volpd
+           from m left join d on d.member_id = m.id left join s on s.ratee_id = m.id left join c on c.done_by = m.id),
+  mx as (select greatest(max(ticks),1) mt, greatest(max(volpd),1) mv from base),
+  r as (select b.id, b.name, b.puan, b.n_puan, b.disiplin, b.devam,
+               b.ticks/mx.mt*100 kontrol, b.volpd/mx.mv*100 hacim,
+               (b.puan*(w->>'puan')::numeric + b.disiplin*(w->>'disiplin')::numeric + b.devam*(w->>'devam')::numeric
+                + b.ticks/mx.mt*100*(w->>'kontrol')::numeric + b.volpd/mx.mv*100*(w->>'hacim')::numeric)/100 total
+        from base b, mx)
+  select r.id, r.name,
+         case when p_full then round(r.puan,1) end, case when p_full then r.n_puan end,
+         case when p_full then round(r.disiplin,1) end, case when p_full then round(r.devam,1) end,
+         case when p_full then round(r.kontrol,1) end, case when p_full then round(r.hacim,1) end,
+         case when p_full then round(r.total,1) end
+  from r where r.total > 0
+  order by r.total desc, r.puan desc
+  limit case when p_full then 100 else 1 end;
+end $$;
+
+-- Uğur'u puan + stok yetkilisi yap
+update public.ops_members set kind = 'puanci' where name ilike 'u_ur%';
+
+-- kontrol
+select name, kind, active, (user_id is not null) as hesap_bagli from public.ops_members order by kind desc, sort;

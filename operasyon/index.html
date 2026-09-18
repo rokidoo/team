@@ -545,7 +545,11 @@ const isAdmin = ()=>S.profile?.role==="admin" || S.profile?.role==="partner";   
 const canOps  = ()=>S.profile && ["ops","admin","partner"].includes(S.profile.role);
 const memById = id=>S.members.find(m=>m.id===id);
 const memName = id=>memById(id)?.name || "—";
-const actives = ()=>S.members.filter(m=>m.active).sort((a,b)=>(a.sort||0)-(b.sort||0));
+// kind: "ekip" (normal üye) | "puanci" (sadece puan verir + stok; günlüğü, nöbeti, sıralaması yok, ona puan verilmez)
+const isPuanciM = m=>m?.kind==="puanci";
+const allActive = ()=>S.members.filter(m=>m.active).sort((a,b)=>(a.sort||0)-(b.sort||0));
+const actives = ()=>allActive().filter(m=>!isPuanciM(m));
+const isPuanci = ()=>!isAdmin() && isPuanciM(S.me);
 const initials = n=>String(n||"?").trim().split(/\s+/).map(x=>x[0]).join("").slice(0,2).toUpperCase();
 const av = (m,cls="")=>`<span class="own ${cls}" style="background:${(m?.color||"#ECEAE4")}40;border-color:${m?.color||"#121212"}">${esc(initials(m?.name))}</span>`;
 const msgOf = r=>(r.wp_msg||0)+(r.ig_msg||0)+(r.mail_msg||0);
@@ -631,6 +635,13 @@ async function loadAll(){
 
 /* ================= NAV ================= */
 function renderNav(){
+  if(isPuanci()){ // puan + stok yetkilisi: sadece bu iki sekme
+    const t=[["puan","⭐","Puan"],["stok","📊","Stok"]];
+    $("nav").innerHTML = t.map(([id,ic,l])=>`<button data-tab="${id}" class="${S.tab===id?"on":""}"><span class="ic">${ic}</span>${l}</button>`).join("");
+    $("sideNav").innerHTML = t.map(([id,ic,l])=>`<button data-tab="${id}" class="navbtn ${S.tab===id?"on":""}"><span class="ic">${ic}</span><span class="lbl">${l}</span></button>`).join("");
+    document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab; renderAll(); window.scrollTo(0,0);});
+    return;
+  }
   const tabs = [["gun","📝","Günüm"],["puan","⭐","Puan"],["kontrol","✅","Kontrol"]];
   if(canDenetim()) tabs.push(["denetim","🔍","Denetim"]);
   if(canTab("kargo")) tabs.push(["kargo","📦","Kargo"]);
@@ -649,6 +660,7 @@ function renderNav(){
 const TABS = {gun:"Gun", puan:"Puan", mesai:"Mesai", kontrol:"Kontrol", denetim:"Denetim", kargo:"Kargo", ses:"Ses", stok:"Stok", birinci:"Birinci", ekip:"Ekip", pano:"Pano", import:"Import"};
 const RENDER = {gun:renderGun, puan:renderPuan, mesai:renderMesai, kontrol:renderKontrol, denetim:renderDenetim, kargo:renderKargo, ses:renderSes, stok:renderStok, birinci:renderBirinci, ekip:renderEkip, pano:renderPano, import:renderImport};
 function renderAll(){
+  if(isPuanci() && !["puan","stok"].includes(S.tab)) S.tab="puan";
   renderNav();
   if((S.tab==="pano"||S.tab==="import") && !isAdmin()) S.tab="gun";
   if((S.tab==="stok"&&!canTab("stok"))||(S.tab==="kargo"&&!canTab("kargo"))||(S.tab==="denetim"&&!canDenetim())) S.tab="gun";
@@ -677,10 +689,10 @@ function renderViewBar(){
 function viewAs(m){
   if(m){ if(!REAL) REAL={profile:S.profile, me:S.me, gunMember:S.gunMember}; S.profile={id:m.user_id||("view_"+m.id), name:m.name, role:"ops"}; S.me=m; S.gunMember=m.id; }
   else if(REAL){ S.profile=REAL.profile; S.me=REAL.me; S.gunMember=REAL.gunMember; REAL=null; }
-  S.tab="gun"; closeModal(); renderAll(); window.scrollTo(0,0);
+  S.tab=isPuanciM(m)?"puan":"gun"; closeModal(); renderAll(); window.scrollTo(0,0);
 }
 function openViewModal(){
-  const list=actives();
+  const list=allActive();
   modal(`<h3>Kimin gözünden?</h3><div class="sub">Panel o kişinin yetkisiyle çizilir: sekmeler, sorumluluklar, puan gizliliği. Kaydetme kapalıdır.</div><div class="vlist">${list.map(m=>`<button class="btn ghost" data-vp="${m.id}">${esc(m.name)}<small>${myRoles(m).map(k=>ROLES[k].l).join(", ")||"sabit sorumluluk yok"}${m.user_id?"":" · hesap bağlı değil"}</small></button>`).join("")}</div>`);
   document.querySelectorAll("[data-vp]").forEach(b=>b.onclick=()=>viewAs(memById(b.dataset.vp)));
 }
@@ -815,7 +827,7 @@ async function loadRates(){
 
 function renderMesai(){
   const el=$("tabMesai");
-  const persons=[...S.members].sort((a,b)=>(a.sort||0)-(b.sort||0)).map(m=>({key:"ops:"+m.id, id:m.id, name:m.name, active:!!m.active, badge:av(m), rows:S.daily.filter(r=>r.member_id===m.id)}));
+  const persons=[...S.members].filter(m=>!isPuanciM(m)).sort((a,b)=>(a.sort||0)-(b.sort||0)).map(m=>({key:"ops:"+m.id, id:m.id, name:m.name, active:!!m.active, badge:av(m), rows:S.daily.filter(r=>r.member_id===m.id)}));
   renderMesaiView(el,{admin:isAdmin(), persons, me:S.me?persons.find(p=>p.id===S.me.id):null,
     jump:(p,day)=>{ S.gunMember=p.id; S.day=day; S.tab="gun"; renderAll(); window.scrollTo(0,0); }});
 }
@@ -1326,6 +1338,7 @@ function renderEkip(){
     <div class="sub">Herkes aynı pozisyonda, görevler farklı.${isAdmin()?" Düzenlemek için ✏️.":""}</div>
     ${rolesCard()}
     <div class="sect"><h3>👥 Üyeler</h3><div class="cards">${actives().map(card).join("")}</div></div>
+    ${allActive().some(isPuanciM)?`<div class="sect"><h3>⭐ Puan + stok yetkilileri</h3><div class="note" style="margin:0 0 10px">Herkese puan verir ve stoğu günceller. Günlüğü, nöbeti ve sıralaması yok; ekipten kimse ona puan veremez.</div><div class="cards">${allActive().filter(isPuanciM).map(card).join("")}</div></div>`:""}
     ${isAdmin()?`<div class="btnrow" style="margin-top:14px"><button class="btn ghost sm" id="memAdd">+ Üye ekle</button><button class="btn ghost sm" id="ekipTask">📌 Görev ata</button></div>`:""}
 
   `;
@@ -1334,6 +1347,8 @@ function renderEkip(){
   el.querySelectorAll("[data-medit]").forEach(b=>b.onclick=()=>openMemberModal(b.dataset.medit));
   const ma=$("memAdd"); if(ma) ma.onclick=()=>openMemberModal(null);
 }
+// "kind" sütunu SQL çalıştırıldıysa vardır (DEMO'da hep var)
+const kindCol = ()=>DEMO || S.members.some(x=>"kind" in x);
 async function openMemberModal(id){
   const m=id?memById(id):{key:"",name:"",color:"#FFC53D",active:true,sort:S.members.length+1,tasks:"",user_id:null};
   let profiles=[];
@@ -1341,6 +1356,7 @@ async function openMemberModal(id){
   modal(`<h3>${id?"Üyeyi düzenle":"Yeni üye"}</h3>
     <div class="frow"><div><div class="flabel">Ad</div><input id="m_name" value="${esc(m.name)}"></div><div><div class="flabel">Anahtar (kısa, değişmez)</div><input id="m_key" value="${esc(m.key)}" ${id?"disabled":""} placeholder="ör. ayse"></div></div>
     <div class="flabel">Görevleri</div><input id="m_tasks" value="${esc(m.tasks||"")}">
+    ${kindCol()?`<div class="flabel">Tür</div><select id="m_kind">${opt("ekip","Ekip üyesi (günlük doldurur, puanlanır)",m.kind||"ekip")}${opt("puanci","Puan + stok yetkilisi (günlüğü yok, puanlanmaz)",m.kind||"ekip")}</select>`:""}
     <div class="frow"><div><div class="flabel">Renk</div><input type="color" id="m_color" value="${m.color||"#FFC53D"}" style="height:46px;padding:4px"></div><div><div class="flabel">Sıra</div><input type="number" id="m_sort" value="${m.sort||0}"></div></div>
     <div class="flabel">Bağlı hesap</div><select id="m_user">${opt("","— bağlı değil —",m.user_id||"")}${profiles.map(p=>opt(p.id,`${p.name} (${p.role})`,m.user_id||"")).join("")}</select>
     <label style="font-weight:800;font-size:.85rem;display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="checkbox" id="m_active" ${m.active?"checked":""} style="width:auto;margin:0">Aktif (ekipte)</label>
@@ -1348,6 +1364,7 @@ async function openMemberModal(id){
     <button class="btn" id="mSave">Kaydet</button>`);
   $("mSave").onclick=async ()=>{
     const row={key:(id?m.key:$("m_key").value.trim().toLowerCase()), name:$("m_name").value.trim(), tasks:$("m_tasks").value.trim()||null, color:$("m_color").value, sort:numOrNull($("m_sort").value)||0, active:$("m_active").checked, user_id:$("m_user").value||null};
+    if(kindCol()) row.kind=$("m_kind").value;
     if(!row.key||!row.name){ toast("Ad ve anahtar gerekli."); return; }
     try{
       if(DEMO){ if(id) Object.assign(m,row); else S.members.push({id:uid(),...row}); }
@@ -1375,7 +1392,7 @@ const ROLES = {
 };
 const roleHolder = k=>{ const a=S.assign.find(x=>x.role_key===k); return a?.member_id ? memById(a.member_id) : null; };
 const holdsRole  = k=>{ const h=roleHolder(k); return !!(h && S.me && h.id===S.me.id); };
-const canTab     = k=>isAdmin() || !roleHolder(k) || holdsRole(k);      // atanmamışsa herkes
+const canTab     = k=>isAdmin() || !roleHolder(k) || holdsRole(k) || (k==="stok" && isPuanci());      // atanmamışsa herkes; puan+stok yetkilisi stoğu her zaman görür
 const canDenetim = ()=>isAdmin() || holdsRole("mesaj_kontrol") || holdsRole("temizlik_kontrol");
 const myRoles    = m=>Object.keys(ROLES).filter(k=>roleHolder(k)?.id===m?.id);
 const checkOf    = (day,item)=>S.checks.find(c=>c.day===day && c.item===item);
@@ -1669,7 +1686,7 @@ function renderPano(){
   const bar=(v,k)=>`<td style="min-width:70px"><div class="bar"><i style="width:${Math.round(v/mx(k)*100)}%"></i></div></td>`;
 
   // kişi tablosu
-  const people=S.members.filter(m=>m.active||D.some(x=>x.member_id===m.id)).sort((x,y)=>(x.sort||0)-(y.sort||0));
+  const people=S.members.filter(m=>!isPuanciM(m)&&(m.active||D.some(x=>x.member_id===m.id))).sort((x,y)=>(x.sort||0)-(y.sort||0));
   const prow=m=>{ const r=D.filter(x=>x.member_id===m.id); const ins=r.map(x=>mins(x.in_time)).filter(x=>x!=null);
     const recv=SC.filter(s=>s.ratee_id===m.id).map(s=>s.score), given=SC.filter(s=>s.rater_id===m.id).map(s=>s.score);
     return `<tr><td>${esc(m.name)}</td><td>${r.length}</td><td>${nf.format(sum(r,x=>x.call_total))}</td><td>${nf.format(sum(r,x=>x.call_nolook))}</td><td>${nf.format(sum(r,msgOf))}</td><td>${nf.format(sum(r,ordOf))}</td><td>${nf.format(sum(r,x=>x.cargo))}</td><td>${hhmm(avg(ins))}</td><td class="${ins.filter(x=>x>LATE_MIN).length?"late":""}">${ins.filter(x=>x>LATE_MIN).length}</td><td>${otTxt(sum(r,x=>otCalc(x).min))}</td><td>${durTxt(sum(r,x=>x.leave_min))}</td><td><b>${recv.length?nf1.format(avg(recv)):"—"}</b> <small>(${recv.length})</small></td><td>${given.length?nf1.format(avg(given)):"—"}</td></tr>`; };
@@ -1848,7 +1865,7 @@ function showAuth(msg,err){
 async function showApp(){ $("vAuth").classList.add("hidden"); $("vApp").classList.remove("hidden"); renderAll(); }
 function initDays(){ const t=today(); S.day=S.day||t; S.puanDay=S.puanDay||t; S.kontrolDay=S.kontrolDay||t; S.kargoDay=S.kargoDay||t; S.stokDay=S.stokDay||t; S.panoRef=S.panoRef||t; S.birMonth=S.birMonth||t.slice(0,8)+"01"; S.denetimDay=S.denetimDay||t; }
 function openClaimModal(){
-  const free=actives().filter(m=>!m.user_id);
+  const free=allActive().filter(m=>!m.user_id);
   modal(`<h3>Sen kimsin?</h3><div class="sub">Hesabını ekipteki adınla eşleştir. Bir kez yapılır.</div>
     <select id="claimSel">${free.map(m=>opt(m.id,m.name,"")).join("")||opt("","Boş üye kalmadı — yöneticiye söyle","")}</select>
     <button class="btn" id="claimBtn" ${free.length?"":"disabled"}>Bu benim</button>`);
