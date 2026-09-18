@@ -373,6 +373,89 @@
   .hub{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 20px;background:var(--card);border-bottom:1px solid var(--line, #e5e2da)}
   .hub-lbl{font-size:12px;font-weight:800;color:var(--ink-soft)}
   .hub-link{text-decoration:none;font-size:12px;padding:6px 10px}
+
+  /* ===================== RAPORLAR (Özet + Kişisel) ===================== */
+  #reportArea{
+    --cream:#F4F2EC; --cream2:#EAE7E1; --card:#FFFDF9; --ink:#121212; --ink-soft:#4A4A46; --mut:#8A867E;
+    --cobalt:#2F5DFF; --cobalt-s:#E4EBFF; --green:#22C55E; --green-s:#DFF6E7; --mustard:#FFC53D; --mustard-s:#FFF3D6;
+    --red:#E8402A; --red-s:#FDE4DF; --purple:#A855F7; --purple-s:#F1E4FE; --orange:#FF8A00; --orange-s:#FFE9D1; --gray-s:#ECEAE4;
+    --fh:'Space Grotesk','Plus Jakarta Sans',sans-serif; --fb:'Plus Jakarta Sans',sans-serif; --fm:'JetBrains Mono',monospace;
+    --b:3px solid var(--ink); --b2:2px solid var(--ink); --sh:6px 6px 0 var(--ink); --sh-sm:4px 4px 0 var(--ink); --r:16px;
+    padding:20px 16px 60px; max-width:1180px; margin:0 auto; font-family:var(--fb); color:var(--ink);
+  }
+  @media(min-width:960px){ #reportArea{padding:26px 28px 60px} }
+  #reportArea .hidden{display:none!important}
+  #reportArea h2{font-family:var(--fh); font-size:1.35rem; margin:0 0 4px}
+  #reportArea .sub{color:var(--mut); font-size:.82rem; font-weight:600; margin-bottom:18px}
+  #reportArea .sect{margin-bottom:26px}
+  #reportArea .sect h3{font-family:var(--fh); font-size:.78rem; text-transform:uppercase; letter-spacing:.09em; margin:0 0 12px; display:flex; align-items:center; gap:8px}
+  #reportArea .sect h3 .cnt{background:var(--ink); color:var(--card); border-radius:99px; padding:1px 9px; font-size:.68rem; font-family:var(--fm)}
+  #reportArea .cards{display:grid; gap:14px}
+  @media(min-width:1100px){ #reportArea .cards{grid-template-columns:1fr 1fr} }
+  #reportArea .card{background:var(--card); border:var(--b); border-radius:var(--r); padding:16px; box-shadow:var(--sh); margin:0}
+  #reportArea .cards .empty{grid-column:1/-1}
+  #reportArea .empty{text-align:center; color:var(--mut); font-size:.85rem; font-weight:600; padding:30px 12px; border:2px dashed var(--mut); border-radius:var(--r); background:var(--cream2)}
+  #reportArea .chip{display:inline-flex; align-items:center; border-radius:99px; padding:4px 11px; font-size:.68rem; font-weight:800; border:var(--b2); color:var(--ink); white-space:nowrap}
+  #reportArea .pill{display:inline-block; border:var(--b2); border-radius:8px; padding:2px 8px; font-size:.66rem; font-weight:800; background:var(--card); white-space:nowrap}
+  #reportArea .own{width:28px;height:28px;border-radius:9px; display:inline-flex; border:var(--b2); align-items:center;justify-content:center; font-weight:800; font-size:.8rem; flex-shrink:0}
+  #reportArea .own.big{width:44px;height:44px;border-radius:12px;font-size:.95rem}
+  #reportArea .mrow{display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:12px}
+  #reportArea .m{font-size:.78rem; color:var(--ink-soft); font-weight:600}
+  #reportArea .m b{font-family:var(--fm); font-weight:700}
+  #reportArea .mini{font-size:.74rem; color:var(--ink-soft); font-weight:600; margin-top:3px}
+  #reportArea .note{font-size:.74rem; color:var(--mut); font-weight:600; margin-top:8px}
+  #reportArea .flabel{font-size:.66rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); margin:2px 0 4px}
+  #reportArea .filters{display:flex; gap:8px; overflow-x:auto; padding:4px 2px 8px; margin-bottom:10px; scrollbar-width:none}
+  #reportArea .filters::-webkit-scrollbar{display:none}
+  #reportArea .fchip{flex-shrink:0; background:var(--card); border:var(--b2); color:var(--ink-soft); border-radius:99px; padding:7px 14px; font-size:.75rem; font-weight:800; cursor:pointer; font-family:var(--fb)}
+  #reportArea .fchip.on{background:var(--ink); border-color:var(--ink); color:var(--card); box-shadow:var(--sh-sm)}
+  #reportArea .kpis{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:20px}
+  @media(min-width:700px){ #reportArea .kpis{grid-template-columns:repeat(4,1fr)} }
+  #reportArea .kpi{background:var(--card); border:var(--b); border-radius:var(--r); padding:14px; box-shadow:var(--sh-sm)}
+  #reportArea .kpi b{display:block; font-size:1.35rem; font-family:var(--fm)}
+  #reportArea .kpi span{font-size:.68rem; color:var(--mut); font-weight:800; text-transform:uppercase; letter-spacing:.05em}
+  #reportArea .kpi small{display:block; font-size:.66rem; font-weight:700; margin-top:2px; font-family:var(--fm)}
+  #reportArea .tblwrap{overflow-x:auto; border:var(--b); border-radius:var(--r); background:var(--card); box-shadow:var(--sh)}
+  #reportArea table{border-collapse:collapse; width:100%; font-size:.78rem}
+  #reportArea th,#reportArea td{padding:10px 12px; text-align:right; border-bottom:var(--b2); white-space:nowrap}
+  #reportArea th:first-child,#reportArea td:first-child{text-align:left; position:sticky; left:0; background:var(--card)}
+  #reportArea th{font-size:.66rem; text-transform:uppercase; letter-spacing:.06em; background:var(--mustard-s)}
+  #reportArea td{font-family:var(--fm); font-weight:500}
+  #reportArea td:first-child{font-family:var(--fb); font-weight:700}
+  #reportArea tr:last-child td{border-bottom:none}
+  #reportArea table.compact th,#reportArea table.compact td{padding:7px 8px}
+  #reportArea .dayrow{display:flex; gap:8px; align-items:center; margin-bottom:14px; flex-wrap:wrap}
+  #reportArea .dayrow select{width:auto; margin:0; padding:9px 12px; font-size:.85rem; background:var(--card); border:var(--b2); border-radius:12px; font-weight:700; font-family:var(--fb)}
+  #reportArea .nb{background:var(--card); border:var(--b2); border-radius:10px; width:38px; height:38px; cursor:pointer; font-weight:800; font-family:var(--fm); box-shadow:var(--sh-sm)}
+  #reportArea .dl{font-family:var(--fh); font-weight:700; font-size:1rem}
+  #reportArea .who{display:flex; flex-wrap:wrap; gap:8px}
+  #reportArea .who .w{display:inline-flex; align-items:center; gap:6px; border:var(--b2); border-radius:99px; padding:6px 12px; font-size:.74rem; font-weight:800; background:var(--card)}
+  #reportArea .who .w.ok{background:var(--green-s)} #reportArea .who .w.no{background:var(--red-s)}
+  #reportArea .chk{display:flex; align-items:center; gap:12px; padding:10px 12px; border:var(--b2); border-radius:12px; background:var(--card); margin-bottom:8px}
+  #reportArea .chk .bx{width:26px;height:26px;border:var(--b2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;background:var(--cream2);color:#fff}
+  #reportArea .chk.on{background:var(--green-s)} #reportArea .chk.on .bx{background:var(--green)}
+  #reportArea .chk .lbl{font-weight:700; font-size:.88rem; flex:1}
+  #reportArea .chk .by{font-size:.64rem; color:var(--mut); font-weight:700; font-family:var(--fm); white-space:nowrap}
+  #reportArea .crow{display:flex; gap:8px; align-items:center; padding:8px 0; border-bottom:2px solid var(--cream2); font-size:.78rem}
+  #reportArea .crow:last-child{border-bottom:none} #reportArea .crow b{white-space:nowrap} #reportArea .crow .ct{color:var(--ink-soft); font-weight:600; min-width:0; flex:1}
+  #reportArea .disc{display:grid; gap:4px; overflow-x:auto}
+  #reportArea .disc .r{display:grid; grid-template-columns:110px repeat(var(--n),minmax(18px,1fr)); gap:3px; align-items:center; font-size:.7rem; font-weight:700}
+  #reportArea .disc .c{height:22px; border:2px solid var(--ink); border-radius:6px; background:var(--red-s)}
+  #reportArea .disc .c.ok{background:var(--green)} #reportArea .disc .c.na{background:var(--gray-s); border-style:dashed; border-color:var(--mut)}
+  #reportArea .disc .h{font-size:.58rem; text-align:center; color:var(--mut); font-family:var(--fm)}
+  #reportArea .bar{height:10px; background:var(--cream2); border:var(--b2); border-radius:99px; overflow:hidden; min-width:60px} #reportArea .bar i{display:block;height:100%;background:var(--cobalt)}
+  #reportArea .mcard{display:flex; gap:12px; align-items:flex-start}
+  #reportArea .mcard .nm{font-family:var(--fh); font-weight:700; font-size:1.05rem}
+  #reportArea .mcard .tk{font-size:.76rem; color:var(--ink-soft); font-weight:600; margin-top:2px}
+  #reportArea .logcard .lt{font-size:.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin-top:8px}
+  #reportArea .logcard .lv{font-size:.86rem;font-weight:600;white-space:pre-wrap}
+  #reportArea .secthead{display:flex;align-items:center;gap:10px;margin:26px 0 12px}
+  #reportArea .secthead h2{margin:0;font-size:1.2rem}
+  #reportArea .secthead a{font-size:.74rem;font-weight:800;color:var(--cobalt);text-decoration:none;margin-left:auto}
+  #reportArea .demo{background:var(--mustard-s); border:var(--b2); font-size:.74rem; font-weight:700; padding:9px 13px; border-radius:12px; margin-bottom:16px}
+  #reportArea .late{color:var(--red); font-weight:800}
+  #reportArea .up{color:var(--green)} #reportArea .down{color:var(--red)}
+  #reportArea .vtext{font-size:.9rem; font-weight:600; margin:8px 0; white-space:pre-wrap}
 </style>
 </head>
 <body>
@@ -453,6 +536,10 @@
       <button class="btn btn-ghost" id="exportBtn">📤 Sheets'e Aktar</button>
     </header>
     <div id="hub" class="hub" style="display:none"></div>
+    <div id="reportArea" style="display:none">
+      <div id="tabOzet"></div>
+      <div id="tabRapor" class="hidden"></div>
+    </div>
 
     <!-- ============ TAKIM PANOSU ============ -->
     <div id="teamArea">
@@ -680,8 +767,28 @@ function panelsFor(role){ return role==="admin"||role==="partner" ? ["kreatif","
 function renderHub(){
   const el = $("#hub"); if(!el) return;
   const ps = panelsFor(profile.role);
-  el.innerHTML = ps.length ? `<span class="hub-lbl">Panellerin:</span>` + ps.map(k => `<a class="btn btn-ghost hub-link" href="${PANELS[k].href}">${PANELS[k].l}</a>`).join("") : "";
-  el.style.display = ps.length ? "flex" : "none";
+  const links = ps.length ? `<span class="hub-lbl">Panellerin:</span>` + ps.map(k => `<a class="btn btn-ghost hub-link" href="${PANELS[k].href}">${PANELS[k].l}</a>`).join("") : "";
+  const tabs = profile.is_admin ? `<div class="tabs" id="mainTabs" style="width:auto">
+      <button data-main="gorev" class="${mainTab==="gorev"?"active":""}">📋 Görevler</button>
+      <button data-main="ozet" class="${mainTab==="ozet"?"active":""}">📊 Özet</button>
+      <button data-main="rapor" class="${mainTab==="rapor"?"active":""}">👤 Kişisel</button>
+    </div>` : "";
+  el.innerHTML = tabs + links;
+  el.style.display = (tabs || links) ? "flex" : "none";
+  $$("#mainTabs [data-main]").forEach(b => b.onclick = () => showMain(b.dataset.main));
+}
+let mainTab = "gorev";
+function showMain(tab){
+  mainTab = tab;
+  const isTasks = tab === "gorev";
+  $("#teamArea").style.display = isTasks ? "" : "none";
+  $("#reportArea").style.display = isTasks ? "none" : "";
+  const sbx = $(".search-box"); if (sbx) sbx.style.display = isTasks ? "" : "none";
+  $("#exportBtn").style.display = isTasks ? "" : "none";
+  $("#viewToggle").style.display = (isTasks && profile.is_admin) ? "flex" : "none";
+  $$("#mainTabs [data-main]").forEach(b => b.classList.toggle("active", b.dataset.main === tab));
+  if (!isTasks) REPORT.show(tab);
+  window.scrollTo(0, 0);
 }
 const PRIORITY_LABEL = { kritik:"Kritik", yuksek:"Yüksek", normal:"Normal", dusuk:"Düşük" };
 const PRIORITY_ORDER = { kritik:0, yuksek:1, normal:2, dusuk:3 };
@@ -730,6 +837,291 @@ function toast(msg) {
 }
 const openM  = el => { el.classList.add("open"); document.body.classList.add("modal-lock"); };
 const closeM = el => { el.classList.remove("open"); if (!$$(".overlay.open").length) document.body.classList.remove("modal-lock"); };
+
+/* ================= RAPORLAR · Özet + Kişisel (ortaklar panelinden taşındı) ================= */
+const REPORT = (() => {
+const DEMO = false;
+const roRow = t => `<div class="chk ${t.done?"on":""}"><div class="bx">${t.done?"✓":""}</div><div class="lbl">${esc(t.title)}${t.detail?`<div class="note" style="margin:2px 0 0">${esc(t.detail)}</div>`:""}${t.done_note?`<div class="note" style="margin:2px 0 0;color:var(--green)">↳ ${esc(t.done_note)}</div>`:""}</div><div class="by">${t.due?trShort(t.due):""}${(t.due&&!t.done&&t.due<today())?" ⚠️ gecikti":""}</div></div>`;
+/* ---------- sözlükler ---------- */
+const ST = {
+  yeni:{l:"Yeni",s:"#ECEAE4"}, testte:{l:"Testte",s:"#E4EBFF"}, yetersiz_veri:{l:"Yetersiz Veri",s:"#F1E4FE"},
+  winner_adayi:{l:"Winner Adayı",s:"#FFF3D6"}, onayli_winner:{l:"Onaylı Winner",s:"#DFF6E7"},
+  yorulma_riski:{l:"Yorulma Riski",s:"#FFE9D1"}, loser:{l:"Loser",s:"#FDE4DF"}, arsiv:{l:"Arşiv",s:"#EFEFEF"},
+};
+const WIN=["onayli_winner","winner_adayi"];
+const STAGES = {fikirler:"Fikirler",hooklar:"Hooklar",k_yapilacak:"Kreatif yapılacak",k_revize:"Revize",k_varyasyon:"Varyasyon",k_yapiliyor:"Kreatif yapılıyor",k_yapildi:"Kreatif yapıldı",k_kontrol:"Kontrol",r_yapilacak:"Reklam yapılacak",r_yapiliyor:"Reklam yapılıyor",r_yapildi:"Reklam yapıldı",r_yayinlanacak:"Yayınlanacak",r_yayinda:"Yayında"};
+const TAGS = {erimis:"Erimiş",eksik:"Eksik",yanlis:"Yanlış ürün",gec:"Geç kargo",iade:"İade",iptal:"İptal",kullanim:"Kullanım",icerik:"İçerik",fiyat:"Fiyat",ekitap:"E-kitap",diger:"Diğer"};
+const ROLES = {stok:"📊 Stok sayımı",kargo:"📦 Kargo girişi",mesaj_kontrol:"💬 Mesaj kontrolü",temizlik_kontrol:"🧹 Temizlik kontrolü",mesaj_kanali:"📨 Mesaj kanalı temizleme"};
+const PALETTE=["#2F5DFF","#FF8A00","#EC4899","#A855F7","#22C55E","#FFC53D","#0EA5E9","#E8402A"];
+const LATE_MIN=9*60+10;
+
+/* ---------- durum ---------- */
+const S = {
+  profile:null, tab:"gun", day:null, gunUser:null, period:"hafta", ref:null, rpPerson:"", rpPeriod:"hafta", rpRef:null,
+  partners:[], profiles:[], prtDaily:[], prtTasks:[], tasksRaw:null, assigneesRaw:[], prtTables:true, missing:[],
+  k:{weeks:[],creatives:[],results:[],fins:[],team:[],daily:[],scores:[],reqs:[],pipeline:[]},
+  o:{members:[],daily:[],scores:[],team:[],checks:[],tasks:[],voice:[],stock:[],products:[],assign:[]},
+  rank:{},
+};
+
+/* ---------- yardımcılar ---------- */
+const $ = id=>document.getElementById(id);
+const esc = s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+const nf=new Intl.NumberFormat("tr-TR"), nf1=new Intl.NumberFormat("tr-TR",{maximumFractionDigits:1}), nf2=new Intl.NumberFormat("tr-TR",{maximumFractionDigits:2});
+const tl=v=>v==null?"—":"₺"+nf.format(Math.round(v));
+const pct=v=>v==null?"—":nf1.format(v*100)+"%";
+const pad=n=>String(n).padStart(2,"0");
+const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const today=()=>iso(new Date());
+const addDays=(s,n)=>{ const d=new Date(s+"T00:00:00"); d.setDate(d.getDate()+n); return iso(d); };
+const dow=s=>new Date(s+"T00:00:00").getDay();
+const monday=s=>addDays(s,-((dow(s)+6)%7));
+const monthEnd=f=>{ const d=new Date(f+"T00:00:00"); d.setMonth(d.getMonth()+1); d.setDate(0); return iso(d); };
+const trDate=s=>new Date(s+"T00:00:00").toLocaleDateString("tr-TR",{day:"numeric",month:"long"});
+const trDateW=s=>new Date(s+"T00:00:00").toLocaleDateString("tr-TR",{day:"numeric",month:"short",weekday:"long"});
+const trShort=s=>new Date(s+"T00:00:00").toLocaleDateString("tr-TR",{day:"2-digit",month:"2-digit"});
+const trMonth=s=>new Date(s+"T00:00:00").toLocaleDateString("tr-TR",{month:"long",year:"numeric"});
+const mins=t=>{ if(!t||!/^\d{1,2}:\d{2}/.test(t)) return null; const [h,m]=t.split(":").map(Number); return h*60+m; };
+const hhmm=m=>m==null?"—":`${pad(Math.floor(m/60))}:${pad(Math.round(m%60))}`;
+const durTxt=m=>!m?"—":m>=60?`${Math.floor(m/60)} sa${m%60?" "+(m%60)+" dk":""}`:`${m} dk`;
+const sum=(arr,f)=>arr.reduce((a,x)=>a+(+(f?f(x):x)||0),0);
+const avg=arr=>arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:null;
+const nowIso=()=>new Date().toISOString();
+const uid=()=>"d"+Math.random().toString(36).slice(2,10);
+const inRange=(d,[a,b])=>d>=a&&d<=b;
+const initials=n=>String(n||"?").trim().split(/\s+/).map(x=>x[0]).join("").slice(0,2).toUpperCase();
+const colorOf=(key)=>PALETTE[[...String(key)].reduce((a,c)=>a+c.charCodeAt(0),0)%PALETTE.length];
+const av=(name,key,big)=>`<span class="own ${big?"big":""}" style="background:${colorOf(key||name)}40;border-color:${colorOf(key||name)}">${esc(initials(name))}</span>`;
+const isAdmin=()=>S.profile?.role==="admin";
+const chip=(l,s)=>`<span class="chip" style="background:${s}">${esc(l)}</span>`;
+const opt=(v,l,cur)=>`<option value="${esc(v)}" ${String(v)===String(cur)?"selected":""}>${esc(l)}</option>`;
+const dayNav=(id,val,extra="")=>`<div class="dayrow"><button class="nb" data-dn="${id}" data-d="-1">‹</button><input type="date" id="${id}" value="${val}"><button class="nb" data-dn="${id}" data-d="1">›</button><span class="dl">${trDateW(val)}</span>${extra}</div>`;
+function bindDayNav(root,key,rerender){
+  root.querySelectorAll("[data-dn]").forEach(b=>b.onclick=()=>{ S[key]=addDays(S[key],+b.dataset.d); rerender(); });
+  const inp=root.querySelector("input[type=date][id]"); if(inp) inp.onchange=e=>{ if(e.target.value){ S[key]=e.target.value; rerender(); } };
+}
+const userName=id=>S.partners.find(p=>p.id===id)?.name || "—";
+const ownersOf=c=>c?[c.owner_initial,...String(c.co_owner||"").split(",").map(x=>x.trim())].filter(Boolean):[];
+const kName=k=>S.k.team.find(t=>t.initial===k)?.name || k;
+const oName=id=>S.o.members.find(m=>m.id===id)?.name || "—";
+const msgOf=r=>(r.wp_msg||0)+(r.ig_msg||0)+(r.mail_msg||0);
+const ordOf=r=>(r.wp_order||0)+(r.ig_order||0)+(r.mail_order||0);
+const prodOf=r=>(r.new_video||0)+(r.new_image||0)+(r.var_video||0)+(r.var_image||0);
+function periodRange(p,ref){
+  if(p==="hafta"){ const m=monday(ref); return [m,addDays(m,6)]; }
+  if(p==="ay"){ const f=ref.slice(0,8)+"01"; return [f,monthEnd(f)]; }
+  return ["2000-01-01","2999-12-31"];
+}
+function shiftRef(key,p,n){ if(p==="hafta") S[key]=addDays(S[key],7*n); else if(p==="ay"){ const d=new Date(S[key].slice(0,8)+"01T00:00:00"); d.setMonth(d.getMonth()+n); S[key]=iso(d); } }
+const periodTitle=(p,[a,b])=>p==="hafta"?`${trDate(a)} – ${trDate(b)}`:p==="ay"?trMonth(a):"Tüm zamanlar";
+function workdays([a,b]){ let n=0; const from=a<"2026-06-01"?"2026-06-01":a; const to=b<today()?b:today(); for(let d=from; d<=to; d=addDays(d,1)) if(dow(d)!==0) n++; return n; }
+
+/* ---------- veri ---------- */
+async function fetchAll(table,build){
+  let out=[],from=0;
+  while(true){ let q=sb.from(table).select("*"); if(build) q=build(q); const {data,error}=await q.range(from,from+999); if(error) throw error; out.push(...(data||[])); if(!data||data.length<1000) break; from+=1000; }
+  return out;
+}
+const tryAll=async (table,build)=>{ try{ return await fetchAll(table,build); }catch(e){ S.missing.push(table+": "+e.message); return null; } };
+async function loadAll(){
+  if(DEMO) return;
+  S.missing=[]; const since="2026-06-01";
+  const [profiles,pd,tk,ta]=await Promise.all([tryAll("profiles",q=>q.order("name")), tryAll("prt_daily",q=>q.order("day",{ascending:false})), tryAll("tasks",q=>q.order("created_at",{ascending:false})), tryAll("task_assignees")]);
+  S.profiles=profiles||[];
+  S.partners=(profiles||[]).filter(p=>["admin","partner"].includes(p.role));
+  if(!S.partners.find(p=>p.id===S.profile.id)) S.partners.unshift(S.profile);
+  S.prtTables=!!pd; S.prtDaily=pd||[]; S.tasksRaw=tk||[]; S.assigneesRaw=ta||[];
+  S.prtTasks=unifyTasks(S.tasksRaw,S.assigneesRaw).filter(t=>S.partners.some(u=>u.id===t.assigned_to));
+  const [weeks,creatives,results,fins,team,kdaily,kscores,kreq,pipeline]=await Promise.all([
+    tryAll("weeks",q=>q.order("week",{ascending:false})), tryAll("creatives"), tryAll("weekly_results"), tryAll("weekly_financials"),
+    tryAll("team_members",q=>q.order("sort")), tryAll("kre_daily",q=>q.gte("day",since)), tryAll("kre_scores",q=>q.gte("day",since)),
+    tryAll("kre_requests",q=>q.order("created_at",{ascending:false})), tryAll("pipeline_cards"),
+  ]);
+  Object.assign(S.k,{weeks:weeks||[],creatives:creatives||[],results:results||[],fins:fins||[],team:team||[],daily:kdaily||[],scores:kscores||[],reqs:kreq||[],pipeline:pipeline||[]});
+  const [members,odaily,oscores,oteam,ochecks,otasks,ovoice,ostock,oprod,oassign]=await Promise.all([
+    tryAll("ops_members",q=>q.order("sort")), tryAll("ops_daily",q=>q.gte("day",since)), tryAll("ops_scores",q=>q.gte("day",since)),
+    tryAll("ops_team_daily",q=>q.gte("day",since)), tryAll("ops_checks",q=>q.gte("day",since)), Promise.resolve([]),
+    tryAll("ops_voice",q=>q.gte("day",since)), tryAll("ops_stock"), tryAll("ops_products"), tryAll("ops_assignments"),
+  ]);
+  Object.assign(S.o,{members:members||[],daily:odaily||[],scores:oscores||[],team:oteam||[],checks:ochecks||[],tasks:[],voice:ovoice||[],stock:ostock||[],products:oprod||[],assign:oassign||[]});
+  // operasyon ekibinin işleri: ortak tasks tablosundan, üye hesabına göre
+  S.o.tasks=unifyTasks(S.tasksRaw,S.assigneesRaw).map(t=>{ const m=S.o.members.find(x=>x.user_id===t.assigned_to); return m?{...t,member_id:m.id}:null; }).filter(Boolean);
+}
+// ortak görev tablosu -> panel şekli (her atanan kişi için bir satır)
+function unifyTasks(rows, assignees){
+  const out=[]; const nm=id=>S.profiles?.find(p=>p.id===id)?.name || S.partners.find(p=>p.id===id)?.name || "";
+  (rows||[]).forEach(t=>{
+    const uids=[t.user_id, ...(assignees||[]).filter(a=>a.task_id===t.id).map(a=>a.user_id)].filter((v,i,a)=>v&&a.indexOf(v)===i);
+    uids.forEach(uid=>out.push({id:t.id, assigned_to:uid, assigned_name:nm(uid), title:t.title, detail:t.descr||null, due:t.due, created_by:t.assigned_by, created_name:nm(t.assigned_by), done:t.status==="done", done_at:t.done_at, done_note:t.done_note, created_at:t.created_at, source:t.source}));
+  });
+  return out;
+}
+const taskUpd = upd=>({status: upd.done?"done":"todo", done_at: upd.done_at||null, done_note: upd.done_note||null});
+async function ranking(from,to){
+  const k=`${from}|${to}`; if(Array.isArray(S.rank[k])) return S.rank[k];
+  if(DEMO){ // basit yerel: puan ort + doldurma
+    const rows=S.o.members.filter(m=>m.active).map(m=>{ const D=S.o.daily.filter(x=>x.member_id===m.id&&inRange(x.day,[from,to])); const sc=S.o.scores.filter(s=>s.ratee_id===m.id&&inRange(s.day,[from,to])&&s.score!=null).map(s=>s.score); return {member_id:m.id,name:m.name,total:Math.round(((avg(sc)||0)*10*0.6+Math.min(100,D.length/Math.max(workdays([from,to]),1)*100)*0.4)*10)/10,puan:(avg(sc)||0)*10,n_puan:sc.length}; }).filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
+    S.rank[k]=rows; return rows;
+  }
+  const {data,error}=await sb.rpc("ops_ranking",{p_from:from,p_to:to,p_full:true});
+  S.rank[k]=error?[]:(data||[]); return S.rank[k];
+}
+
+/* ================= ÖZET ================= */
+function kreStatusMap(range){ // kreatif → dönemdeki son durumu
+  const wr=[monday(range[0]),range[1]]; const m={};
+  S.k.results.filter(r=>inRange(r.week,wr)).sort((a,b)=>a.week<b.week?-1:1).forEach(r=>{ m[r.creative_code]=r.status_at_week||m[r.creative_code]; });
+  if(range[0]==="2000-01-01") S.k.creatives.forEach(c=>{ if(!m[c.code]) m[c.code]=c.status; });
+  return m;
+}
+function firstSeen(){ const m={}; S.k.results.forEach(r=>{ if(!m[r.creative_code]||r.week<m[r.creative_code]) m[r.creative_code]=r.week; }); return m; }
+function kpi(l,v,sub){ return `<div class="kpi"><span>${l}</span><b>${v}</b>${sub?`<small>${sub}</small>`:""}</div>`; }
+function renderOzet(){
+  const el=$("tabOzet"); const range=periodRange(S.period,S.ref); const [a,b]=range; const title=periodTitle(S.period,range);
+  const rk=`${a}|${b}`; if(!S.rank[rk]){ S.rank[rk]="…"; ranking(a,b).then(()=>{ if(S.tab==="ozet") renderOzet(); }); }
+  if(S.rank[rk]==="…" && DEMO) {}
+  // kreatif
+  const sm=kreStatusMap(range); const fs=firstSeen();
+  const cnt=k=>Object.values(sm).filter(s=>k.includes(s)).length;
+  const newC=Object.entries(fs).filter(([c,w])=>inRange(w,[monday(a),b])).length;
+  const wr=[monday(a),b]; const R=S.k.results.filter(r=>inRange(r.week,wr)); const F=S.k.fins.filter(f=>inRange(f.week,wr));
+  const spend=sum(F,f=>f.spend), rev=sum(F,f=>f.revenue), sales=sum(R,r=>r.sales);
+  const roas=spend?rev/spend:null, gpt=(sales&&spend)?spend/sales*((rev/spend)-1):null;
+  const winners=Object.entries(sm).filter(([c,s])=>WIN.includes(s)).map(([c])=>S.k.creatives.find(x=>x.code===c)).filter(Boolean);
+  const perOwner={}; winners.forEach(c=>ownersOf(c).forEach(o=>perOwner[o]=(perOwner[o]||0)+1));
+  const KD=S.k.daily.filter(x=>inRange(x.day,range));
+  const kreOpen=S.k.reqs.filter(q=>!q.done); const pipe={}; S.k.pipeline.forEach(p=>pipe[p.stage]=(pipe[p.stage]||0)+1);
+  const weekNotes=S.k.weeks.filter(w=>inRange(w.week,wr)&&w.note).slice(0,2);
+  // operasyon
+  const OD=S.o.daily.filter(x=>inRange(x.day,range)); const OT=S.o.team.filter(x=>inRange(x.day,range));
+  const cargo=OT.length?sum(OT,x=>x.cargo_total):sum(OD,x=>x.cargo);
+  const act=S.o.members.filter(m=>m.active); const wd=workdays(range);
+  const fillPct=act.length&&wd?Math.round(OD.length/(act.length*wd)*100):null;
+  const OC=S.o.checks.filter(c=>inRange(c.day,range)); const oOpen=S.o.tasks.filter(t=>!t.done);
+  const tagC={}; S.o.voice.filter(v=>inRange(v.day,range)).forEach(v=>(v.tags||[]).forEach(t=>tagC[t]=(tagC[t]||0)+1));
+  const tags=Object.entries(tagC).sort((x,y)=>y[1]-x[1]).slice(0,5);
+  const lastStock=S.o.products.filter(p=>p.active!==false).map(p=>{ const r=S.o.stock.filter(s=>s.product===p.key).sort((x,y)=>y.day<x.day?-1:1)[0]; return {p,r}; });
+  const rows=S.rank[rk]; const rankHtml=rows==="…"?`<span class="mini">hesaplanıyor…</span>`:rows.length?rows.slice(0,3).map((r,i)=>`<span class="pill" style="background:${i===0?"var(--mustard-s)":"var(--card)"}">${i+1}. ${esc(r.name)} ${r.total!=null?nf1.format(r.total):""}</span>`).join(" "):`<span class="mini">veri yok</span>`;
+  // ortaklar
+  const todayLogs=S.partners.map(u=>({u,ok:S.prtDaily.some(d=>d.user_id===u.id&&d.day===today())}));
+  const pOpen=S.prtTasks.filter(t=>!t.done);
+  el.innerHTML=`
+    <h2>Özet</h2><div class="sub">Tüm panellerin tek ekranı.</div>
+    <div class="dayrow"><div class="filters" style="margin:0;padding:0">${[["hafta","Hafta"],["ay","Ay"],["tumu","Tümü"]].map(([k,l])=>`<button class="fchip ${S.period===k?"on":""}" data-pp="${k}">${l}</button>`).join("")}</div>${S.period!=="tumu"?`<button class="nb" data-ps="-1">‹</button><span class="dl">${title}</span><button class="nb" data-ps="1">›</button>`:`<span class="dl">${title}</span>`}</div>
+    ${S.missing.length?`<div class="demo" style="background:var(--red-s)">Okunamayan tablolar: ${esc(S.missing.map(x=>x.split(":")[0]).join(", "))} — ilgili SQL çalıştırılmamış ya da yetki yok.</div>`:""}
+
+    <div class="secthead"><h2>🎬 Kreatif</h2><a href="/kreatif/">panele git →</a></div>
+    <div class="kpis">${kpi("Winner",cnt(WIN),`${cnt(["testte","yetersiz_veri","yeni"])} testte · ${cnt(["loser"])} loser · ${cnt(["yorulma_riski"])} yorulma`)}${kpi("Yeni kreatif",newC,"dönemde ilk kez")}${kpi("Harcama",tl(spend),`ciro ${tl(rev)}`)}${kpi("ROAS · GPT",roas!=null?nf2.format(roas):"—",gpt!=null?"GPT "+tl(gpt)+` · ${nf.format(sales)} satış`:"")}</div>
+    <div class="cards">
+      <div class="card"><div class="flabel">Kişi bazlı winner</div><div class="mrow" style="margin-top:4px">${S.k.team.map(t=>`<span class="m">${esc(t.name)} <b>${perOwner[t.initial]||0}</b></span>`).join("")||"<span class='mini'>ekip tablosu yok</span>"}</div>
+        <div class="flabel" style="margin-top:12px">Günlük üretim (${KD.length} kayıt)</div><div class="mrow" style="margin-top:4px">${S.k.team.map(t=>{ const r=KD.filter(x=>x.initial===t.initial); return `<span class="m">${esc(t.name)} <b>${sum(r,prodOf)}</b> <small>(${sum(r,x=>x.new_video)}sv ${sum(r,x=>x.new_image)}sg ${sum(r,x=>x.var_video)}vv ${sum(r,x=>x.var_image)}vg)</small></span>`; }).join("")}</div>
+        ${weekNotes.length?`<div class="flabel" style="margin-top:12px">Hafta notu</div>${weekNotes.map(w=>`<div class="mini">${trShort(w.week)}: ${esc(w.note)}</div>`).join("")}`:""}</div>
+      <div class="card"><div class="flabel">Üretim akışı</div><div class="mrow" style="margin-top:4px">${Object.entries(pipe).length?Object.entries(pipe).map(([k,n])=>`<span class="m">${esc(STAGES[k]||k)} <b>${n}</b></span>`).join(""):"<span class='mini'>kart yok</span>"}</div>
+        <div class="flabel" style="margin-top:12px">Talepler</div><div class="mini">${kreOpen.length} açık · ${kreOpen.filter(q=>!q.approved).length} onay bekliyor</div>${kreOpen.slice(0,4).map(q=>`<div class="mini">• ${esc(q.by_name||q.by_initial||"")}: ${esc(q.text).slice(0,70)}</div>`).join("")}</div>
+    </div>
+
+    <div class="secthead"><h2>🏭 Operasyon</h2><a href="/operasyon/">panele git →</a></div>
+    <div class="kpis">${kpi("Kargo",nf.format(cargo),`${nf.format(sum(OT,x=>x.failed))} teslimat başarısız`)}${kpi("Arama",nf.format(sum(OD,x=>x.call_total)),`${nf.format(sum(OD,x=>x.call_nolook))} bakmadı`)}${kpi("Mesaj",nf.format(sum(OD,msgOf)),`${nf.format(sum(OD,ordOf))} sipariş`)}${kpi("Doldurma",fillPct!=null?fillPct+"%":"—",`${OD.length} kayıt · ${act.length} kişi`)}</div>
+    <div class="cards">
+      <div class="card"><div class="flabel">Sıralama (${esc(title)})</div><div style="margin-top:4px">${rankHtml}</div>
+        <div class="flabel" style="margin-top:12px">Kişi bazlı</div><div class="tblwrap" style="box-shadow:none"><table class="compact"><tr><th>Kişi</th><th>Gün</th><th>Arama</th><th>Mesaj</th><th>Sipariş</th><th>Kargo</th><th>Geç</th><th>Puan</th></tr>${act.map(m=>{ const r=OD.filter(x=>x.member_id===m.id); const ins=r.map(x=>mins(x.in_time)).filter(x=>x!=null); const sc=S.o.scores.filter(s=>s.ratee_id===m.id&&inRange(s.day,range)&&s.score!=null).map(s=>s.score); return `<tr><td>${esc(m.name)}</td><td>${r.length}</td><td>${nf.format(sum(r,x=>x.call_total))}</td><td>${nf.format(sum(r,msgOf))}</td><td>${sum(r,ordOf)}</td><td>${nf.format(sum(r,x=>x.cargo))}</td><td class="${ins.filter(x=>x>LATE_MIN).length?"late":""}">${ins.filter(x=>x>LATE_MIN).length}</td><td>${sc.length?nf1.format(avg(sc)):"—"}</td></tr>`; }).join("")}</table></div></div>
+      <div class="card"><div class="flabel">Kontrol tikleri</div><div class="mini">${OC.length} tik · ${wd?nf1.format(OC.length/wd):"—"}/gün</div>
+        <div class="flabel" style="margin-top:12px">Açık işler</div><div class="mini">${oOpen.length} açık${oOpen.filter(t=>t.due&&t.due<today()).length?` · <span class="late">${oOpen.filter(t=>t.due&&t.due<today()).length} gecikti</span>`:""}</div>${oOpen.slice(0,4).map(t=>`<div class="mini">• ${esc(oName(t.member_id))}: ${esc(t.title)}</div>`).join("")}
+        <div class="flabel" style="margin-top:12px">Müşteri sesi</div><div class="mrow" style="margin-top:4px">${tags.map(([t,n])=>`<span class="m">${esc(TAGS[t]||t)} <b>${n}</b></span>`).join("")||"<span class='mini'>etiket yok</span>"}</div>
+        <div class="flabel" style="margin-top:12px">Stok (son sayım)</div><div class="mrow" style="margin-top:4px">${lastStock.map(({p,r})=>`<span class="m ${r&&p.min_qty&&r.qty<p.min_qty?"late":""}">${esc(p.name)} <b>${r?nf.format(r.qty):"—"}</b> <small>${r?trShort(r.day):""}</small></span>`).join("")||"<span class='mini'>ürün yok</span>"}</div></div>
+    </div>
+
+    <div class="secthead"><h2>🤝 Ortaklar</h2></div>
+    <div class="cards">
+      <div class="card"><div class="flabel">Bugün günlük yazdı</div><div class="who" style="margin-top:6px">${todayLogs.map(({u,ok})=>`<span class="w ${ok?"ok":"no"}">${ok?"✓":"✗"} ${esc(u.name)}</span>`).join("")}</div></div>
+      <div class="card"><div class="flabel">Açık işler</div><div class="mini">${pOpen.length} açık</div>${pOpen.slice(0,5).map(t=>`<div class="mini">• ${esc(t.assigned_name||userName(t.assigned_to))}: ${esc(t.title)}${t.due?` (${trShort(t.due)})`:""}</div>`).join("")}</div>
+    </div>
+  `;
+  el.querySelectorAll("[data-pp]").forEach(b=>b.onclick=()=>{ S.period=b.dataset.pp; renderOzet(); });
+  el.querySelectorAll("[data-ps]").forEach(b=>b.onclick=()=>{ shiftRef("ref",S.period,+b.dataset.ps); renderOzet(); });
+}
+
+/* ================= KİŞİSEL RAPOR ================= */
+function people(){
+  const out=[];
+  S.k.team.forEach(t=>out.push({id:"k:"+t.initial,name:t.name,grp:"Kreatif ekip"}));
+  S.o.members.filter(m=>m.active).forEach(m=>out.push({id:"o:"+m.id,name:m.name,grp:"Operasyon ekibi"}));
+  S.partners.forEach(u=>out.push({id:"p:"+u.id,name:u.name,grp:"Ortaklar"}));
+  return out;
+}
+function renderRapor(){
+  const el=$("tabRapor"); const ps=people(); if(!S.rpPerson&&ps.length) S.rpPerson=ps[0].id;
+  const range=periodRange(S.rpPeriod,S.rpRef); const [a,b]=range; const title=periodTitle(S.rpPeriod,range);
+  const grps=[...new Set(ps.map(p=>p.grp))];
+  const sel=`<select id="rpSel">${grps.map(g=>`<optgroup label="${esc(g)}">${ps.filter(p=>p.grp===g).map(p=>opt(p.id,p.name,S.rpPerson)).join("")}</optgroup>`).join("")}</select>`;
+  const head=`<h2>Kişisel Rapor</h2><div class="sub">Bir kişi seç; iki panelden toplanan her şey.</div>
+    <div class="dayrow">${sel}<div class="filters" style="margin:0;padding:0">${[["hafta","Hafta"],["ay","Ay"],["tumu","Tümü"]].map(([k,l])=>`<button class="fchip ${S.rpPeriod===k?"on":""}" data-rp="${k}">${l}</button>`).join("")}</div>${S.rpPeriod!=="tumu"?`<button class="nb" data-rs="-1">‹</button><span class="dl">${title}</span><button class="nb" data-rs="1">›</button>`:`<span class="dl">${title}</span>`}</div>`;
+  let body="";
+  const [kind,key]=(S.rpPerson||"").split(":");
+  if(kind==="k"){
+    const t=S.k.team.find(x=>x.initial===key); const D=S.k.daily.filter(x=>x.initial===key&&inRange(x.day,range));
+    const ins=D.map(x=>mins(x.in_time)).filter(x=>x!=null); const SC=S.k.scores.filter(s=>s.ratee===key&&inRange(s.day,range)&&s.score!=null);
+    const sm=kreStatusMap(range); const mine=S.k.creatives.filter(c=>ownersOf(c).includes(key)&&sm[c.code]);
+    const st={}; mine.forEach(c=>{ const s=sm[c.code]; st[s]=(st[s]||0)+1; }); const wins=mine.filter(c=>WIN.includes(sm[c.code]));
+    const decided=mine.filter(c=>WIN.includes(sm[c.code])||sm[c.code]==="loser"||sm[c.code]==="yorulma_riski");
+    const wr=[monday(a),b]; const finMine=S.k.fins.filter(f=>inRange(f.week,wr)&&mine.some(c=>c.code===f.creative_code));
+    body=`<div class="card" style="margin-bottom:16px"><div class="mcard">${av(t?.name||key,key,true)}<div><div class="nm">${esc(t?.name||key)}</div><div class="tk">Kreatif ekip · harf ${esc(key)}</div></div></div></div>
+      <div class="kpis">${kpi("Winner",wins.length,`${mine.length} aktif kreatif · isabet ${decided.length?Math.round(wins.length/decided.length*100)+"%":"—"}`)}${kpi("Üretim",sum(D,prodOf),`${sum(D,x=>x.new_video)} sıfır video · ${sum(D,x=>x.new_image)} sıfır görsel`)}${kpi("Varyasyon",sum(D,x=>x.var_video)+sum(D,x=>x.var_image),`${sum(D,x=>x.var_video)} video · ${sum(D,x=>x.var_image)} görsel`)}${kpi("Ekip puanı",SC.length?nf1.format(avg(SC.map(s=>s.score))):"—",`${SC.length} puan`)}</div>
+      <div class="kpis">${kpi("Doldurulan gün",D.length,`${workdays(range)} iş günü`)}${kpi("Ort. giriş",hhmm(avg(ins)),`${ins.filter(x=>x>LATE_MIN).length} geç`)}${kpi("Mesai",durTxt(sum(D,x=>x.ot_min)),`izin ${durTxt(sum(D,x=>x.leave_min))}`)}${kpi("Harcama (kreatifleri)",tl(sum(finMine,f=>f.spend)),`ciro ${tl(sum(finMine,f=>f.revenue))}`)}</div>
+      <div class="cards">
+        <div class="card"><div class="flabel">Kreatif durumları</div><div class="mrow" style="margin-top:4px">${Object.entries(st).map(([s,n])=>chip(`${ST[s]?.l||s} ${n}`,ST[s]?.s||"#eee")).join("")||"<span class='mini'>dönemde aktif kreatif yok</span>"}</div>
+          ${wins.length?`<div class="flabel" style="margin-top:12px">Winner'lar</div>${wins.slice(0,12).map(c=>`<div class="mini">🏆 ${esc(c.code)}${c.hook_text?` — ${esc(c.hook_text).slice(0,60)}`:""}</div>`).join("")}`:""}</div>
+        <div class="card"><div class="flabel">Günlük notları</div>${D.filter(x=>x.note||x.wish).slice(0,8).map(x=>`<div class="mini"><b>${trShort(x.day)}</b> ${esc(x.note||"")}${x.wish?` · <i>istek: ${esc(x.wish)}</i>`:""}</div>`).join("")||"<span class='mini'>not yok</span>"}
+          ${SC.filter(s=>s.comment).length?`<div class="flabel" style="margin-top:12px">Hakkında yazılanlar (gizli)</div>${SC.filter(s=>s.comment).slice(0,8).map(s=>`<div class="mini"><b>${trShort(s.day)}</b> ${esc(s.rater)}: ${esc(s.comment)} (${s.score})</div>`).join("")}`:""}</div>
+      </div>`;
+  } else if(kind==="o"){
+    const m=S.o.members.find(x=>x.id===key); const D=S.o.daily.filter(x=>x.member_id===key&&inRange(x.day,range));
+    const ins=D.map(x=>mins(x.in_time)).filter(x=>x!=null); const SC=S.o.scores.filter(s=>s.ratee_id===key&&inRange(s.day,range)&&s.score!=null);
+    const ticks=S.o.checks.filter(c=>c.done_by===key&&inRange(c.day,range)).length; const tasks=S.o.tasks.filter(t=>t.member_id===key);
+    const roles=S.o.assign.filter(x=>x.member_id===key).map(x=>ROLES[x.role_key]||x.role_key);
+    const rk=`${a}|${b}`; if(!S.rank[rk]){ S.rank[rk]="…"; ranking(a,b).then(()=>{ if(S.tab==="rapor") renderRapor(); }); }
+    const rows=S.rank[rk]; const pos=Array.isArray(rows)?rows.findIndex(r=>r.member_id===key):-1; const rrow=Array.isArray(rows)&&pos>=0?rows[pos]:null;
+    body=`<div class="card" style="margin-bottom:16px"><div class="mcard">${av(m?.name,key,true)}<div><div class="nm">${esc(m?.name||"")}</div><div class="tk">Operasyon ekibi · ${esc(m?.tasks||"")}</div><div class="mrow">${roles.map(r=>`<span class="pill">${esc(r)}</span>`).join("")}</div></div></div></div>
+      <div class="kpis">${kpi("Sıralama",rrow?`${pos+1}.`:(rows==="…"?"…":"—"),rrow?`toplam ${nf1.format(rrow.total)} · ${rows.length} kişi`:"")}${kpi("Ekip puanı",SC.length?nf1.format(avg(SC.map(s=>s.score))):"—",`${SC.length} puan`)}${kpi("Doldurulan gün",D.length,`${workdays(range)} iş günü`)}${kpi("Ort. giriş",hhmm(avg(ins)),`${ins.filter(x=>x>LATE_MIN).length} geç · mesai ${durTxt(sum(D,x=>x.ot_min))}`)}</div>
+      <div class="kpis">${kpi("Arama",nf.format(sum(D,x=>x.call_total)),`${nf.format(sum(D,x=>x.call_nolook))} bakmadı`)}${kpi("Mesaj",nf.format(sum(D,msgOf)),`${sum(D,ordOf)} sipariş`)}${kpi("Kargo",nf.format(sum(D,x=>x.cargo)),"")}${kpi("Kontrol tiki",ticks,`işler: ${tasks.filter(t=>t.done).length} ✓ · ${tasks.filter(t=>!t.done).length} açık`)}</div>
+      <div class="cards">
+        <div class="card"><div class="flabel">Verilen işler</div>${tasks.slice(0,8).map(t=>`<div class="mini">${t.done?"✓":"○"} ${esc(t.title)}${t.due?` (${trShort(t.due)})`:""}${t.done_note?` — <i>${esc(t.done_note)}</i>`:""}</div>`).join("")||"<span class='mini'>iş yok</span>"}
+          <div class="flabel" style="margin-top:12px">Günlük notları</div>${D.filter(x=>x.note||x.wish).slice(0,8).map(x=>`<div class="mini"><b>${trShort(x.day)}</b> ${esc(x.note||"")}${x.wish?` · <i>istek: ${esc(x.wish)}</i>`:""}</div>`).join("")||"<span class='mini'>not yok</span>"}</div>
+        <div class="card"><div class="flabel">Hakkında yazılanlar (gizli)</div>${SC.filter(s=>s.comment).slice(0,10).map(s=>`<div class="mini"><b>${trShort(s.day)}</b> ${esc(oName(s.rater_id))}: ${esc(s.comment)} (${s.score})</div>`).join("")||"<span class='mini'>yorum yok</span>"}</div>
+      </div>`;
+  } else if(kind==="p"){
+    const u=S.partners.find(x=>x.id===key); const L=S.prtDaily.filter(x=>x.user_id===key&&inRange(x.day,range)); const T=S.prtTasks.filter(t=>t.assigned_to===key);
+    body=`<div class="card" style="margin-bottom:16px"><div class="mcard">${av(u?.name,key,true)}<div><div class="nm">${esc(u?.name||"")}</div><div class="tk">${u?.role==="admin"?"Yönetici":"Ortak"}</div></div></div></div>
+      <div class="kpis">${kpi("Günlük yazdı",L.length,`${workdays(range)} iş günü`)}${kpi("Verilen iş",T.length,`${T.filter(t=>t.done).length} ✓ · ${T.filter(t=>!t.done).length} açık`)}${kpi("Geciken",T.filter(t=>!t.done&&t.due&&t.due<today()).length,"")}${kpi("Verdiği iş",S.prtTasks.filter(t=>t.created_by===key).length,"")}</div>
+      <div class="cards">${L.slice(0,10).map(x=>`<div class="card logcard"><span class="pill">${trDateW(x.day)}</span>${x.did?`<div class="lt">Yaptım</div><div class="lv">${esc(x.did)}</div>`:""}${x.saw?`<div class="lt">Gördüm</div><div class="lv">${esc(x.saw)}</div>`:""}${x.plan?`<div class="lt">Sırada</div><div class="lv">${esc(x.plan)}</div>`:""}</div>`).join("")||"<div class='empty'>Dönemde günlük yok</div>"}</div>
+      ${T.length?`<div class="sect" style="margin-top:18px"><h3>İşler</h3>${T.slice(0,15).map(roRow).join("")}</div>`:""}`;
+  } else body=`<div class="empty">Kişi yok</div>`;
+  el.innerHTML=head+body;
+  $("rpSel").onchange=e=>{ S.rpPerson=e.target.value; renderRapor(); };
+  el.querySelectorAll("[data-rp]").forEach(b=>b.onclick=()=>{ S.rpPeriod=b.dataset.rp; renderRapor(); });
+  el.querySelectorAll("[data-rs]").forEach(b=>b.onclick=()=>{ shiftRef("rpRef",S.rpPeriod,+b.dataset.rs); renderRapor(); });
+}
+
+
+let loaded=false, loading=false;
+async function show(tab){
+  S.profile = profile; S.tab = tab;
+  $("tabOzet").classList.toggle("hidden", tab!=="ozet");
+  $("tabRapor").classList.toggle("hidden", tab!=="rapor");
+  const el = $(tab==="ozet" ? "tabOzet" : "tabRapor");
+  if(!loaded){
+    if(loading) return;
+    loading=true; el.innerHTML = `<div class="empty">Veriler yükleniyor…</div>`;
+    S.day=S.day||today(); S.ref=S.ref||today(); S.rpRef=S.rpRef||today();
+    try{ await loadAll(); loaded=true; }
+    catch(e){ el.innerHTML = `<div class="empty">Veriler okunamadı.<br><small>${esc(e.message||e)}</small></div>`; loading=false; return; }
+    loading=false;
+  }
+  tab==="ozet" ? renderOzet() : renderRapor();
+}
+function reset(){ loaded=false; S.rank={}; }
+return { show, reset };
+})();
 
 /* ============================================================
    BAŞLANGIÇ
