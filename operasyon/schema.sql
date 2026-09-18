@@ -518,3 +518,80 @@ begin
   order by r.total desc, r.puan desc
   limit case when p_full then 100 else 1 end;
 end $$;
+
+-- ============================================================
+-- v1.8 GÜN KİLİDİ (operasyon + kreatif, tek seferde çalıştır)
+-- Ekip üyeleri günlük kaydı, puanları, kontrol tiklerini ve kargo
+-- toplamlarını YALNIZCA o gün (Türkiye saati, 23:59'a kadar) girip
+-- değiştirebilir. Ertesi gün kayıt kilitlenir.
+-- Yönetici ve ortaklar (admin/partner) her günü düzeltebilir.
+-- ============================================================
+
+create or replace function public.tr_today()
+returns date language sql stable
+as $$ select (now() at time zone 'Europe/Istanbul')::date $$;
+
+-- ---------- OPERASYON · günlük ----------
+drop policy if exists "od_insert" on public.ops_daily;
+drop policy if exists "od_update" on public.ops_daily;
+create policy "od_insert" on public.ops_daily for insert
+  with check (public.is_ops_admin() or (member_id = public.my_member() and day = public.tr_today()));
+create policy "od_update" on public.ops_daily for update
+  using      (public.is_ops_admin() or (member_id = public.my_member() and day = public.tr_today()))
+  with check (public.is_ops_admin() or (member_id = public.my_member() and day = public.tr_today()));
+
+-- ---------- OPERASYON · puan ----------
+drop policy if exists "os_insert" on public.ops_scores;
+drop policy if exists "os_update" on public.ops_scores;
+create policy "os_insert" on public.ops_scores for insert
+  with check (public.is_ops_admin() or (rater_id = public.my_member() and day = public.tr_today()));
+create policy "os_update" on public.ops_scores for update
+  using      (public.is_ops_admin() or (rater_id = public.my_member() and day = public.tr_today()))
+  with check (public.is_ops_admin() or (rater_id = public.my_member() and day = public.tr_today()));
+
+-- ---------- OPERASYON · kontrol / denetim tikleri ----------
+drop policy if exists "oc_insert" on public.ops_checks;
+drop policy if exists "oc_update" on public.ops_checks;
+drop policy if exists "oc_delete" on public.ops_checks;
+create policy "oc_insert" on public.ops_checks for insert
+  with check (public.is_ops_admin() or (done_by = public.my_member() and day = public.tr_today()));
+create policy "oc_update" on public.ops_checks for update
+  using      (public.is_ops_admin() or (done_by = public.my_member() and day = public.tr_today()))
+  with check (public.is_ops_admin() or (done_by = public.my_member() and day = public.tr_today()));
+create policy "oc_delete" on public.ops_checks for delete
+  using (public.is_ops_admin() or (done_by = public.my_member() and day = public.tr_today()));
+
+-- ---------- OPERASYON · kargo & mesaj toplamları ----------
+drop policy if exists "otd_all"    on public.ops_team_daily;
+drop policy if exists "otd_select" on public.ops_team_daily;
+drop policy if exists "otd_insert" on public.ops_team_daily;
+drop policy if exists "otd_update" on public.ops_team_daily;
+drop policy if exists "otd_delete" on public.ops_team_daily;
+create policy "otd_select" on public.ops_team_daily for select using (public.is_ops());
+create policy "otd_insert" on public.ops_team_daily for insert
+  with check (public.is_ops_admin() or (public.is_ops() and day = public.tr_today()));
+create policy "otd_update" on public.ops_team_daily for update
+  using      (public.is_ops_admin() or (public.is_ops() and day = public.tr_today()))
+  with check (public.is_ops_admin() or (public.is_ops() and day = public.tr_today()));
+create policy "otd_delete" on public.ops_team_daily for delete using (public.is_ops_admin());
+
+-- ---------- KREATİF · günlük ----------
+drop policy if exists "kd_insert" on public.kre_daily;
+drop policy if exists "kd_update" on public.kre_daily;
+create policy "kd_insert" on public.kre_daily for insert
+  with check (public.is_kre_admin() or (initial = public.my_initial() and day = public.tr_today()));
+create policy "kd_update" on public.kre_daily for update
+  using      (public.is_kre_admin() or (initial = public.my_initial() and day = public.tr_today()))
+  with check (public.is_kre_admin() or (initial = public.my_initial() and day = public.tr_today()));
+
+-- ---------- KREATİF · puan ----------
+drop policy if exists "ks_insert" on public.kre_scores;
+drop policy if exists "ks_update" on public.kre_scores;
+create policy "ks_insert" on public.kre_scores for insert
+  with check (public.is_kre_admin() or (rater = public.my_initial() and day = public.tr_today()));
+create policy "ks_update" on public.kre_scores for update
+  using      (public.is_kre_admin() or (rater = public.my_initial() and day = public.tr_today()))
+  with check (public.is_kre_admin() or (rater = public.my_initial() and day = public.tr_today()));
+
+-- kontrol: bugünün Türkiye tarihi
+select public.tr_today() as turkiye_bugun;

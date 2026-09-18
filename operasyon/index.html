@@ -371,6 +371,8 @@
   .winner{display:flex; gap:14px; align-items:center} .winner.soft{opacity:.75} .winner .wname{font-family:var(--fh); font-weight:700; font-size:1.15rem} .winner .wsub{font-size:.76rem; color:var(--ink-soft); font-weight:600; margin-top:2px}
   .crow{display:flex; gap:8px; align-items:center; padding:8px 0; border-bottom:2px solid var(--cream2); font-size:.78rem}
   .crow:last-child{border-bottom:none} .crow b{white-space:nowrap} .crow .ct{color:var(--ink-soft); font-weight:600; min-width:0}
+.lockbar{border:var(--b2,2px solid #121212);border-radius:12px;background:var(--mustard-s,#FFF1C9);padding:10px 14px;margin:0 0 14px;font-size:.82rem;font-weight:700;line-height:1.45}
+.locked{opacity:.6;pointer-events:none}
 </style>
 </head>
 <body>
@@ -509,6 +511,12 @@ const nf1 = new Intl.NumberFormat("tr-TR",{maximumFractionDigits:1});
 const pad = n=>String(n).padStart(2,"0");
 const iso = d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const today = ()=>iso(new Date());
+// GÜN KİLİDİ: ekip üyesi günlük kayıtları yalnızca o gün (Türkiye saati, 23:59'a kadar) girer/değiştirir; yönetici + ortaklar her zaman
+const trToday = ()=>new Date().toLocaleDateString("sv-SE",{timeZone:"Europe/Istanbul"});
+const dayLocked = d=>!isAdmin() && d!==trToday();
+const LOCK_MSG = "🔒 Bu günün kaydı kapandı. Düzeltme gerekiyorsa yöneticine söyle.";
+const lockNote = d=>dayLocked(d)?`<div class="lockbar">🔒 ${d<trToday()?"Bu gün kapandı":"Bu gün henüz gelmedi"} — kayıtlar yalnızca kendi gününde, gece 23:59'a kadar girilip değiştirilebilir. Düzeltme gerekiyorsa yöneticine söyle, o düzeltir.</div>`:"";
+const errMsg = e=>String(e?.message||"").startsWith("🔒") ? e.message : /row-level security|violates|permission denied/i.test(e?.message||"") ? LOCK_MSG : "Hata: "+(e?.message||e);
 const addDays = (s,n)=>{ const d=new Date(s+"T00:00:00"); d.setDate(d.getDate()+n); return iso(d); };
 const dow = s=>new Date(s+"T00:00:00").getDay();           // 0 = Pazar
 const monday = s=>addDays(s, -((dow(s)+6)%7));
@@ -685,7 +693,8 @@ function renderGun(){
     <div class="sub">Akşam çıkmadan 2 dakikada doldur. Boş alan = 0 sayılmaz, "girilmedi" sayılır.</div>
     ${dayNav("gunDay", day, memSel)}
     ${taskList(m, day)}
-    <div class="card" style="margin-bottom:16px">
+    ${lockNote(day)}
+    <div class="card ${dayLocked(day)?"locked":""}" id="gunForm" style="margin-bottom:16px">
       <div class="sect"><h3>⏰ Saatler</h3>
         <div class="fgrid">
           <div><div class="flabel">Giriş</div><input type="time" id="g_in_time" value="${v("in_time")}"></div>
@@ -716,8 +725,10 @@ function renderGun(){
   `;
   bindDayNav(el,"day",renderGun); bindTaskList(el, renderGun);
   if(isAdmin()){ $("gunMember").onchange=e=>{ S.gunMember=e.target.value; renderGun(); }; $("gunTask").onclick=()=>openTaskModal(m.id, renderGun); }
+  if(dayLocked(day)) $("gunForm").querySelectorAll("input,textarea,button").forEach(x=>x.disabled=true);
   $("gunSave").onclick = async ()=>{
     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
+    if(dayLocked(day)){ toast(LOCK_MSG); return; }
     const row = { member_id:m.id, day, in_time:$("g_in_time").value||null, out_time:$("g_out_time").value||null, updated_at:nowIso() };
     ["leave_min","ot_min","cargo","call_total","call_send","call_nolook","wp_msg","wp_order","ig_msg","ig_order","mail_msg","mail_order"].forEach(k=>row[k]=numOrNull($("g_"+k).value));
     row.note=$("g_note").value.trim()||null; row.wish=$("g_wish").value.trim()||null;
@@ -727,7 +738,7 @@ function renderGun(){
       else{ const {data,error}=await sb.from("ops_daily").upsert(row,{onConflict:"member_id,day"}).select().single(); if(error) throw error;
         const i=S.daily.findIndex(x=>x.member_id===m.id&&x.day===day); if(i>=0) S.daily[i]=data; else S.daily.unshift(data); }
       toast("Kaydedildi ✓"); renderGun();
-    }catch(e){ toast("Hata: "+e.message); $("gunSave").disabled=false; }
+    }catch(e){ toast(errMsg(e)); $("gunSave").disabled=false; }
   };
 }
 
@@ -742,6 +753,8 @@ function renderPuan(){
     <h2>Ekip Puanı</h2>
     <div class="sub">Her akşam ekip arkadaşlarını 1–10 arası puanla. Puanlar <b>yalnızca yöneticiye</b> görünür; puanladığın kişi ne puan verdiğini göremez.</div>
     ${dayNav("puanDay", day)}
+    ${lockNote(day)}
+    <div id="puanForm" class="${dayLocked(day)?"locked":""}">
     ${others.map(x=>{ const s=mine(x.id); return `
       <div class="card" style="margin-bottom:12px">
         <div class="mcard">${av(x,"big")}<div><div class="nm">${esc(x.name)}</div><div class="tk">${esc(x.tasks||"")}</div></div></div>
@@ -749,6 +762,7 @@ function renderPuan(){
         <input type="text" id="pc_${x.id}" placeholder="Kısa not (isteğe bağlı)" value="${esc(s.comment||"")}" style="margin-bottom:0">
       </div>`; }).join("")}
     <button class="btn" id="puanSave">Puanları Kaydet</button>
+    </div>
     ${myDays.length?`<div class="note">Puanladığın son günler: ${myDays.map(trShort).join(" · ")}</div>`:""}
   `;
   bindDayNav(el,"puanDay",renderPuan);
@@ -756,8 +770,10 @@ function renderPuan(){
   el.querySelectorAll(".scrow").forEach(row=>row.querySelectorAll(".scbtn").forEach(b=>b.onclick=()=>{
     row.querySelectorAll(".scbtn").forEach(z=>z.classList.remove("on")); b.classList.add("on"); picked[row.dataset.ratee]=+b.dataset.n;
   }));
+  if(dayLocked(day)) $("puanForm").querySelectorAll("input,button").forEach(x=>x.disabled=true);
   $("puanSave").onclick = async ()=>{
     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
+    if(dayLocked(day)){ toast(LOCK_MSG); return; }
     const rows = others.filter(x=>picked[x.id]!=null).map(x=>({day, rater_id:S.me.id, ratee_id:x.id, score:picked[x.id], comment:$("pc_"+x.id).value.trim()||null, updated_at:nowIso()}));
     if(!rows.length){ toast("Önce puan seç."); return; }
     $("puanSave").disabled=true;
@@ -766,7 +782,7 @@ function renderPuan(){
       else{ const {data,error}=await sb.from("ops_scores").upsert(rows,{onConflict:"day,rater_id,ratee_id"}).select(); if(error) throw error;
         data.forEach(r=>{ const i=S.scores.findIndex(s=>s.id===r.id); if(i>=0) S.scores[i]=r; else S.scores.unshift(r); }); }
       toast(`${rows.length} puan kaydedildi ✓`); renderPuan();
-    }catch(e){ toast("Hata: "+e.message); $("puanSave").disabled=false; }
+    }catch(e){ toast(errMsg(e)); $("puanSave").disabled=false; }
   };
 }
 
@@ -809,6 +825,7 @@ function renderKontrol(){
     <div class="sub">Yapılanı tıkla; kim, saat kaçta yaptı kaydedilir.</div>
     ${dayNav("kontrolDay", day, isAdmin()?`<button class="btn ghost sm" id="itemsEdit">✏️ Maddeler</button>`:"")}
     ${myDaysHtml}
+    ${lockNote(day)}
     <div class="card" style="margin-bottom:16px">
       <div class="sect" style="margin-bottom:0"><h3>Bugünün nöbetçileri</h3>
         ${dow(day)===0?`<div class="empty" style="padding:14px">Pazar — nöbet yok</div>`:`
@@ -845,11 +862,12 @@ function renderKontrol(){
       if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
       const out=rows.map(r=>({key:r.key,group_key:r.group_key,label:document.querySelector(`[data-il="${r.key}"]`).value.trim()||r.label,sort:r.sort||0,active:document.querySelector(`[data-ia="${r.key}"]`).checked}));
       GROUP_DEFS.forEach(([k])=>{ const v=document.querySelector(`[data-inew="${k}"]`).value.trim(); if(v){ let key=k+"_"+v.toLowerCase().replace(/ğ/g,"g").replace(/ü/g,"u").replace(/ş/g,"s").replace(/ı/g,"i").replace(/ö/g,"o").replace(/ç/g,"c").replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,""); if(out.find(x=>x.key===key)) key+="_"+Date.now()%1000; out.push({key,group_key:k,label:v,sort:out.filter(x=>x.group_key===k).length+1,active:true}); } });
-      try{ await upsert("ops_check_items",out,"key"); S.checkItems=out; applyCheckItems(out); closeModal(); toast("Maddeler güncellendi ✓"); renderKontrol(); }catch(e){ toast("Hata: "+e.message); }
+      try{ await upsert("ops_check_items",out,"key"); S.checkItems=out; applyCheckItems(out); closeModal(); toast("Maddeler güncellendi ✓"); renderKontrol(); }catch(e){ toast(errMsg(e)); }
     };
   };
   el.querySelectorAll(".chk").forEach(b=>b.onclick=async ()=>{
     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
+    if(dayLocked(day)){ toast(LOCK_MSG); return; }
     const item=b.dataset.item; const c=chk(item);
     if(!S.me && !isAdmin()){ toast("Hesabın bir ekip üyesine bağlı değil."); return; }
     try{
@@ -863,7 +881,7 @@ function renderKontrol(){
         else{ const {data,error}=await sb.from("ops_checks").insert(row).select().single(); if(error) throw error; S.checks.push(data); }
       }
       renderKontrol();
-    }catch(e){ toast("Hata: "+e.message); }
+    }catch(e){ toast(errMsg(e)); }
   });
   const dm=$("dutyMonth"); if(dm) dm.onclick=()=>{
     modal(`<h3>Aylık nöbet listesi</h3><div class="sub">İsimleri sırayla yaz (her satıra bir isim). Sıra, ay boyunca ikili nöbetin dönüş sırası olur; herkes herkesle eşit sayıda denk gelir.</div>
@@ -883,12 +901,12 @@ function renderKontrol(){
       const last=monthEnd(first); const rows=[]; let k=0;
       for(let d=first; d<=last; d=addDays(d,1)){ if(dow(d)===0) continue; const [a,b]=pairs[k++%pairs.length]; rows.push({day:d, a_id:a?.id||null, b_id:b?.id||null, updated_at:nowIso()}); }
       try{ await upsert("ops_duty",rows,"day"); S.duty=S.duty.filter(x=>!inRange(x.day,[first,last])); S.duty.push(...rows); S.kontrolDay=first<=today()&&today()<=last?today():first; closeModal(); toast(`${rows.length} günlük nöbet listesi oluşturuldu ✓`); renderKontrol(); }
-      catch(e){ toast("Hata: "+e.message); }
+      catch(e){ toast(errMsg(e)); }
     };
   };
   const dc=$("dutyClear"); if(dc) dc.onclick=async ()=>{
     if(!confirm(trMonth(mFirst)+" nöbet listesi silinsin mi? Otomatik sıraya dönülür.")) return;
-    try{ if(!DEMO){ const {error}=await sb.from("ops_duty").delete().gte("day",mFirst).lte("day",mLast); if(error) throw error; } S.duty=S.duty.filter(x=>!inRange(x.day,[mFirst,mLast])); renderKontrol(); }catch(e){ toast("Hata: "+e.message); }
+    try{ if(!DEMO){ const {error}=await sb.from("ops_duty").delete().gte("day",mFirst).lte("day",mLast); if(error) throw error; } S.duty=S.duty.filter(x=>!inRange(x.day,[mFirst,mLast])); renderKontrol(); }catch(e){ toast(errMsg(e)); }
   };
   const de=$("dutyEdit"); if(de) de.onclick=()=>{
     const cur=dutyFor(day);
@@ -899,11 +917,11 @@ function renderKontrol(){
     $("dSave").onclick=async ()=>{
       const row={day,a_id:$("dA").value,b_id:$("dB").value,updated_at:nowIso()};
       try{ if(!DEMO){ const {error}=await sb.from("ops_duty").upsert(row,{onConflict:"day"}); if(error) throw error; }
-        S.duty=S.duty.filter(d=>d.day!==day); S.duty.push(row); closeModal(); renderKontrol(); }catch(e){ toast("Hata: "+e.message); }
+        S.duty=S.duty.filter(d=>d.day!==day); S.duty.push(row); closeModal(); renderKontrol(); }catch(e){ toast(errMsg(e)); }
     };
     $("dAuto").onclick=async ()=>{
       try{ if(!DEMO){ const {error}=await sb.from("ops_duty").delete().eq("day",day); if(error) throw error; }
-        S.duty=S.duty.filter(d=>d.day!==day); closeModal(); renderKontrol(); }catch(e){ toast("Hata: "+e.message); }
+        S.duty=S.duty.filter(d=>d.day!==day); closeModal(); renderKontrol(); }catch(e){ toast(errMsg(e)); }
     };
   };
 }
@@ -922,7 +940,8 @@ function renderKargo(){
     <h2>Kargo & Mesaj Toplamları</h2>
     <div class="sub">Günün ekip toplamları: kargo firması bazlı çıkışlar ve mesaj kanalı toplamları.</div>
     ${dayNav("kargoDay",day)}
-    <div class="card" style="margin-bottom:16px">
+    ${lockNote(day)}
+    <div class="card ${dayLocked(day)?"locked":""}" id="kargoForm" style="margin-bottom:16px">
       <div class="sect"><h3>📦 Çıkan kargo</h3><div class="fgrid">
         ${num("hepsijet","Hepsijet")}${num("yurtici","Yurtiçi")}${num("dhl","DHL")}
         <div><div class="flabel">Toplam</div><input type="number" id="k_cargo_total" value="${v("cargo_total")}" placeholder="otomatik"></div>
@@ -954,15 +973,17 @@ function renderKargo(){
   `;
   bindDayNav(el,"kargoDay",renderKargo);
   ["hepsijet","yurtici","dhl"].forEach(k=>$("k_"+k).oninput=()=>{ $("k_cargo_total").value=(numOrNull($("k_hepsijet").value)||0)+(numOrNull($("k_yurtici").value)||0)+(numOrNull($("k_dhl").value)||0); });
+  if(dayLocked(day)) $("kargoForm").querySelectorAll("input,textarea,button").forEach(x=>x.disabled=true);
   $("kargoSave").onclick=async ()=>{
     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
+    if(dayLocked(day)){ toast(LOCK_MSG); return; }
     const row={day, updated_by:S.me?.id||null, updated_at:nowIso(), note:$("k_note").value.trim()||null};
     ["hepsijet","yurtici","dhl","cargo_total","failed","returns","cancels","wp_total","ig_total","mail_total"].forEach(k=>row[k]=numOrNull($("k_"+k).value));
     if(row.cargo_total==null && (row.hepsijet!=null||row.yurtici!=null||row.dhl!=null)) row.cargo_total=(row.hepsijet||0)+(row.yurtici||0)+(row.dhl||0);
     $("kargoSave").disabled=true;
     try{ if(!DEMO){ const {error}=await sb.from("ops_team_daily").upsert(row,{onConflict:"day"}); if(error) throw error; }
       S.team=S.team.filter(t=>t.day!==day); S.team.push(row); toast("Kaydedildi ✓"); renderKargo(); }
-    catch(e){ toast("Hata: "+e.message); $("kargoSave").disabled=false; }
+    catch(e){ toast(errMsg(e)); $("kargoSave").disabled=false; }
   };
 }
 
@@ -1011,7 +1032,7 @@ function renderSes(){
     const text=$("v_text").value.trim(); if(!text){ toast("Metin boş."); return; }
     const row={day:$("v_day").value||today(), kind:$("v_kind").value, brand:$("v_brand").value||null, tags:[...picked], text, by_id:S.me?.id||null, created_at:nowIso()};
     try{ if(DEMO) S.voice.unshift({id:uid(),...row}); else { const {data,error}=await sb.from("ops_voice").insert(row).select().single(); if(error) throw error; S.voice.unshift(data); }
-      toast("Eklendi ✓"); renderSes(); }catch(e){ toast("Hata: "+e.message); }
+      toast("Eklendi ✓"); renderSes(); }catch(e){ toast(errMsg(e)); }
   };
   el.querySelectorAll("[data-vedit]").forEach(b=>b.onclick=()=>{
     const v=S.voice.find(x=>x.id===b.dataset.vedit); if(!v) return;
@@ -1026,10 +1047,10 @@ function renderSes(){
     document.querySelectorAll("#e_tags .fchip").forEach(x=>x.onclick=()=>{ x.classList.toggle("on"); x.classList.contains("on")?tg.add(x.dataset.tag):tg.delete(x.dataset.tag); });
     $("eSave").onclick=async ()=>{
       const upd={day:$("e_day").value, kind:$("e_kind").value, brand:$("e_brand").value||null, tags:[...tg], text:$("e_text").value.trim()};
-      try{ if(!DEMO){ const {error}=await sb.from("ops_voice").update(upd).eq("id",v.id); if(error) throw error; } Object.assign(v,upd); closeModal(); renderSes(); }catch(e){ toast("Hata: "+e.message); }
+      try{ if(!DEMO){ const {error}=await sb.from("ops_voice").update(upd).eq("id",v.id); if(error) throw error; } Object.assign(v,upd); closeModal(); renderSes(); }catch(e){ toast(errMsg(e)); }
     };
     $("eDel").onclick=async ()=>{ if(!confirm("Silinsin mi?")) return;
-      try{ if(!DEMO){ const {error}=await sb.from("ops_voice").delete().eq("id",v.id); if(error) throw error; } S.voice=S.voice.filter(x=>x.id!==v.id); closeModal(); renderSes(); }catch(e){ toast("Hata: "+e.message); } };
+      try{ if(!DEMO){ const {error}=await sb.from("ops_voice").delete().eq("id",v.id); if(error) throw error; } S.voice=S.voice.filter(x=>x.id!==v.id); closeModal(); renderSes(); }catch(e){ toast(errMsg(e)); } };
   });
 }
 
@@ -1063,7 +1084,7 @@ function renderStok(){
     const rows=prods.map(p=>({day,product:p.key,qty:numOrNull($("s_"+p.key).value),by_id:S.me?.id||null})).filter(r=>r.qty!=null);
     if(!rows.length){ toast("Adet gir."); return; }
     try{ await upsert("ops_stock",rows,"day,product"); rows.forEach(r=>{ S.stock=S.stock.filter(s=>!(s.day===r.day&&s.product===r.product)); S.stock.push({id:uid(),...r}); });
-      toast(`${rows.length} ürün kaydedildi ✓`); renderStok(); }catch(e){ toast("Hata: "+e.message); }
+      toast(`${rows.length} ürün kaydedildi ✓`); renderStok(); }catch(e){ toast(errMsg(e)); }
   };
   const pe=$("prodEdit"); if(pe) pe.onclick=()=>{
     const all=[...S.products].sort((a,b)=>(a.sort||0)-(b.sort||0)); const brands=[...S.brands].sort((a,b)=>(a.sort||0)-(b.sort||0));
@@ -1083,7 +1104,7 @@ function renderStok(){
       const bn=$("bNew").value.trim(); if(bn){ const k=slug(bn)||("marka_"+brands.length); if(!brows.find(b=>b.key===k)) brows.push({key:k,name:bn,active:true,sort:brands.length+1}); }
       const prows=all.map(p=>({key:p.key,name:document.querySelector(`[data-pn="${p.key}"]`).value.trim()||p.name,brand:document.querySelector(`[data-pb="${p.key}"]`).value||null,min_qty:numOrNull(document.querySelector(`[data-pm="${p.key}"]`).value)||0,active:document.querySelector(`[data-pa="${p.key}"]`).checked,sort:p.sort||0}));
       const nn=$("pNew").value.trim(); if(nn){ let k=slug(nn)||("urun_"+all.length); if(prows.find(p=>p.key===k)) k+="_"+(all.length+1); prows.push({key:k,name:nn,brand:document.querySelector('[data-pb="__new"]').value||null,min_qty:0,active:true,sort:all.length+1}); }
-      try{ await upsert("ops_brands",brows,"key"); await upsert("ops_products",prows,"key"); S.brands=brows; S.products=prows; closeModal(); toast("Kaydedildi ✓"); renderStok(); }catch(e){ toast("Hata: "+e.message); }
+      try{ await upsert("ops_brands",brows,"key"); await upsert("ops_products",prows,"key"); S.brands=brows; S.products=prows; closeModal(); toast("Kaydedildi ✓"); renderStok(); }catch(e){ toast(errMsg(e)); }
     };
   };
 }
@@ -1129,7 +1150,7 @@ async function openMemberModal(id){
         const i=S.members.findIndex(x=>x.key===row.key); if(i>=0) S.members[i]=data; else S.members.push(data); }
       S.me = S.members.find(x=>x.user_id===S.profile?.id) || S.me;
       closeModal(); renderEkip();
-    }catch(e){ toast("Hata: "+e.message); }
+    }catch(e){ toast(errMsg(e)); }
   };
 }
 
@@ -1190,10 +1211,10 @@ function bindTaskList(root, rerender){
       <div class="flabel">Ne yaptın / not (yöneticiye gider)</div><textarea id="tk_note" rows="3">${esc(t.done_note||"")}</textarea>
       <div class="btnrow">${t.done?`<button class="btn ghost" id="tkUndo">Yapılmadı yap</button>`:""}<button class="btn" id="tkDone">${t.done?"Notu güncelle":"Yapıldı ✓"}</button></div>
       ${isAdmin()?`<button class="btn danger sm" id="tkDel" style="margin-top:10px">Görevi sil</button>`:""}`);
-    const save=async (upd)=>{ try{ if(!DEMO){ const {error}=await sb.from("tasks").update(taskUpd(upd)).eq("id",t.id); if(error) throw error; } S.tasks.filter(x=>x.id===t.id).forEach(x=>Object.assign(x,upd)); closeModal(); rerender(); }catch(e){ toast("Hata: "+e.message); } };
+    const save=async (upd)=>{ try{ if(!DEMO){ const {error}=await sb.from("tasks").update(taskUpd(upd)).eq("id",t.id); if(error) throw error; } S.tasks.filter(x=>x.id===t.id).forEach(x=>Object.assign(x,upd)); closeModal(); rerender(); }catch(e){ toast(errMsg(e)); } };
     $("tkDone").onclick=()=>{ if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; } save({done:true, done_at:t.done_at||nowIso(), done_note:$("tk_note").value.trim()||null}); };
     const u=$("tkUndo"); if(u) u.onclick=()=>save({done:false, done_at:null, done_note:$("tk_note").value.trim()||null});
-    const d=$("tkDel"); if(d) d.onclick=async ()=>{ if(!confirm("Görev silinsin mi?")) return; try{ if(!DEMO){ const {error}=await sb.from("tasks").delete().eq("id",t.id); if(error) throw error; } S.tasks=S.tasks.filter(x=>x.id!==t.id); closeModal(); rerender(); }catch(e){ toast("Hata: "+e.message); } };
+    const d=$("tkDel"); if(d) d.onclick=async ()=>{ if(!confirm("Görev silinsin mi?")) return; try{ if(!DEMO){ const {error}=await sb.from("tasks").delete().eq("id",t.id); if(error) throw error; } S.tasks=S.tasks.filter(x=>x.id!==t.id); closeModal(); rerender(); }catch(e){ toast(errMsg(e)); } };
   });
 }
 function openTaskModal(presetMember, rerender){
@@ -1209,10 +1230,11 @@ function openTaskModal(presetMember, rerender){
     const mem=memById(row.member_id);
     if(!DEMO && !mem?.user_id){ toast(mem?.name+" hesabını henüz bağlamamış; önce Ekip'ten hesabı bağla."); return; }
     try{ if(DEMO) S.tasks.unshift({id:uid(),...row}); else { const {data,error}=await sb.from("tasks").insert({user_id:mem.user_id, title:row.title, descr:row.detail, due:row.due, status:"todo", priority:"normal", source:"operasyon", assigned_by:S.profile.id}).select().single(); if(error) throw error; S.tasks.unshift(...unifyTasks([data],[])); }
-      toast("Görev atandı ✓"); closeModal(); rerender(); }catch(e){ toast("Hata: "+e.message); }
+      toast("Görev atandı ✓"); closeModal(); rerender(); }catch(e){ toast(errMsg(e)); }
   };
 }
 async function toggleControl(day, item, on, note){
+  if(dayLocked(day)) throw new Error(LOCK_MSG);
   const c=checkOf(day,item);
   if(c && !on){ if(!DEMO){ const {error}=await sb.from("ops_checks").delete().eq("id",c.id); if(error) throw error; } S.checks=S.checks.filter(x=>x.id!==c.id); return; }
   if(!c && on){ const row={day,item,done_by:S.me?.id||null,done_at:nowIso(),note:note||null};
@@ -1231,15 +1253,15 @@ function bindControl(root, day, rerender){
     modal(`<h3>${c?"Kontrol notu":"Kontrol edildi"}</h3><div class="flabel">Not (eksik, uyarı, gözlem — yöneticiye gider)</div><textarea id="ct_note" rows="3">${esc(c?.note||"")}</textarea>
       <div class="btnrow">${c?`<button class="btn ghost" id="ctOff">Kontrolü kaldır</button>`:""}<button class="btn" id="ctOn">${c?"Notu kaydet":"Kontrol edildi ✓"}</button></div>`);
     $("ctOn").onclick=async ()=>{     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
-try{ await toggleControl(day,item,true,$("ct_note").value.trim()); closeModal(); rerender(); }catch(e){ toast("Hata: "+e.message); } };
-    const off=$("ctOff"); if(off) off.onclick=async ()=>{ try{ await toggleControl(day,item,false); closeModal(); rerender(); }catch(e){ toast("Hata: "+e.message); } };
+try{ await toggleControl(day,item,true,$("ct_note").value.trim()); closeModal(); rerender(); }catch(e){ toast(errMsg(e)); } };
+    const off=$("ctOff"); if(off) off.onclick=async ()=>{ try{ await toggleControl(day,item,false); closeModal(); rerender(); }catch(e){ toast(errMsg(e)); } };
   });
 }
 function renderDenetim(){
   const el=$("tabDenetim"); const day=S.denetimDay;
   const showMsg = isAdmin()||holdsRole("mesaj_kontrol"), showTem = isAdmin()||holdsRole("temizlik_kontrol");
   const wk=monday(day); const days=[0,1,2,3,4,5].map(i=>addDays(wk,i));
-  let html=`<h2>Denetim</h2><div class="sub">${[showMsg?"Mesaj kontrolü":"",showTem?"Temizlik kontrolü":""].filter(Boolean).join(" · ")} — sorumlusu sensin.</div>${dayNav("denetimDay",day)}`;
+  let html=`<h2>Denetim</h2><div class="sub">${[showMsg?"Mesaj kontrolü":"",showTem?"Temizlik kontrolü":""].filter(Boolean).join(" · ")} — sorumlusu sensin.</div>${dayNav("denetimDay",day)}${lockNote(day)}`;
   if(showMsg){
     const t=S.team.find(x=>x.day===day)||{};
     const rows=actives().map(m=>{ const r=dailyOf(m.id,day); return {m,r}; });
@@ -1286,7 +1308,7 @@ function bindRoles(root, rerender){
       <button class="btn" id="rlSave">Kaydet</button>`);
     $("rlSave").onclick=async ()=>{ const row={role_key:k, member_id:$("rl_m").value||null, updated_at:nowIso()};
       try{ if(!DEMO){ const {error}=await sb.from("ops_assignments").upsert(row,{onConflict:"role_key"}); if(error) throw error; }
-        S.assign=S.assign.filter(a=>a.role_key!==k); S.assign.push(row); closeModal(); toast("Sorumluluk güncellendi ✓"); rerender(); }catch(e){ toast("Hata: "+e.message); } };
+        S.assign=S.assign.filter(a=>a.role_key!==k); S.assign.push(row); closeModal(); toast("Sorumluluk güncellendi ✓"); rerender(); }catch(e){ toast(errMsg(e)); } };
   });
 }
 
@@ -1383,9 +1405,9 @@ async function renderBirinci(){
       <div class="btnrow">${ov?`<button class="btn ghost" id="awAuto">Otomatiğe dön</button>`:""}<button class="btn" id="awSave">Kaydet</button></div>`);
     $("awSave").onclick=async ()=>{ const row={kind,period_start:start,member_id:$("aw_m").value,note:$("aw_n").value.trim()||null,updated_at:nowIso()};
       try{ if(!DEMO){ const {error}=await sb.from("ops_awards").upsert(row,{onConflict:"kind,period_start"}); if(error) throw error; }
-        S.awards=S.awards.filter(a=>!(a.kind===kind&&a.period_start===start)); S.awards.push(row); closeModal(); renderBirinci(); }catch(e){ toast("Hata: "+e.message); } };
+        S.awards=S.awards.filter(a=>!(a.kind===kind&&a.period_start===start)); S.awards.push(row); closeModal(); renderBirinci(); }catch(e){ toast(errMsg(e)); } };
     const aa=$("awAuto"); if(aa) aa.onclick=async ()=>{ try{ if(!DEMO){ const {error}=await sb.from("ops_awards").delete().eq("kind",kind).eq("period_start",start); if(error) throw error; }
-        S.awards=S.awards.filter(a=>!(a.kind===kind&&a.period_start===start)); closeModal(); renderBirinci(); }catch(e){ toast("Hata: "+e.message); } };
+        S.awards=S.awards.filter(a=>!(a.kind===kind&&a.period_start===start)); closeModal(); renderBirinci(); }catch(e){ toast(errMsg(e)); } };
   });
   const we=$("wEdit"); if(we) we.onclick=()=>{
     modal(`<h3>Sıralama ağırlıkları</h3><div class="sub">Toplam 100 olmalı.</div>
@@ -1395,7 +1417,7 @@ async function renderBirinci(){
       const nw={}; Object.keys(RANK_DEF).forEach(k=>nw[k]=numOrNull($("w_"+k).value)||0);
       const tot=Object.values(nw).reduce((a,b)=>a+b,0); if(tot!==100){ toast(`Toplam ${tot}, 100 olmalı.`); return; }
       try{ if(!DEMO){ const {error}=await sb.from("ops_settings").upsert({key:"rank_weights",value:nw,updated_at:nowIso()},{onConflict:"key"}); if(error) throw error; }
-        S.weights=nw; closeModal(); renderBirinci(); }catch(e){ toast("Hata: "+e.message); }
+        S.weights=nw; closeModal(); renderBirinci(); }catch(e){ toast(errMsg(e)); }
     };
   };
 }
