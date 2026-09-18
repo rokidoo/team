@@ -353,6 +353,15 @@
   .demo select{width:auto; margin:0; padding:5px 9px; font-size:.74rem; border-radius:9px}
 .lockbar{border:var(--b2,2px solid #121212);border-radius:12px;background:var(--mustard-s,#FFF1C9);padding:10px 14px;margin:0 0 14px;font-size:.82rem;font-weight:700;line-height:1.45}
 .locked{opacity:.6;pointer-events:none}
+.otp{color:#15803d}.otn{color:#c2410c}
+.ottbl td,.ottbl th{white-space:nowrap}.ottbl td.otwhy{white-space:normal;min-width:180px;font-size:.78rem;text-align:left}
+.ottbl tr.otsun td{background:var(--purple-s,#EFE7FF)}.ottbl tr.otwarn td{background:var(--red-s,#FFE1DC)}
+.ottbl tr.otsel td{background:var(--mustard-s,#FFF1C9)}.ottbl tr.ottot td{font-weight:800;border-top:2px solid var(--ink,#121212)}
+.ottbl a{color:inherit;font-weight:800;text-decoration:none}
+.otrate{width:96px;margin:0;padding:6px 8px}
+.otrule{border:var(--b2,2px solid #121212);border-radius:12px;padding:10px 14px;margin:0 0 14px;background:var(--card,#fff);font-size:.82rem}
+.otrule summary{cursor:pointer;font-weight:800}.otrule ul{margin:8px 0 0;padding-left:18px;line-height:1.55}
+.otlive{border:var(--b2,2px solid #121212);border-radius:10px;padding:9px 10px;font-weight:800;min-height:40px;background:var(--bg,#F4F2EC)}
 </style>
 </head>
 <body>
@@ -418,6 +427,7 @@
     <div id="tabBoard"></div>
     <div id="tabGun" class="hidden"></div>
     <div id="tabPuan" class="hidden"></div>
+    <div id="tabMesai" class="hidden"></div>
     <div id="tabGallery" class="hidden"></div>
     <div id="tabHooks" class="hidden"></div>
     <div id="tabProd" class="hidden"></div>
@@ -658,6 +668,7 @@ async function loadAll(){
   ]);
   if(!Array.isArray(kd)||!Array.isArray(ks)||!Array.isArray(kr)){ S.kreTables=false; S.kdaily=[]; S.kscores=[]; S.kreq=[]; }
   else { S.kreTables=true; S.kdaily=kd; S.kscores=ks; S.kreq=kr; }
+  if(canFin()) await loadRates();
   try{ const {data:st}=await sb.from("kre_settings").select("*").eq("key","roles").maybeSingle(); if(st?.value) S.kreRoles={...S.kreRoles,...st.value}; }catch(e){}
   if(canFin()){ const {data:pr}=await sb.from("profiles").select("id,name,initial,role").order("name"); S.profiles=pr||[]; }
   const [tk,ta]=await Promise.all([tryAll("tasks", q=>q.order("created_at",{ascending:false})), tryAll("task_assignees")]);
@@ -1318,7 +1329,7 @@ function renderImport(){
 
 function renderNav(){
   const tabs = [
-    ["board","📊","Board"],["gun","📝","Günüm"],["puan","⭐","Puan"],["gallery","🖼","Galeri"],["hooks","🪝","Hooklar"],["prod","🛠","Üretim"],["links","🔗","Linkler"],["team","👥","Ekip"],
+    ["board","📊","Board"],["gun","📝","Günüm"],["puan","⭐","Puan"],["mesai","⏱","Mesai"],["gallery","🖼","Galeri"],["hooks","🪝","Hooklar"],["prod","🛠","Üretim"],["links","🔗","Linkler"],["team","👥","Ekip"],
   ];
   if(canFin()) tabs.push(["finance","💰","Finans"]);
   if(isAdmin()) tabs.push(["import","📥","Aktar"]);
@@ -1341,12 +1352,12 @@ function renderWeeks(){
 
 function renderAll(){
   renderNav(); renderWeeks();
-  ["Board","Gun","Puan","Gallery","Hooks","Prod","Links","Team","Finance","Import"].forEach(t=>$("tab"+t).classList.add("hidden"));
-  const map={board:"Board",gun:"Gun",puan:"Puan",gallery:"Gallery",hooks:"Hooks",prod:"Prod",links:"Links",team:"Team",finance:"Finance",import:"Import"};
+  ["Board","Gun","Puan","Mesai","Gallery","Hooks","Prod","Links","Team","Finance","Import"].forEach(t=>$("tab"+t).classList.add("hidden"));
+  const map={board:"Board",gun:"Gun",puan:"Puan",mesai:"Mesai",gallery:"Gallery",hooks:"Hooks",prod:"Prod",links:"Links",team:"Team",finance:"Finance",import:"Import"};
   if((S.tab==="finance"&&!canFin())||(S.tab==="import"&&!isAdmin())) S.tab="board";
   $("tab"+map[S.tab]).classList.remove("hidden");
   document.querySelector("main").classList.toggle("wide", S.tab==="prod");
-  renderBoard(); renderGun(); renderPuan(); renderGallery(); renderHooks(); renderProd(); renderLinks(); renderTeam(); renderFinance(); renderImport();
+  renderBoard(); renderGun(); renderPuan(); renderMesai(); renderGallery(); renderHooks(); renderProd(); renderLinks(); renderTeam(); renderFinance(); renderImport();
   const ini = (S.profile?.initial || S.profile?.name?.[0] || "?").toUpperCase();
   $("avatar").textContent = ini; $("avatarSide").textContent = ini;
   $("userName").textContent = S.profile?.name || "";
@@ -1420,7 +1431,7 @@ function renderGun(){
       <div class="sect"><h3>⏰ Saatler</h3><div class="fgrid">
         <div><div class="flabel">Giriş</div><input type="time" id="g_in_time" value="${v("in_time")}"></div>
         <div><div class="flabel">Çıkış</div><input type="time" id="g_out_time" value="${v("out_time")}"></div>
-        ${num("leave_min","İzin (dk)")}${num("ot_min","Mesai (dk)")}
+        ${num("leave_min","İzin (dk)")}<div><div class="flabel">Mesai (otomatik)</div><div class="otlive" id="g_otlive"></div></div>
       </div></div>
       <div class="sect"><h3>🎬 Bugün ürettiklerim</h3><div class="fgrid">
         ${num("new_video","Sıfır video")}${num("new_image","Sıfır görsel")}${num("var_video","Varyasyon video")}${num("var_image","Varyasyon görsel")}
@@ -1435,7 +1446,7 @@ function renderGun(){
     <div class="sect"><h3>👥 ${trDate(day)} · kim doldurdu</h3><div class="who">${filled}</div></div>
     ${last7.length?`<div class="sect"><h3>📅 Son günlerim</h3><div class="tblwrap"><table class="compact">
       <tr><th>Gün</th><th>Giriş</th><th>Çıkış</th><th>Sıfır V</th><th>Sıfır G</th><th>Var V</th><th>Var G</th><th>Mesai</th></tr>
-      ${last7.map(x=>`<tr><td>${trShort(x.day)}</td><td class="${mins(x.in_time)>LATE_MIN?"late":""}">${esc(x.in_time||"—")}</td><td>${esc(x.out_time||"—")}</td><td>${x.new_video??"—"}</td><td>${x.new_image??"—"}</td><td>${x.var_video??"—"}</td><td>${x.var_image??"—"}</td><td>${durTxt(x.ot_min)}</td></tr>`).join("")}
+      ${last7.map(x=>`<tr><td>${trShort(x.day)}</td><td class="${mins(x.in_time)>LATE_MIN?"late":""}">${esc(x.in_time||"—")}</td><td>${esc(x.out_time||"—")}</td><td>${x.new_video??"—"}</td><td>${x.new_image??"—"}</td><td>${x.var_video??"—"}</td><td>${x.var_image??"—"}</td><td>${(()=>{ const c=otCalc(x); return c.kind==="normal"||c.kind==="pazar"?`<span class="${otCls(c.min)}">${otTxt(c.min)}</span>`:"—"; })()}</td></tr>`).join("")}
     </table></div></div>`:""}
     ${canTalep()?`<div class="sect"><h3>🛒 Talepler & ofis alışverişi <span class="cnt">${open.length} açık</span></h3>
       <div class="card" style="margin-bottom:12px"><div class="fgrid c2">
@@ -1450,13 +1461,17 @@ function renderGun(){
   bindDayNav(el,"gunDay",renderGun); bindKTasks(el, renderGun);
   const ka=$("kTaskAdd"); if(ka) ka.onclick=()=>openKTaskModal(ini, renderGun);
   const gs=$("gunIni"); if(gs) gs.onchange=e=>{ S.gunIni=e.target.value; renderGun(); };
+  const otLive=()=>{ const c=otCalc({day, in_time:$("g_in_time").value, out_time:$("g_out_time").value, leave_min:numOrNull($("g_leave_min").value)});
+    $("g_otlive").innerHTML = c.kind==="eksik" ? `<span style="color:var(--mut)">saatleri gir</span>` : c.kind==="hata" ? "⚠ saatleri kontrol et" : `<span class="${otCls(c.min)}">${otTxt(c.min)}</span>${c.kind==="pazar"?" <small>pazar ×1,5</small>":""}`; };
+  ["g_in_time","g_out_time","g_leave_min"].forEach(k=>$(k).addEventListener("input",otLive)); otLive();
   if(dayLocked(day)) $("gunForm").querySelectorAll("input,textarea,button").forEach(x=>x.disabled=true);
   $("gunSave").onclick=async ()=>{
     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
     if(dayLocked(day)){ toast(LOCK_MSG); return; }
     const row={initial:ini, day, in_time:$("g_in_time").value||null, out_time:$("g_out_time").value||null, updated_at:nowIso()};
-    ["leave_min","ot_min","new_video","new_image","var_video","var_image"].forEach(k=>row[k]=numOrNull($("g_"+k).value));
+    ["leave_min","new_video","new_image","var_video","var_image"].forEach(k=>row[k]=numOrNull($("g_"+k).value));
     row.note=$("g_note").value.trim()||null; row.wish=$("g_wish").value.trim()||null;
+    { const c=otCalc(row); row.ot_min=(c.kind==="normal"||c.kind==="pazar")?c.min:null; }
     $("gunSave").disabled=true;
     try{
       if(DEMO){ const i=S.kdaily.findIndex(x=>x.initial===ini&&x.day===day); if(i>=0) S.kdaily[i]={...S.kdaily[i],...row}; else S.kdaily.unshift({id:uid(),...row}); }
@@ -1540,7 +1555,7 @@ function gunSummary(day){
   const range = p==="hafta" ? [monday(day), addDays(monday(day),6)] : p==="ay" ? [day.slice(0,8)+"01", monthEnd(day.slice(0,8)+"01")] : ["2000-01-01","2999-12-31"];
   const D=S.kdaily.filter(x=>inRange(x.day,range)); const SC=S.kscores.filter(x=>inRange(x.day,range)&&x.score!=null);
   const row=k=>{ const r=D.filter(x=>x.initial===k); const ins=r.map(x=>mins(x.in_time)).filter(x=>x!=null); const recv=SC.filter(s=>s.ratee===k).map(s=>s.score);
-    return `<tr><td>${esc(OWNERS[k].name)}</td><td>${r.length}</td><td>${sum(r,x=>x.new_video)}</td><td>${sum(r,x=>x.new_image)}</td><td>${sum(r,x=>x.var_video)}</td><td>${sum(r,x=>x.var_image)}</td><td><b>${sum(r,prodOf)}</b></td><td>${hhmm(avg(ins))}</td><td class="${ins.filter(x=>x>LATE_MIN).length?"late":""}">${ins.filter(x=>x>LATE_MIN).length}</td><td>${durTxt(sum(r,x=>x.ot_min))}</td><td>${durTxt(sum(r,x=>x.leave_min))}</td><td><b>${recv.length?nf1.format(avg(recv)):"—"}</b> <small>(${recv.length})</small></td></tr>`; };
+    return `<tr><td>${esc(OWNERS[k].name)}</td><td>${r.length}</td><td>${sum(r,x=>x.new_video)}</td><td>${sum(r,x=>x.new_image)}</td><td>${sum(r,x=>x.var_video)}</td><td>${sum(r,x=>x.var_image)}</td><td><b>${sum(r,prodOf)}</b></td><td>${hhmm(avg(ins))}</td><td class="${ins.filter(x=>x>LATE_MIN).length?"late":""}">${ins.filter(x=>x>LATE_MIN).length}</td><td>${otTxt(sum(r,x=>otCalc(x).min))}</td><td>${durTxt(sum(r,x=>x.leave_min))}</td><td><b>${recv.length?nf1.format(avg(recv)):"—"}</b> <small>(${recv.length})</small></td></tr>`; };
   const d14=[]; for(let i=0;d14.length<14;i++){ const d=addDays(today(),-i); if(dow(d)!==0) d14.unshift(d); }
   const comments=S.kscores.filter(s=>inRange(s.day,range)&&s.comment).sort((a,b)=>b.day<a.day?-1:1).slice(0,25);
   const title = p==="hafta"?`${trDate(range[0])} – ${trDate(range[1])}`: p==="ay"?trMonth(range[0]):"Tüm zamanlar";
@@ -1551,6 +1566,142 @@ function gunSummary(day){
     <div class="card" style="margin-top:12px"><div class="flabel">Doldurma disiplini · son 14 iş günü</div><div class="disc" style="--n:${d14.length}"><div class="r"><div></div>${d14.map(d=>`<div class="h">${d.slice(8)}</div>`).join("")}</div>${KRE_INIS().map(k=>`<div class="r"><div>${esc(OWNERS[k].name)}</div>${d14.map(d=>`<div class="c ${kdOf(k,d)?"ok":(d===today()?"na":"")}"></div>`).join("")}</div>`).join("")}</div></div>
     ${comments.length?`<div class="card" style="margin-top:12px;padding:6px 14px">${comments.map(s=>`<div class="crow"><span class="pill">${trShort(s.day)}</span><b>${esc(s.rater)} → ${esc(OWNERS[s.ratee]?.name||s.ratee)}</b>${s.score!=null?`<span class="pill" style="background:${s.score>=9?"var(--green-s)":s.score>=7?"var(--mustard-s)":"var(--red-s)"}">${s.score}</span>`:""}<span class="ct">${esc(s.comment)}</span></div>`).join("")}</div>`:""}
   </div>`;
+}
+/* ================= MESAİ (iki panelde aynı kod) =================
+   Mesai günü 09:00–18:00 (pzt–cmt). 09:00'dan önce gelmek mesai sayılmaz.
+   Günlük mesai = 18:00 sonrası kalınan − geç gelme − erken çıkma − saate yansımayan izin.
+   İzin geç gelme/erken çıkmayı anlatıyorsa bir kez düşülür. Pazar: çalışılan tüm süre, ×1,5.
+   Ay içindeki günler birbirini götürür. Ücret = saatlik × (normal + pazar × 1,5). */
+const WORK_START=9*60, WORK_END=18*60, SUNDAY_X=1.5;
+function otCalc(r){
+  const i=mins(r?.in_time), o=mins(r?.out_time), lv=Math.max(0,+(r?.leave_min)||0);
+  const z={late:0,early:0,extra:0,leave:0};
+  if(i==null||o==null) return {kind:"eksik",min:0,...z};
+  if(o-i<60) return {kind:"hata",min:0,...z};   // çıkış girişten önce ya da 1 saatten kısa gün: büyük ihtimalle yanlış girilmiş
+  if(dow(r.day)===0) return {kind:"pazar",min:o-i,...z,extra:o-i};
+  const late=Math.max(0,i-WORK_START), early=Math.max(0,WORK_END-o);
+  const extra=Math.max(0,o-Math.max(WORK_END,i));
+  const leave=Math.max(0,lv-(late+early));
+  return {kind:"normal",min:extra-late-early-leave,late,early,extra,leave};
+}
+const otTxt=m=>{ m=Math.round(m||0); if(!m) return "0"; const s=m<0?"−":"+"; m=Math.abs(m); const h=Math.floor(m/60), k=m%60; return s+[h?h+" sa":"", k?k+" dk":""].filter(Boolean).join(" "); };
+const otHrs=m=>{ m=Math.round(m||0); const s=m<0?"−":""; m=Math.abs(m); const h=Math.floor(m/60), k=m%60; return s+(h?h+" sa":"")+(h&&k?" ":"")+(k||!h?k+" dk":""); };
+const otCls=m=>m>0?"otp":m<0?"otn":"";
+const otTl=v=>v==null?"—":(v<0?"−":"")+nf.format(Math.abs(Math.round(v)))+" ₺";
+// eksi ayda ek ödeme 0; eksik tutar bilgi olarak altında (kesinti kararı yönetimin)
+const payCell=x=>x==null?"<b>—</b>":x>=0?`<b class="${otCls(x)}">${otTl(x)}</b>`:`<b>0 ₺</b><small class="otn" style="display:block">eksik ${otTl(-x)}</small>`;
+const otDayLbl=s=>new Date(s+"T00:00:00").toLocaleDateString("tr-TR",{day:"2-digit",month:"short",weekday:"short"});
+function otSum(rows){
+  const o={normal:0,pazar:0,days:0,pzDays:0,bad:[],miss:[]};
+  rows.forEach(r=>{ const c=otCalc(r);
+    if(c.kind==="normal"){ o.normal+=c.min; o.days++; }
+    else if(c.kind==="pazar"){ o.pazar+=c.min; o.pzDays++; }
+    else if(c.kind==="hata") o.bad.push(r); else o.miss.push(r); });
+  o.weighted=o.normal+o.pazar*SUNDAY_X; return o;
+}
+function rateFor(key, monthFirst){
+  const xs=(S.rates||[]).filter(r=>r.person===key && r.month<=monthFirst).sort((a,b)=>a.month<b.month?1:-1);
+  return xs.length? +xs[0].hourly : null;
+}
+function otWhy(c){
+  if(c.kind==="pazar") return "Pazar — tümü mesai (×1,5)";
+  if(c.kind==="hata") return "⚠ Saatler hatalı görünüyor (çıkış girişten önce ya da 1 saatten kısa) — düzeltilmeli";
+  if(c.kind==="eksik") return "Giriş/çıkış saati girilmemiş — hesaba katılmadı";
+  const p=[]; if(c.late) p.push(`geç geldi ${otHrs(c.late)}`); if(c.early) p.push(`erken çıktı ${otHrs(c.early)}`);
+  if(c.leave) p.push(`izin ${otHrs(c.leave)}`); if(c.extra) p.push(`18:00 sonrası ${otHrs(c.extra)}`);
+  return p.join(" · ") || "tam saat";
+}
+function otDays(rows, canJump){
+  const xs=[...rows].sort((a,b)=>a.day<b.day?-1:1);
+  if(!xs.length) return `<div class="empty">Bu ay kayıt yok.</div>`;
+  return `<div class="tblwrap"><table class="compact ottbl"><tr><th>Gün</th><th>Giriş</th><th>Çıkış</th><th>İzin</th><th>Hesap</th><th>Mesai</th></tr>
+    ${xs.map(r=>{ const c=otCalc(r); const warn=c.kind==="hata"||c.kind==="eksik";
+      return `<tr class="${c.kind==="pazar"?"otsun":""}${warn?" otwarn":""}"><td>${canJump?`<a href="#" data-otjump="${r.day}">${otDayLbl(r.day)}</a>`:otDayLbl(r.day)}</td><td>${esc(r.in_time||"—")}</td><td>${esc(r.out_time||"—")}</td><td>${r.leave_min?r.leave_min+" dk":"—"}</td><td class="otwhy">${esc(otWhy(c))}</td><td class="${otCls(c.min)}"><b>${warn?"—":otTxt(c.min)}</b></td></tr>`; }).join("")}
+  </table></div>`;
+}
+function otRule(){
+  return `<details class="otrule"><summary>Mesai nasıl hesaplanıyor?</summary><ul>
+    <li>Mesai günü <b>09:00–18:00</b> (pazartesi–cumartesi). 09:00'dan önce gelmek mesai sayılmaz.</li>
+    <li>Günlük mesai = <b>18:00 sonrası kalınan süre − geç gelme − erken çıkma − izin</b>. 09:30'da gelip 18:30'da çıkan için sonuç 0.</li>
+    <li>İzin zaten geç gelmeyi ya da erken çıkmayı anlatıyorsa bir kez düşülür (11:00'de gelip 120 dk izin yazan için −2 sa).</li>
+    <li><b>Pazar</b> çalışılan tüm süre mesaidir ve ücrette <b>×1,5</b> sayılır.</li>
+    <li>Ay içindeki günler birbirini götürür; ay sonundaki toplam esas alınır.</li></ul></details>`;
+}
+/* cfg: {admin, persons:[{key,id,name,badge,active,rows}], me, jump(person,day)} */
+function renderMesaiView(el, cfg){
+  S.otMonth=S.otMonth||today().slice(0,8)+"01";
+  const mF=S.otMonth, mL=monthEnd(mF), inM=r=>r.day>=mF && r.day<=mL;
+  const head=`<h2>Mesai</h2>
+    <div class="sub">${cfg.admin?"Ekibin aylık mesaisi ve ek ödeme hesabı. Saatlik ücreti girince ek ödeme hesaplanır.":"Bu ay ne kadar mesai yaptığın. Günlük giriş/çıkış saatlerinden otomatik hesaplanır."}</div>
+    <div class="dayrow"><button class="nb" data-otm="-1">‹</button><span class="dl" style="font-size:1rem">${trMonth(mF)}</span><button class="nb" data-otm="1">›</button></div>
+    ${otRule()}`;
+  const bindNav=()=>el.querySelectorAll("[data-otm]").forEach(b=>b.onclick=()=>{ const d=new Date(mF+"T00:00:00"); d.setMonth(d.getMonth()+ +b.dataset.otm); S.otMonth=iso(d).slice(0,8)+"01"; renderMesaiView(el,cfg); });
+  const bindJump=p=>el.querySelectorAll("[data-otjump]").forEach(a=>a.onclick=e=>{ e.preventDefault(); cfg.jump(p, a.dataset.otjump); });
+  const warnHtml=s=>(s.bad.length||s.miss.length)?`<div class="lockbar">${s.bad.length?`⚠ ${s.bad.length} günde saatler hatalı görünüyor (hesaba katılmadı). `:""}${s.miss.length?`${s.miss.length} günde giriş ya da çıkış saati eksik (hesaba katılmadı).`:""}</div>`:"";
+
+  if(!cfg.admin){
+    const me=cfg.me;
+    if(!me){ el.innerHTML=head+`<div class="empty">Hesabın bir ekip üyesine bağlı değil.</div>`; bindNav(); return; }
+    const rows=me.rows.filter(inM), s=otSum(rows);
+    el.innerHTML=head+`<div class="kpis">
+      <div class="kpi"><span>Normal gün mesaisi</span><b class="${otCls(s.normal)}">${otTxt(s.normal)}</b><small>${s.days} gün · geç gelme ve izin düşüldü</small></div>
+      <div class="kpi"><span>Pazar mesaisi</span><b class="${otCls(s.pazar)}">${otTxt(s.pazar)}</b><small>${s.pzDays} gün · ücrette ×1,5 sayılır</small></div>
+      <div class="kpi"><span>Bu ay toplam</span><b class="${otCls(s.normal+s.pazar)}">${otTxt(s.normal+s.pazar)}</b><small>saat olarak</small></div>
+    </div>${warnHtml(s)}<div class="sect"><h3>📅 Günlerim</h3>${otDays(rows,false)}</div>`;
+    bindNav(); return;
+  }
+
+  const list=cfg.persons.map(p=>{ const rows=p.rows.filter(inM); return {...p, rows, s:otSum(rows), rate:rateFor(p.key,mF)}; }).filter(p=>p.active||p.rows.length);
+  const pay=p=>p.rate==null?null:p.rate/60*p.s.weighted;
+  const tot=list.reduce((a,p)=>a+Math.max(0,pay(p)||0),0);
+  if(!S.otPerson || !list.find(p=>p.key===S.otPerson)) S.otPerson=list[0]?.key||null;
+  const sel=list.find(p=>p.key===S.otPerson);
+  const noTable=S.ratesErr?`<div class="lockbar">Saatlik ücret tablosu bulunamadı — Supabase'de <b>mesai SQL</b>'ini çalıştır. Saatler yine de aşağıda.</div>`:"";
+  el.innerHTML=head+noTable+`
+    <div class="tblwrap"><table class="compact ottbl"><tr><th>Kişi</th><th>Gün</th><th>Normal</th><th>Pazar</th><th>Ücrete esas</th><th>Saatlik ₺</th><th>Ek ödeme</th></tr>
+      ${list.map(p=>`<tr class="${p.key===S.otPerson?"otsel":""}"><td><a href="#" data-otp="${esc(p.key)}" style="display:inline-flex;gap:6px;align-items:center">${p.badge||""}${esc(p.name)}</a>${(p.s.bad.length||p.s.miss.length)?` <span title="Eksik/hatalı saat var">⚠</span>`:""}</td>
+        <td>${p.s.days+p.s.pzDays}</td><td class="${otCls(p.s.normal)}">${otTxt(p.s.normal)}</td><td class="${otCls(p.s.pazar)}">${otTxt(p.s.pazar)}</td>
+        <td class="${otCls(p.s.weighted)}"><b>${otTxt(p.s.weighted)}</b></td>
+        <td><input type="number" inputmode="decimal" min="0" step="0.01" class="otrate" data-rate="${esc(p.key)}" value="${p.rate??""}" placeholder="—"></td>
+        <td data-pay="${esc(p.key)}">${payCell(pay(p))}</td></tr>`).join("")}
+      <tr class="ottot"><td colspan="6">Toplam ek ödeme</td><td id="otTotal"><b>${otTl(tot)}</b></td></tr>
+    </table></div>
+    <div class="note">Ücrete esas = normal + pazar × 1,5. Girdiğin saatlik ücret <b>${trMonth(mF)}</b> ayından itibaren geçerli olur; sonraki aylar yeni ücret girilene kadar bunu kullanır. Ekip ücretleri görmez, sadece kendi saatlerini görür.</div>
+    <button class="btn" id="otSave">💾 Ücretleri kaydet</button>
+    ${sel?`<div class="sect" style="margin-top:18px"><h3>📅 ${esc(sel.name)} · ${trMonth(mF)}</h3>${warnHtml(sel.s)}${otDays(sel.rows,true)}<div class="note">Güne tıklayınca o günün kaydı açılır; saati oradan düzeltebilirsin.</div></div>`:""}`;
+  bindNav(); if(sel) bindJump(sel);
+  el.querySelectorAll("[data-otp]").forEach(a=>a.onclick=e=>{ e.preventDefault(); S.otPerson=a.dataset.otp; renderMesaiView(el,cfg); });
+  const recalc=()=>{ let t=0; list.forEach(p=>{ const v=el.querySelector(`[data-rate="${CSS.escape(p.key)}"]`).value; const r=v===""?null:+v; const x=r==null?null:r/60*p.s.weighted; t+=Math.max(0,x||0);
+    const td=el.querySelector(`[data-pay="${CSS.escape(p.key)}"]`); td.innerHTML=payCell(x); }); $("otTotal").innerHTML=`<b>${otTl(t)}</b>`; };
+  el.querySelectorAll(".otrate").forEach(i=>i.oninput=recalc);
+  $("otSave").onclick=async ()=>{
+    if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
+    const rows=[]; list.forEach(p=>{ const v=el.querySelector(`[data-rate="${CSS.escape(p.key)}"]`).value; if(v==="") return; const h=+v; if(!(h>=0)) return;
+      if(h!==p.rate) rows.push({person:p.key, month:mF, hourly:h, updated_by:S.profile?.id||null, updated_at:nowIso()}); });
+    if(!rows.length){ toast("Değişen ücret yok."); return; }
+    $("otSave").disabled=true;
+    try{
+      if(!DEMO){ const {error}=await sb.from("pay_rates").upsert(rows,{onConflict:"person,month"}); if(error) throw error; }
+      S.rates=(S.rates||[]).filter(r=>!rows.some(x=>x.person===r.person&&x.month===r.month)).concat(rows);
+      toast(`${rows.length} ücret kaydedildi ✓`); renderMesaiView(el,cfg);
+    }catch(e){ toast("Hata: "+(e?.message||e)); $("otSave").disabled=false; }
+  };
+}
+async function loadRates(){
+  S.rates=[]; S.ratesErr=null;
+  if(DEMO) return;
+  const {data,error}=await sb.from("pay_rates").select("*");
+  if(error) S.ratesErr=error.message; else S.rates=data||[];
+}
+
+function renderMesai(){
+  const el=$("tabMesai"); if(!el) return;
+  // ortakların (yönetici/ortak hesabına bağlı harfler) mesai ücreti olmaz
+  const bosses=new Set((S.profiles||[]).filter(p=>["admin","partner"].includes(p.role)&&p.initial).map(p=>p.initial));
+  const persons=KRE_INIS().filter(k=>!bosses.has(k)).map(k=>({key:"kre:"+k, id:k, name:OWNERS[k].name, active:true, badge:ownBadge(k), rows:S.kdaily.filter(r=>r.initial===k)}));
+  const me=myIni();
+  renderMesaiView(el,{admin:kreAdmin(), persons, me:(me&&OWNERS[me])?persons.find(p=>p.id===me):null,
+    jump:(p,day)=>{ S.gunIni=p.id; S.gunDay=day; S.tab="gun"; renderAll(); window.scrollTo(0,0); }});
 }
 function renderPuan(){
   const el=$("tabPuan"); if(!el) return;

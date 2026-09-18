@@ -444,3 +444,26 @@ create policy "ks_update" on public.kre_scores for update
 
 -- kontrol: bugünün Türkiye tarihi
 select public.tr_today() as turkiye_bugun;
+
+-- ============================================================
+-- v1.9 MESAİ ÜCRETLERİ (operasyon + kreatif, tek seferde çalıştır)
+-- Kişi başı saatlik mesai ücreti. Sadece yönetici + ortaklar görür/yazar;
+-- ekip üyeleri bu tabloyu hiç okuyamaz (sadece kendi saatlerini görür).
+-- person: 'ops:<ops_members.id>' ya da 'kre:<harf>'
+-- month : ücretin geçerli olmaya başladığı ayın 1'i
+-- ============================================================
+create table if not exists public.pay_rates (
+  person     text not null,
+  month      date not null,
+  hourly     numeric not null check (hourly >= 0),
+  updated_by uuid references auth.users on delete set null,
+  updated_at timestamptz default now(),
+  primary key (person, month)
+);
+alter table public.pay_rates enable row level security;
+drop policy if exists "pay_rates_admin" on public.pay_rates;
+create policy "pay_rates_admin" on public.pay_rates for all
+  using      (coalesce(public.my_role() in ('admin','partner'), false))
+  with check (coalesce(public.my_role() in ('admin','partner'), false));
+
+select 'pay_rates hazir' as durum;
