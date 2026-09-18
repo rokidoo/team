@@ -1220,20 +1220,34 @@ async function ensureProfile() {
   profile.is_realadmin = act && profile.role === "admin";
 }
 
+// Supabase tek istekte en çok 1000 satır döndürür; hepsini sayfa sayfa çeker
+async function pageAll(table, build) {
+  let out = [], from = 0;
+  while (true) {
+    let q = sb.from(table).select("*");
+    if (build) q = build(q);
+    const { data, error } = await q.range(from, from + 999);
+    if (error) throw error;
+    out.push(...(data || []));
+    if (!data || data.length < 1000) break;
+    from += 1000;
+  }
+  return out;
+}
 async function reloadAll() {
   const [p, c, t, ib, ta] = await Promise.all([
-    sb.from("profiles").select("*"),
-    sb.from("categories").select("*").order("sort_order"),
-    sb.from("tasks").select("*").order("created_at", { ascending:true }),
-    sb.from("inbox_notes").select("*").eq("user_id", me.id).order("created_at", { ascending:false }),
-    sb.from("task_assignees").select("*"),
+    pageAll("profiles"),
+    pageAll("categories", q => q.order("sort_order")),
+    pageAll("tasks", q => q.order("created_at", { ascending:true })),
+    pageAll("inbox_notes", q => q.eq("user_id", me.id).order("created_at", { ascending:false })),
+    pageAll("task_assignees"),
   ]);
-  profiles = {}; (p.data||[]).forEach(x => { x.is_admin = ["admin","partner"].includes(x.role); profiles[x.id] = x; });
-  categories = c.data || [];
-  tasks = t.data || [];
-  inboxNotes = ib.data || [];
+  profiles = {}; (p||[]).forEach(x => { x.is_admin = ["admin","partner"].includes(x.role); profiles[x.id] = x; });
+  categories = c || [];
+  tasks = t || [];
+  inboxNotes = ib || [];
   taskAssigneesMap = {};
-  (ta.data||[]).forEach(row => {
+  (ta||[]).forEach(row => {
     (taskAssigneesMap[row.task_id] ||= []).push(row.user_id);
   });
 }
