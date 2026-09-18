@@ -1187,6 +1187,7 @@ const VM = {
     {k:"msg",   l:"Mesaj",            f:msgOf,                perDay:true},
     {k:"ord",   l:"Mesajdan sipariş", f:ordOf,                perDay:true},
     {k:"conv",  l:"Sipariş dönüşümü", ratio:[ordOf,msgOf]},
+    {k:"undel", l:"Teslim edilmeyen · bakmadı", f:r=>r.undel_nolook||0, perDay:true, better:"down"},
     {k:"score", l:"Ekip puanı",       score:true},
     {k:"late",  l:"Geç gelme",        f:r=>mins(r.in_time)>LATE_MIN?1:0, late:true, better:"down"},
     {k:"ot",    l:"Mesai",            f:otMin, dur:true},
