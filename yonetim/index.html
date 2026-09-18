@@ -363,13 +363,16 @@
     #categoriesPanel{ order: 4; }
     #metricsPanel   { order: 5; }
     #teamPanel      { order: 6; }
-    #profilePanel   { order: 7; margin-bottom: 0; }
+    #backupPanel    { order: 7; }
+    #profilePanel   { order: 8; margin-bottom: 0; }
   }
   @media (max-width: 640px) {
     .quickadd input[type=text] { flex: 1 1 100%; }
     .modal { padding: 18px; max-height: 92vh; }
     .field.row { flex-direction: column; gap: 12px !important; }
   }
+  .backup-note{font-size:12px;line-height:1.5;color:var(--ink-soft)}
+  .backup-note.warn{color:#b4530a;font-weight:700}
   .hub{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 20px;background:var(--card);border-bottom:1px solid var(--line, #e5e2da)}
   .hub-lbl{font-size:12px;font-weight:800;color:var(--ink-soft)}
   .hub-link{text-decoration:none;font-size:12px;padding:6px 10px}
@@ -566,6 +569,15 @@
               <span class="count-chip" id="teamCount">0</span>
             </div>
             <div class="cat-list" id="teamList"></div>
+          </div>
+
+          <div class="panel" id="backupPanel" style="display:none">
+            <div class="panel-head">
+              <h3>Yedek</h3>
+              <span class="count-chip" id="backupWhen">-</span>
+            </div>
+            <div class="backup-note" id="backupNote">Tüm panellerin verisini tek dosyada bilgisayarına indirir. Ayda bir basman yeterli.</div>
+            <button class="btn btn-ghost full" id="backupBtn" style="margin-top:10px">⬇️ Yedek indir</button>
           </div>
 
           <div class="panel" id="categoriesPanel">
@@ -1286,6 +1298,8 @@ function renderMe() {
   $("#qaExtraRow").style.display = profile.is_admin ? "" : "none";
   $("#qaPersonalRow").style.display = profile.is_admin ? "flex" : "none";
   $("#teamPanel").style.display = profile.is_admin ? "" : "none";
+  $("#backupPanel").style.display = profile.is_realadmin ? "" : "none";
+  if (profile.is_realadmin) renderBackupInfo();
 }
 
 function scopedTasks() {
@@ -1571,6 +1585,116 @@ async function deleteUser(id) {
   if (data && data.ok === false) { toast("Silinemedi: " + data.error); return; }
   toast("Kullanıcı silindi"); reloadAndRender();
 }
+/* ============================================================
+   YEDEK — tüm tabloları tek JSON dosyası olarak indirir (sadece admin)
+   ============================================================ */
+const BACKUP_TABLES = [
+  // görev sistemi (yönetim)
+  "profiles","categories","tasks","task_assignees","task_comments",
+  "inbox_notes","personal_blocks","push_subscriptions",
+  // operasyon
+  "ops_members","ops_settings","ops_daily","ops_scores","ops_checks","ops_check_items",
+  "ops_duty","ops_team_daily","ops_voice","ops_stock","ops_brands","ops_products",
+  "ops_assignments","ops_awards","ops_tasks",
+  // kreatif
+  "weeks","creatives","weekly_results","weekly_financials","hooks","team_members",
+  "links","link_imports","pipeline_cards","idea_pool",
+  "kre_daily","kre_scores","kre_requests","kre_settings",
+  // ortaklar (eski)
+  "prt_daily","prt_tasks",
+];
+
+async function backupTable(t) {
+  const probe = await sb.from(t).select("*").limit(1);
+  if (probe.error) return { __err: probe.error.message, __code: probe.error.code };
+  const cols = (probe.data && probe.data[0]) ? Object.keys(probe.data[0]) : [];
+  const orderCol = ["id","created_at","date","day","week_id","member"].find(k => cols.includes(k)) || cols[0] || null;
+  let out = [], from = 0;
+  while (true) {
+    let q = sb.from(t).select("*");
+    if (orderCol) q = q.order(orderCol);
+    const { data, error } = await q.range(from, from + 999);
+    if (error) return { __err: error.message, __code: error.code };
+    out.push(...(data || []));
+    if (!data || data.length < 1000) break;
+    from += 1000;
+  }
+  return out;
+}
+
+// "tablo yok" hatasi ile gercek hatayi ayirir (kullanilmayan eski tablolar uyari uretmesin)
+function backupMissing(msg, code) {
+  return code === "PGRST205" || code === "42P01" ||
+         /does not exist|could not find the table|schema cache/i.test(msg || "");
+}
+
+async function downloadBackup() {
+  if (!profile.is_realadmin) return;
+  const btn = $("#backupBtn");
+  btn.disabled = true;
+  const dump = {
+    app: "remaks-yedek", version: 1,
+    project: SUPABASE_URL,
+    exported_at: new Date().toISOString(),
+    exported_by: profile.name || me.email,
+    tables: {}, counts: {}, errors: {}, missing: [],
+  };
+  let done = 0;
+  for (const t of BACKUP_TABLES) {
+    btn.textContent = `Yedek alınıyor… ${++done}/${BACKUP_TABLES.length}`;
+    try {
+      const rows = await backupTable(t);
+      if (rows && rows.__err) {
+        if (backupMissing(rows.__err, rows.__code)) dump.missing.push(t);
+        else dump.errors[t] = rows.__err;
+        continue;
+      }
+      dump.tables[t] = rows;
+      dump.counts[t] = rows.length;
+    } catch (e) {
+      dump.errors[t] = e.message || String(e);
+    }
+  }
+  const total = Object.values(dump.counts).reduce((a, b) => a + b, 0);
+  const blob = new Blob([JSON.stringify(dump, null, 1)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const d = new Date(), z = n => String(n).padStart(2, "0");
+  a.download = `remaks-yedek-${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+
+  try { localStorage.setItem("remaks_last_backup", new Date().toISOString()); } catch (e) {}
+  btn.disabled = false;
+  btn.textContent = "\u2b07\ufe0f Yedek indir";
+  renderBackupInfo();
+  const errCount = Object.keys(dump.errors).length;
+  toast(`Yedek indirildi: ${total.toLocaleString("tr-TR")} satır` + (errCount ? ` (${errCount} tablo okunamadı)` : " \u2705"));
+}
+
+function renderBackupInfo() {
+  const chip = $("#backupWhen"), note = $("#backupNote");
+  if (!chip || !note) return;
+  let last = null;
+  try { last = localStorage.getItem("remaks_last_backup"); } catch (e) {}
+  if (!last) {
+    chip.textContent = "yok";
+    note.className = "backup-note warn";
+    note.textContent = "Bu bilgisayarda hiç yedek alınmamış. Bir kez indir, sonra ayda bir tekrarla.";
+    return;
+  }
+  const days = Math.floor((Date.now() - new Date(last).getTime()) / 86400000);
+  chip.textContent = days === 0 ? "bugün" : days + " gün";
+  if (days >= 30) {
+    note.className = "backup-note warn";
+    note.textContent = `Son yedek ${days} gün önce alındı. Yeni bir yedek indirmenin zamanı.`;
+  } else {
+    note.className = "backup-note";
+    note.textContent = "Tüm panellerin verisini tek dosyada bilgisayarına indirir. Ayda bir basman yeterli.";
+  }
+}
+
 async function deleteNote(id) {
   const { error } = await sb.from("inbox_notes").delete().eq("id", id);
   if (error) { toast("Hata: " + error.message); return; }
@@ -1845,6 +1969,7 @@ $("#qaTitle").addEventListener("keydown", e => { if (e.key === "Enter") $("#qaAd
 function renderSwatches() {
   $("#colorSwatches").innerHTML = SWATCHES.map(c => `<div class="swatch ${c===selectedSwatch?'sel':''}" style="background:${c}" data-swatch="${c}"></div>`).join("");
 }
+$("#backupBtn").addEventListener("click", downloadBackup);
 $("#addCatBtn").addEventListener("click", () => {
   $("#catForm").reset(); selectedSwatch = SWATCHES[0]; renderSwatches();
   openM($("#catOverlay")); setTimeout(()=>$("#catName").focus(),100);
