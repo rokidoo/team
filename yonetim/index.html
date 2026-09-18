@@ -455,6 +455,38 @@
   #reportArea .secthead{display:flex;align-items:center;gap:10px;margin:26px 0 12px}
   #reportArea .secthead h2{margin:0;font-size:1.2rem}
   #reportArea .secthead a{font-size:.74rem;font-weight:800;color:var(--cobalt);text-decoration:none;margin-left:auto}
+  #reportArea .vmbar-row{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:6px}
+  #reportArea .vmbar-row .filters{margin:0;padding:4px 2px}
+  #reportArea .vmsel{border:var(--b2);border-radius:99px;padding:7px 12px;font-family:var(--fb);font-weight:800;font-size:.75rem;background:var(--card)}
+  #reportArea .vmtiles{grid-template-columns:repeat(2,1fr)}
+  @media(min-width:700px){ #reportArea .vmtiles{grid-template-columns:repeat(3,1fr)} }
+  @media(min-width:1100px){ #reportArea .vmtiles{grid-template-columns:repeat(5,1fr)} }
+  #reportArea .vmtile{text-align:left;cursor:pointer;font-family:var(--fb);color:var(--ink)}
+  #reportArea .vmtile b{font-family:var(--fh);font-variant-numeric:normal}
+  #reportArea .vmtile.on{background:var(--cobalt-s);outline:3px solid var(--cobalt);outline-offset:-3px}
+  #reportArea .vmd{display:inline-flex;gap:4px;align-items:center;font-size:.72rem;font-weight:800;font-family:var(--fm);color:var(--ink);white-space:nowrap}
+  #reportArea .vmd i{font-style:normal}
+  #reportArea .kpi span.vmd{display:inline-flex;text-transform:none;letter-spacing:0;font-size:.72rem;color:var(--ink);margin-top:2px}
+  #reportArea .vg{color:#15803D} #reportArea .vb{color:#C2410C} #reportArea .mut{color:var(--mut)}
+  #reportArea .vmchartwrap{position:relative;overflow-x:auto;margin-top:8px}
+  #reportArea .vmchart{display:block;min-width:100%}
+  #reportArea .vmgrid{stroke:#E6E2DA;stroke-width:1} #reportArea .vmbase{stroke:#B9B4AA;stroke-width:1}
+  #reportArea .vmax{fill:var(--mut);font-size:10px;font-family:var(--fm)}
+  #reportArea .vmval{fill:var(--ink);font-size:11px;font-weight:800;font-family:var(--fb)}
+  #reportArea .vmbar{fill:#2F5DFF} #reportArea .vmbar.cur{fill:#2F5DFF;opacity:.4}
+  #reportArea .vmhit{fill:transparent;cursor:pointer;outline:none} #reportArea .vmhit:focus{fill:rgba(47,93,255,.08)}
+  #reportArea .vmtip{position:absolute;top:0;width:170px;background:var(--ink);color:#fff;border-radius:10px;padding:8px 10px;font-size:.72rem;line-height:1.45;pointer-events:none;z-index:2}
+  #reportArea .vmtip .vmd{color:#fff} #reportArea .vmtip .vg{color:#86EFAC} #reportArea .vmtip .vb{color:#FDBA74}
+  #reportArea .vmtbl td,#reportArea .vmtbl th{white-space:nowrap;font-variant-numeric:tabular-nums}
+  #reportArea .vmtbl tr.vmcur td{background:var(--gray-s)}
+  #reportArea .vmtbl a{color:var(--ink);font-weight:800;text-decoration:none}
+  #reportArea .anp{margin:6px 0 10px;font-size:.88rem;line-height:1.55}
+  #reportArea .anul{margin:6px 0 0;padding-left:18px;font-size:.84rem;line-height:1.55}
+  #reportArea .anwrap{white-space:normal!important;min-width:220px}
+  #reportArea .anhead{display:flex;align-items:center;gap:10px} #reportArea .anhead h3{margin:0 0 6px;font-family:var(--fh)}
+  #reportArea .anold{margin-bottom:10px} #reportArea .anold summary{cursor:pointer;font-weight:800;font-family:var(--fh)}
+  #reportArea .anlatest{margin-bottom:14px}
+  #reportArea .linkbtn{margin-left:auto;background:none;border:none;color:var(--mut);font-weight:800;cursor:pointer;font-size:.72rem;text-decoration:underline}
   #reportArea .demo{background:var(--mustard-s); border:var(--b2); font-size:.74rem; font-weight:700; padding:9px 13px; border-radius:12px; margin-bottom:16px}
   #reportArea .late{color:var(--red); font-weight:800}
   #reportArea .up{color:var(--green)} #reportArea .down{color:var(--red)}
@@ -543,6 +575,7 @@
       <div id="tabGunluk" class="hidden"></div>
       <div id="tabOzet" class="hidden"></div>
       <div id="tabRapor" class="hidden"></div>
+      <div id="tabVerim" class="hidden"></div>
     </div>
 
     <!-- ============ TAKIM PANOSU ============ -->
@@ -786,6 +819,7 @@ function renderHub(){
       <button data-main="gunluk" class="${mainTab==="gunluk"?"active":""}">📝 Günlük</button>
       <button data-main="ozet" class="${mainTab==="ozet"?"active":""}">📊 Özet</button>
       <button data-main="rapor" class="${mainTab==="rapor"?"active":""}">👤 Kişisel</button>
+      <button data-main="verim" class="${mainTab==="verim"?"active":""}">📈 Verimlilik</button>
     </div>` : "";
   el.innerHTML = tabs + links;
   el.style.display = (tabs || links) ? "flex" : "none";
@@ -963,6 +997,8 @@ async function loadAll(){
     tryAll("ops_voice",q=>q.gte("day",since)), tryAll("ops_stock"), tryAll("ops_products"), tryAll("ops_assignments"),
   ]);
   Object.assign(S.o,{members:members||[],daily:odaily||[],scores:oscores||[],team:oteam||[],checks:ochecks||[],tasks:[],voice:ovoice||[],stock:ostock||[],products:oprod||[],assign:oassign||[]});
+  // analiz dosyaları (tablo yoksa sessizce: Verimlilik sekmesi uyarı gösterir)
+  { const {data,error}=await sb.from("analyses").select("*"); S.analyses=data||[]; S.anErr=error?error.message:null; }
   // operasyon ekibinin işleri: ortak tasks tablosundan, üye hesabına göre
   S.o.tasks=unifyTasks(S.tasksRaw,S.assigneesRaw).map(t=>{ const m=S.o.members.find(x=>x.user_id===t.assigned_to); return m?{...t,member_id:m.id}:null; }).filter(Boolean);
 }
@@ -1122,6 +1158,244 @@ function renderRapor(){
 }
 
 
+/* ================= VERİMLİLİK (haftalık / aylık gidişat + analiz dosyaları) ================= */
+// metrik tanımları. f: günlük kayıttan değer · perDay: "gün başına" modunda kişi-gün ortalaması · better:"down" = azalması iyi
+const VM = {
+  o:[
+    {k:"cargo", l:"Kargo",            f:r=>r.cargo||0,        perDay:true},
+    {k:"call",  l:"Arama",            f:r=>r.call_total||0,   perDay:true},
+    {k:"msg",   l:"Mesaj",            f:msgOf,                perDay:true},
+    {k:"ord",   l:"Mesajdan sipariş", f:ordOf,                perDay:true},
+    {k:"conv",  l:"Sipariş dönüşümü", ratio:[ordOf,msgOf]},
+    {k:"score", l:"Ekip puanı",       score:true},
+    {k:"late",  l:"Geç gelme",        f:r=>mins(r.in_time)>LATE_MIN?1:0, late:true, better:"down"},
+    {k:"ot",    l:"Mesai",            f:otMin, dur:true},
+    {k:"days",  l:"Doldurulan gün",   days:true},
+  ],
+  k:[
+    {k:"prod",  l:"Toplam üretim",    f:prodOf, perDay:true},
+    {k:"newv",  l:"Sıfır video",      f:r=>r.new_video||0, perDay:true},
+    {k:"newi",  l:"Sıfır görsel",     f:r=>r.new_image||0, perDay:true},
+    {k:"var",   l:"Varyasyon",        f:r=>(r.var_video||0)+(r.var_image||0), perDay:true},
+    {k:"newc",  l:"Yayına giren kreatif", cr:"new"},
+    {k:"win",   l:"Winner",           cr:"win"},
+    {k:"score", l:"Ekip puanı",       score:true},
+    {k:"late",  l:"Geç gelme",        f:r=>mins(r.in_time)>LATE_MIN?1:0, late:true, better:"down"},
+    {k:"ot",    l:"Mesai",            f:otMin, dur:true},
+    {k:"days",  l:"Doldurulan gün",   days:true},
+  ],
+};
+const vmTeam=()=>S.vmTeam||"o";
+const vmMode=()=>S.vmMode||"gun";
+function vmPeople(t){
+  if(t==="o") return S.o.members.filter(m=>m.active||S.o.daily.some(x=>x.member_id===m.id)).map(m=>({key:m.id,name:m.name}));
+  const has=k=>S.k.daily.some(x=>x.initial===k)||S.k.creatives.some(c=>ownersOf(c).includes(k));
+  return S.k.team.filter(t=>has(t.initial)).map(t=>({key:t.initial,name:t.name}));
+}
+function vmRows(t,person,[a,b]){
+  const D=t==="o"?S.o.daily:S.k.daily;
+  return D.filter(x=>x.day>=a&&x.day<=b&&(!person||(t==="o"?x.member_id===person:x.initial===person)));
+}
+// bir dönem için metrik değeri (null = veri yok)
+function vmVal(t,m,person,range){
+  const mode=vmMode(); const [a,b]=range;
+  if(m.cr){
+    const own=c=>!person||ownersOf(c).includes(person);
+    if(m.cr==="new"){ const fs=firstSeen(); return Object.entries(fs).filter(([c,w])=>w>=monday(a)&&w<=b&&own(S.k.creatives.find(x=>x.code===c)||{})).length; }
+    const set=new Set(S.k.results.filter(r=>r.week>=monday(a)&&r.week<=b&&WIN.includes(r.status_at_week)).map(r=>r.creative_code));
+    return [...set].filter(c=>own(S.k.creatives.find(x=>x.code===c)||{owner_initial:"?"})).length;
+  }
+  if(m.score){
+    const SC=(t==="o"?S.o.scores.filter(s=>s.day>=a&&s.day<=b&&(!person||s.ratee_id===person)):S.k.scores.filter(s=>s.day>=a&&s.day<=b&&(!person||s.ratee===person))).filter(s=>s.score!=null).map(s=>s.score);
+    return SC.length?avg(SC):null;
+  }
+  // ekip kargosu: kişilerin yazdığı değil, Kargo sekmesindeki gerçek günlük toplam (varsa)
+  if(t==="o"&&m.k==="cargo"&&!person){
+    const TD=S.o.team.filter(x=>x.day>=a&&x.day<=b&&x.cargo_total!=null);
+    if(TD.length){ const tot=sum(TD,x=>x.cargo_total); return mode==="gun"?tot/TD.length:tot; }
+  }
+  const R=vmRows(t,person,range);
+  if(m.days) return R.length;
+  if(!R.length) return null;
+  if(m.ratio){ const den=sum(R,m.ratio[1]); return den?sum(R,m.ratio[0])/den:null; }
+  const tot=sum(R,m.f);
+  // iş metrikleri: gün başına ekip toplamı (kişi seçiliyse kendi günü başına) · mesai ve geç gelme: kişi-gün başına
+  if(mode==="gun"&&m.perDay) return tot/new Set(R.map(r=>r.day)).size;
+  if(mode==="gun"&&(m.dur||m.late)) return tot/R.length;
+  return tot;
+}
+function vmFmt(m,v){
+  if(v==null) return "—";
+  const mode=vmMode();
+  if(m.ratio) return nf1.format(v*100)+"%";
+  if(m.score) return nf1.format(v);
+  if(m.dur) return otTxt(v);
+  if(m.late) return mode==="gun"?nf1.format(v*100)+"% gün":nf.format(v);
+  if(m.perDay&&mode==="gun") return nf1.format(v);
+  return nf.format(Math.round(v));
+}
+// değişim: önceki döneme göre
+function vmDelta(m,cur,prev){
+  if(cur==null||prev==null) return null;
+  const up=cur>prev, eq=Math.abs(cur-prev)<1e-9;
+  const good=eq?null:(m.better==="down"?!up:up);
+  let txt;
+  if(m.ratio||(m.late&&vmMode()==="gun")) txt=(cur-prev>=0?"+":"−")+nf1.format(Math.abs(cur-prev)*100)+" puan";
+  else if(m.score) txt=(cur-prev>=0?"+":"−")+nf1.format(Math.abs(cur-prev));
+  else if(m.dur) txt=otTxt(cur-prev);
+  else if(!prev) txt=cur?"yeni":"0";
+  else txt=(cur>=prev?"+":"−")+nf.format(Math.round(Math.abs((cur-prev)/prev)*100))+"%";
+  return {eq,up,good,txt};
+}
+const vmArrow=d=>!d?`<span class="vmd mut">—</span>`:d.eq?`<span class="vmd mut">＝ 0</span>`:`<span class="vmd"><i class="${d.good?"vg":"vb"}">${d.up?"▲":"▼"}</i>${esc(d.txt)}</span>`;
+function vmPeriods(t,per){
+  const D=t==="o"?S.o.daily:S.k.daily;
+  let first=D.reduce((a,x)=>x.day<a?x.day:a,today()); if(first<"2026-06-01") first="2026-06-01";
+  const out=[]; const now=today();
+  if(per==="hafta"){ for(let m=monday(first); m<=now; m=addDays(m,7)){ const b=addDays(m,6); out.push({a:m,b,lbl:trShort(m),long:`${trDate(m)} – ${trDate(b)}`,cur:now<=b}); } }
+  else { const d=new Date(first.slice(0,8)+"01T00:00:00"); while(iso(d)<=now){ const a=iso(d), b=monthEnd(a); out.push({a,b,lbl:d.toLocaleDateString("tr-TR",{month:"short"}),long:trMonth(a),cur:now<=b}); d.setMonth(d.getMonth()+1); } }
+  return out;
+}
+// sütun grafiği (tek seri, tek renk) + tablo ikizi aşağıda
+function vmChart(ps,vals,m){
+  const n=ps.length, band=46, L=54, R=14, T=18, B=34, H=230, W=L+n*band+R, bw=22;
+  const nums=vals.filter(v=>v!=null); const hi=Math.max(0,...nums), lo=Math.min(0,...nums);
+  const step=(x=>{ if(x<=0) return 1; const e=Math.pow(10,Math.floor(Math.log10(x))); const f=x/e; return (f<=1?1:f<=2?2:f<=5?5:10)*e; })((hi-lo)/4||1);
+  const top=Math.ceil(hi/step)*step||step, bot=Math.floor(lo/step)*step;
+  const y=v=>T+(top-v)/(top-bot)*(H-T-B);
+  const ticks=[]; for(let v=bot; v<=top+1e-9; v+=step) ticks.push(v);
+  const lab=v=>m.dur?otTxt(v).replace("+",""):m.ratio||(m.late&&vmMode()==="gun")?nf.format(Math.round(v*100))+"%":nf1.format(v);
+  const lastDone=ps.map((p,i)=>!p.cur&&vals[i]!=null?i:-1).filter(i=>i>=0).pop();
+  const maxI=vals.indexOf(Math.max(...nums));
+  let g=ticks.map(v=>`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" class="vmgrid"/><text x="${L-8}" y="${y(v)+4}" class="vmax" text-anchor="end">${lab(v)}</text>`).join("");
+  ps.forEach((p,i)=>{
+    const v=vals[i]; const x=L+i*band+(band-bw)/2, cx=L+i*band+band/2;
+    if(v!=null&&v!==0){
+      const y0=y(0), y1=y(v), r=Math.min(4,Math.abs(y0-y1));
+      const d = v>0 ? `M${x},${y0}V${y1+r}Q${x},${y1} ${x+r},${y1}H${x+bw-r}Q${x+bw},${y1} ${x+bw},${y1+r}V${y0}Z`
+                    : `M${x},${y0}V${y1-r}Q${x},${y1} ${x+r},${y1}H${x+bw-r}Q${x+bw},${y1} ${x+bw},${y1-r}V${y0}Z`;
+      g+=`<path d="${d}" class="vmbar${p.cur?" cur":""}"/>`;
+      if(i===lastDone||i===maxI) g+=`<text x="${cx}" y="${v>0?y1-6:y1+14}" class="vmval" text-anchor="middle">${esc(vmFmt(m,v))}</text>`;
+    }
+    g+=`<text x="${cx}" y="${H-B+16}" class="vmax" text-anchor="middle">${esc(p.lbl)}</text>`;
+    if(p.cur) g+=`<text x="${cx}" y="${H-B+28}" class="vmax" text-anchor="middle">sürüyor</text>`;
+    g+=`<rect x="${L+i*band}" y="${T}" width="${band}" height="${H-T-B}" class="vmhit" data-i="${i}" tabindex="0"/>`;
+  });
+  g+=`<line x1="${L}" x2="${W-R}" y1="${y(0)}" y2="${y(0)}" class="vmbase"/>`;
+  return `<div class="vmchartwrap"><svg class="vmchart" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(m.l)} dönem grafiği">${g}</svg><div class="vmtip" id="vmTip" hidden></div></div>`;
+}
+function renderVerim(){
+  const el=$("tabVerim"); const t=vmTeam(), per=S.vmPer||"hafta", mode=vmMode();
+  const Ms=VM[t]; if(!Ms.find(m=>m.k===S.vmMetric)) S.vmMetric=Ms[0].k;
+  const m=Ms.find(x=>x.k===S.vmMetric);
+  const people=vmPeople(t); if(S.vmPerson&&!people.find(p=>p.key===S.vmPerson)) S.vmPerson="";
+  const person=S.vmPerson||null;
+  const ps=vmPeriods(t,per);
+  const done=ps.filter(p=>!p.cur); const last=done[done.length-1], prev=done[done.length-2], curP=ps.find(p=>p.cur);
+  const perName=per==="hafta"?"hafta":"ay";
+  const tile=x=>{ const c=last?vmVal(t,x,person,[last.a,last.b]):null, pv=prev?vmVal(t,x,person,[prev.a,prev.b]):null, now=curP?vmVal(t,x,person,[curP.a,curP.b]):null;
+    return `<button class="kpi vmtile ${x.k===m.k?"on":""}" data-vm="${x.k}"><span>${esc(x.l)}</span><b>${esc(vmFmt(x,c))}</b>${vmArrow(vmDelta(x,c,pv))}<small>önceki ${esc(vmFmt(x,pv))}${curP?` · bu ${perName} ${esc(vmFmt(x,now))}`:""}</small></button>`; };
+  const vals=ps.map(p=>vmVal(t,m,person,[p.a,p.b]));
+  // dönem tablosu (grafiğin tablo ikizi + tüm metrikler)
+  const cols=Ms.filter(x=>!x.days).slice(0,6).concat(Ms.filter(x=>x.days));
+  const ptab=`<div class="tblwrap"><table class="compact vmtbl"><tr><th>${per==="hafta"?"Hafta":"Ay"}</th>${cols.map(x=>`<th>${esc(x.l)}</th>`).join("")}</tr>
+    ${[...ps].reverse().map((p,ri)=>{ const i=ps.length-1-ri; const pp=ps[i-1];
+      return `<tr class="${p.cur?"vmcur":""}"><td>${esc(p.long)}${p.cur?" <small>(sürüyor)</small>":""}</td>${cols.map(x=>{ const v=vmVal(t,x,person,[p.a,p.b]); const pv=pp?vmVal(t,x,person,[pp.a,pp.b]):null; return `<td>${esc(vmFmt(x,v))}${p.cur?"":" "+vmArrow(vmDelta(x,v,pv))}</td>`; }).join("")}</tr>`; }).join("")}
+  </table></div>`;
+  // kişi tablosu: seçili metrik, son 6 dönem
+  const last6=ps.slice(-6);
+  const pers=`<div class="tblwrap"><table class="compact vmtbl"><tr><th>Kişi</th>${last6.map(p=>`<th>${esc(p.lbl)}${p.cur?"*":""}</th>`).join("")}<th>Son ${perName} değişim</th></tr>
+    ${people.map(pp=>{ const vs=last6.map(p=>vmVal(t,m,pp.key,[p.a,p.b])); const c=last?vmVal(t,m,pp.key,[last.a,last.b]):null, pv=prev?vmVal(t,m,pp.key,[prev.a,prev.b]):null;
+      return `<tr><td><a href="#" data-vmp="${esc(pp.key)}">${esc(pp.name)}</a></td>${vs.map(v=>`<td>${esc(vmFmt(m,v))}</td>`).join("")}<td>${vmArrow(vmDelta(m,c,pv))}</td></tr>`; }).join("")||`<tr><td colspan="9">Kişi yok</td></tr>`}
+  </table></div><div class="mini">* sürüyor — tamamlanmamış dönem. Değişim, tamamlanan son ${perName} ile bir öncekini karşılaştırır.</div>`;
+  el.innerHTML=`
+    <h2>Verimlilik</h2><div class="sub">İki ekibin haftalık ve aylık gidişatı — artış mı, azalış mı. Kutuya tıklayınca grafik o metriğe geçer.</div>
+    <div class="vmbar-row">
+      <div class="filters">${[["o","🏭 Operasyon"],["k","🎬 Kreatif"]].map(([k,l])=>`<button class="fchip ${t===k?"on":""}" data-vt="${k}">${l}</button>`).join("")}</div>
+      <div class="filters">${[["hafta","Haftalık"],["ay","Aylık"]].map(([k,l])=>`<button class="fchip ${per===k?"on":""}" data-vper="${k}">${l}</button>`).join("")}</div>
+      <div class="filters">${[["gun","Günlük ortalama"],["toplam","Toplam"]].map(([k,l])=>`<button class="fchip ${mode===k?"on":""}" data-vmode="${k}">${l}</button>`).join("")}</div>
+      <select id="vmPerson" class="vmsel"><option value="">Tüm ekip</option>${people.map(p=>opt(p.key,p.name,S.vmPerson||"")).join("")}</select>
+    </div>
+    ${S.missing.length?`<div class="mini" style="margin-bottom:10px">Okunamayan tablolar: ${esc(S.missing.map(x=>x.split(":")[0]).join(", "))}</div>`:""}
+    <div class="mini" style="margin:-4px 0 12px">${last?`Karşılaştırma: <b>${esc(last.long)}</b> ↔ ${prev?esc(prev.long):"—"}`:"Henüz tamamlanmış dönem yok."}${mode==="gun"?` · Günlük ortalama: ${person?"kişinin çalıştığı gün başına":"iş günü başına ekip toplamı"}; mesai ve geç gelme kişi başına. Eksik günler ve yarım hafta sonucu bozmasın diye.`:""}</div>
+    <div class="kpis vmtiles">${Ms.map(tile).join("")}</div>
+    <div class="card" style="margin-bottom:18px"><div class="flabel">${esc(m.l)} · ${mode==="gun"&&(m.perDay||m.dur||m.late)?"günlük ortalama":"toplam"} · ${per==="hafta"?"haftalık":"aylık"}${person?" · "+esc(people.find(p=>p.key===person)?.name||""):""}</div>${vals.some(v=>v!=null)?vmChart(ps,vals,m):`<div class="empty">Bu seçim için veri yok.</div>`}</div>
+    <div class="secthead"><h2>👥 Kişi bazlı · ${esc(m.l)}</h2></div>${pers}
+    <div class="secthead"><h2>📅 Dönem tablosu</h2></div>${ptab}
+    <div class="secthead"><h2>🧠 Analizler</h2></div>
+    <div class="vmbar-row"><button class="btn btn-ghost" id="anUp">📥 Analiz dosyası yükle</button><button class="btn btn-ghost" id="anData">⬇️ Analiz verisi indir</button><input type="file" id="anFile" accept=".json,application/json" hidden></div>
+    <div class="mini" style="margin:6px 0 14px">Her hafta: <b>Analiz verisi indir</b> → dosyayı Claude'a ver → Claude'un verdiği analiz dosyasını <b>Analiz dosyası yükle</b> ile ekle. Aynı hafta tekrar yüklenirse eskisinin yerine geçer.</div>
+    ${anList()}`;
+  // olaylar
+  el.querySelectorAll("[data-vt]").forEach(b=>b.onclick=()=>{ S.vmTeam=b.dataset.vt; S.vmPerson=""; renderVerim(); });
+  el.querySelectorAll("[data-vper]").forEach(b=>b.onclick=()=>{ S.vmPer=b.dataset.vper; renderVerim(); });
+  el.querySelectorAll("[data-vmode]").forEach(b=>b.onclick=()=>{ S.vmMode=b.dataset.vmode; renderVerim(); });
+  el.querySelectorAll("[data-vm]").forEach(b=>b.onclick=()=>{ S.vmMetric=b.dataset.vm; renderVerim(); });
+  el.querySelectorAll("[data-vmp]").forEach(a=>a.onclick=e=>{ e.preventDefault(); S.vmPerson=a.dataset.vmp; renderVerim(); window.scrollTo(0,0); });
+  $("vmPerson").onchange=e=>{ S.vmPerson=e.target.value; renderVerim(); };
+  const tip=$("vmTip");
+  if(tip) el.querySelectorAll(".vmhit").forEach(h=>{
+    const showTip=()=>{ const i=+h.dataset.i, p=ps[i], v=vals[i], pv=i?vals[i-1]:null; const d=p.cur?null:vmDelta(m,v,pv);
+      tip.innerHTML=`<b>${esc(p.long)}</b>${p.cur?" <small>(sürüyor)</small>":""}<br>${esc(m.l)}: <b>${esc(vmFmt(m,v))}</b>${d?`<br>önceki döneme göre ${vmArrow(d)}`:""}`;
+      tip.hidden=false; const wrap=h.closest(".vmchartwrap"); const r=h.getBoundingClientRect(), w=wrap.getBoundingClientRect();
+      tip.style.left=Math.min(Math.max(0,r.left-w.left+wrap.scrollLeft+r.width/2-80), wrap.scrollWidth-170)+"px"; };
+    h.addEventListener("mouseenter",showTip); h.addEventListener("focus",showTip);
+    h.addEventListener("mouseleave",()=>tip.hidden=true); h.addEventListener("blur",()=>tip.hidden=true);
+  });
+  $("anUp").onclick=()=>$("anFile").click();
+  $("anFile").onchange=e=>{ const f=e.target.files[0]; if(f) anUpload(f); e.target.value=""; };
+  $("anData").onclick=anExport;
+  el.querySelectorAll("[data-andel]").forEach(b=>b.onclick=()=>anDelete(b.dataset.andel));
+}
+/* ---- analiz dosyaları ---- */
+function anBody(a){
+  const b=a.body||{}; const li=xs=>(xs||[]).map(x=>`<li>${esc(x)}</li>`).join("");
+  const trend=x=>x==="up"?`<i class="vg">▲</i>`:x==="down"?`<i class="vb">▼</i>`:`<span class="mut">＝</span>`;
+  return `${b.summary?`<p class="anp">${esc(b.summary)}</p>`:""}
+    ${(b.headline||[]).length?`<div class="kpis">${b.headline.map(h=>`<div class="kpi"><span>${esc(h.label)}</span><b>${esc(h.value)}</b>${h.change?`<span class="vmd"><i class="${h.good===false?"vb":h.good===true?"vg":"mut"}">${h.trend==="down"?"▼":h.trend==="up"?"▲":"＝"}</i>${esc(h.change)}</span>`:""}${h.note?`<small>${esc(h.note)}</small>`:""}</div>`).join("")}</div>`:""}
+    ${(b.teams||[]).map(s=>`<div class="card" style="margin-bottom:12px"><div class="flabel">${s.team==="kreatif"?"🎬 Kreatif":s.team==="operasyon"?"🏭 Operasyon":esc(s.team||"")}${s.title?" · "+esc(s.title):""}</div>${s.summary?`<p class="anp">${esc(s.summary)}</p>`:""}${(s.points||[]).length?`<ul class="anul">${li(s.points)}</ul>`:""}</div>`).join("")}
+    ${(b.people||[]).length?`<div class="tblwrap" style="margin-bottom:12px"><table class="compact vmtbl"><tr><th>Kişi</th><th>Ekip</th><th>Gidişat</th><th>Not</th></tr>${b.people.map(p=>`<tr><td><b>${esc(p.name)}</b></td><td>${esc(p.team==="kreatif"?"Kreatif":p.team==="operasyon"?"Operasyon":p.team||"")}</td><td>${trend(p.trend)}</td><td class="anwrap">${esc(p.note||"")}</td></tr>`).join("")}</table></div>`:""}
+    <div class="cards">
+      ${(b.risks||[]).length?`<div class="card"><div class="flabel">⚠ Dikkat</div><ul class="anul">${li(b.risks)}</ul></div>`:""}
+      ${(b.actions||[]).length?`<div class="card"><div class="flabel">✅ Önerilen adımlar</div><ul class="anul">${li(b.actions)}</ul></div>`:""}
+    </div>`;
+}
+function anList(){
+  if(S.anErr) return `<div class="empty">Analiz tablosu bulunamadı — Supabase'de <b>verimlilik SQL</b>'ini çalıştır.<br><small>${esc(S.anErr)}</small></div>`;
+  const xs=[...(S.analyses||[])].sort((a,b)=>a.period_start<b.period_start?1:-1);
+  if(!xs.length) return `<div class="empty">Henüz analiz yüklenmedi.</div>`;
+  const hd=a=>`${esc(a.title)} <small class="mut">· ${a.kind==="aylik"?trMonth(a.period_start):`${trDate(a.period_start)} – ${trDate(a.period_end)}`}</small>`;
+  const del=a=>isAdmin()?`<button class="linkbtn" data-andel="${a.id}">sil</button>`:"";
+  return `<div class="card anlatest"><div class="anhead"><h3>${hd(xs[0])}</h3>${del(xs[0])}</div>${anBody(xs[0])}</div>
+    ${xs.slice(1).map(a=>`<details class="card anold"><summary>${hd(a)}</summary><div class="anhead">${del(a)}</div>${anBody(a)}</details>`).join("")}`;
+}
+async function anUpload(file){
+  let j; try{ j=JSON.parse(await file.text()); }catch(e){ toast("Dosya okunamadı: geçerli bir JSON değil."); return; }
+  if(j?.type!=="remaks-analiz"||!j.period_start||!j.title){ toast("Bu bir analiz dosyası değil (type: remaks-analiz bekleniyor)."); return; }
+  const row={kind:j.kind==="aylik"?"aylik":"haftalik", period_start:j.period_start, period_end:j.period_end||j.period_start, title:String(j.title).slice(0,200), body:j, created_by:S.profile?.id||null};
+  const {data,error}=await sb.from("analyses").upsert(row,{onConflict:"kind,period_start"}).select().single();
+  if(error){ toast("Yüklenemedi: "+error.message); return; }
+  S.analyses=(S.analyses||[]).filter(a=>!(a.kind===data.kind&&a.period_start===data.period_start)).concat(data); S.anErr=null;
+  toast("Analiz eklendi ✓"); renderVerim();
+}
+async function anDelete(id){
+  if(!confirm("Bu analiz silinsin mi?")) return;
+  const {error}=await sb.from("analyses").delete().eq("id",id);
+  if(error){ toast("Silinemedi: "+error.message); return; }
+  S.analyses=S.analyses.filter(a=>a.id!==id); renderVerim();
+}
+function anExport(){
+  const pick=(o,ks)=>Object.fromEntries(ks.filter(k=>k in o).map(k=>[k,o[k]]));
+  const out={type:"remaks-analiz-verisi", version:1, exported_at:new Date().toISOString(), from:"2026-06-01", to:today(),
+    operasyon:{ members:S.o.members.map(m=>pick(m,["id","name","active","tasks","sort"])), daily:S.o.daily, scores:S.o.scores, team:S.o.team,
+      checks:S.o.checks.map(c=>pick(c,["day","item","done_by","done_at"])), voice:S.o.voice.map(v=>pick(v,["day","kind","brand","tags"])), stock:S.o.stock, products:S.o.products },
+    kreatif:{ team:S.k.team.map(t=>pick(t,["initial","name"])), daily:S.k.daily, scores:S.k.scores, weeks:S.k.weeks, creatives:S.k.creatives, results:S.k.results, fins:S.k.fins },
+    analyses:(S.analyses||[]).map(a=>pick(a,["kind","period_start","period_end","title"])) };
+  const blob=new Blob([JSON.stringify(out)],{type:"application/json"}); const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download=`remaks-analiz-verisi-${today()}.json`; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),4000); toast("Analiz verisi indirildi — bu dosyayı Claude'a ver.");
+}
+
 /* ---- Ortak günlüğü (ortaklar panelinden taşındı) ---- */
 function renderGunluk(){
   const el=$("tabGunluk"); const day=S.day;
@@ -1156,7 +1430,7 @@ function renderGunluk(){
   };
 }
 let loaded=false, loading=false;
-const VIEWS={gunluk:["tabGunluk",renderGunluk], ozet:["tabOzet",renderOzet], rapor:["tabRapor",renderRapor]};
+const VIEWS={gunluk:["tabGunluk",renderGunluk], ozet:["tabOzet",renderOzet], rapor:["tabRapor",renderRapor], verim:["tabVerim",renderVerim]};
 async function show(tab){
   S.profile = profile; S.tab = tab;
   Object.entries(VIEWS).forEach(([k,v])=>$(v[0]).classList.toggle("hidden", k!==tab));
@@ -1607,8 +1881,8 @@ const BACKUP_TABLES = [
   "kre_daily","kre_scores","kre_requests","kre_settings",
   // ortaklar (eski)
   "prt_daily","prt_tasks",
-  // mesai ücretleri
-  "pay_rates",
+  // mesai ücretleri, analizler
+  "pay_rates","analyses",
 ];
 
 async function backupTable(t) {
