@@ -612,41 +612,58 @@ function demoData(){
 }
 
 /* ================= SUPABASE VERİ ================= */
+// Supabase API'si tek istekte en çok 1000 satır döndürür; hepsini sayfa sayfa çeker
+async function fetchAll(table, build){
+  let out=[], from=0;
+  while(true){
+    let q = sb.from(table).select("*");
+    if(build) q = build(q);
+    const {data,error} = await q.range(from, from+999);
+    if(error) throw error;
+    out.push(...(data||[]));
+    if(!data || data.length<1000) break;
+    from += 1000;
+  }
+  return out;
+}
+const tryAll = async (table, build)=>{ try{ return await fetchAll(table, build); }catch(e){ return {__err:e.message}; } };
+
 async function loadAll(){
   const [w,c,r,h,t] = await Promise.all([
-    sb.from("weeks").select("*").order("week",{ascending:false}),
-    sb.from("creatives").select("*").order("created_at",{ascending:false}),
-    sb.from("weekly_results").select("*"),
-    sb.from("hooks").select("*").order("updated_at",{ascending:false}),
-    sb.from("team_members").select("*").order("sort"),
+    tryAll("weeks",      q=>q.order("week",{ascending:false})),
+    tryAll("creatives",  q=>q.order("created_at",{ascending:false})),
+    tryAll("weekly_results"),
+    tryAll("hooks",      q=>q.order("updated_at",{ascending:false})),
+    tryAll("team_members", q=>q.order("sort")),
   ]);
-  S.weeks=w.data||[]; S.creatives=c.data||[]; S.results=r.data||[]; S.hooks=h.data||[];
-  if(t.error){ S.teamTable=false; }
-  else { S.teamTable=true; if(t.data?.length) OWNERS = Object.fromEntries(t.data.map(m=>[m.initial, mkOwner(m.name, m.color||"#FFC53D")])); }
+  S.weeks=Array.isArray(w)?w:[]; S.creatives=Array.isArray(c)?c:[]; S.results=Array.isArray(r)?r:[]; S.hooks=Array.isArray(h)?h:[];
+  if(!Array.isArray(t)){ S.teamTable=false; }
+  else { S.teamTable=true; if(t.length) OWNERS = Object.fromEntries(t.map(m=>[m.initial, mkOwner(m.name, m.color||"#FFC53D")])); }
   const [pc, ip] = await Promise.all([
-    sb.from("pipeline_cards").select("*").order("created_at",{ascending:false}),
-    sb.from("idea_pool").select("*").order("created_at",{ascending:false}),
+    tryAll("pipeline_cards", q=>q.order("created_at",{ascending:false})),
+    tryAll("idea_pool",      q=>q.order("created_at",{ascending:false})),
   ]);
-  if(pc.error || ip.error){ S.prodTables=false; S.pipeline=[]; S.ideas=[]; }
-  else { S.prodTables=true; S.pipeline=pc.data||[]; S.ideas=ip.data||[]; }
-  const ln = await sb.from("links").select("*").order("created_at",{ascending:false});
-  if(ln.error){ S.linksTable=false; S.links=[]; } else { S.linksTable=true; S.links=ln.data||[]; }
+  if(!Array.isArray(pc) || !Array.isArray(ip)){ S.prodTables=false; S.pipeline=[]; S.ideas=[]; }
+  else { S.prodTables=true; S.pipeline=pc; S.ideas=ip; }
+  const ln = await tryAll("links", q=>q.order("created_at",{ascending:false}));
+  if(!Array.isArray(ln)){ S.linksTable=false; S.links=[]; } else { S.linksTable=true; S.links=ln; }
   const li = await sb.from("link_imports").select("last_message_at").order("last_message_at",{ascending:false}).limit(1);
   if(li.error){ S.importsTable=false; S.waLast=null; } else { S.importsTable=true; S.waLast = li.data?.[0]?.last_message_at || null; }
   const [kd,ks,kr]=await Promise.all([
-    sb.from("kre_daily").select("*").order("day",{ascending:false}).limit(3000),
-    sb.from("kre_scores").select("*").order("day",{ascending:false}).limit(5000),
-    sb.from("kre_requests").select("*").order("created_at",{ascending:false}).limit(500),
+    tryAll("kre_daily",    q=>q.order("day",{ascending:false})),
+    tryAll("kre_scores",   q=>q.order("day",{ascending:false})),
+    tryAll("kre_requests", q=>q.order("created_at",{ascending:false})),
   ]);
-  if(kd.error||ks.error||kr.error){ S.kreTables=false; S.kdaily=[]; S.kscores=[]; S.kreq=[]; }
-  else { S.kreTables=true; S.kdaily=kd.data||[]; S.kscores=ks.data||[]; S.kreq=kr.data||[]; }
+  if(!Array.isArray(kd)||!Array.isArray(ks)||!Array.isArray(kr)){ S.kreTables=false; S.kdaily=[]; S.kscores=[]; S.kreq=[]; }
+  else { S.kreTables=true; S.kdaily=kd; S.kscores=ks; S.kreq=kr; }
   try{ const {data:st}=await sb.from("kre_settings").select("*").eq("key","roles").maybeSingle(); if(st?.value) S.kreRoles={...S.kreRoles,...st.value}; }catch(e){}
   if(canFin()){ const {data:pr}=await sb.from("profiles").select("id,name,initial,role").order("name"); S.profiles=pr||[]; }
-  try{ const [{data:tk},{data:ta}]=await Promise.all([sb.from("tasks").select("*").order("created_at",{ascending:false}).limit(500), sb.from("task_assignees").select("*")]); S.ktasks=tk||[]; S.kassign=ta||[]; }catch(e){ S.ktasks=[]; S.kassign=[]; }
+  const [tk,ta]=await Promise.all([tryAll("tasks", q=>q.order("created_at",{ascending:false})), tryAll("task_assignees")]);
+  S.ktasks=Array.isArray(tk)?tk:[]; S.kassign=Array.isArray(ta)?ta:[];
   S.fins=[];
   if(canFin()){
-    const f = await sb.from("weekly_financials").select("*");
-    S.fins=f.data||[];
+    const f = await tryAll("weekly_financials");
+    S.fins=Array.isArray(f)?f:[];
   }
   if(!S.week && S.weeks.length) S.week=S.weeks[0].week;
 }
