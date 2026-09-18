@@ -619,6 +619,7 @@ async function loadAll(){
     Object.assign(S,{members,products,daily,scores,checks,duty,team,voice,stock, dbOk:true, dbErr:""});
     if(isAdmin()) await loadRates();
     try{ const [{data:aw},{data:st}]=await Promise.all([sb.from("ops_awards").select("*"), sb.from("ops_settings").select("*").eq("key","rank_weights").maybeSingle()]); S.awards=aw||[]; S.weights=st?.value||null; }catch(e){}
+    try{ const {data:dx}=await sb.from("ops_settings").select("*").eq("key","duty_exempt").maybeSingle(); S.dutyExempt=Array.isArray(dx?.value)?dx.value:[]; }catch(e){}
     try{ const [asg,tk,ta]=await Promise.all([fetchAll("ops_assignments"), fetchAll("tasks",q=>q.order("created_at",{ascending:false})), fetchAll("task_assignees")]); S.assign=asg||[]; S.tasks=unifyTasks(tk||[], ta||[]); }catch(e){}
     try{ const {data:br}=await sb.from("ops_brands").select("*").order("sort"); S.brands=br||[]; }catch(e){}
     try{ const {data:ci}=await sb.from("ops_check_items").select("*"); S.checkItems=ci||[]; applyCheckItems(S.checkItems); }catch(e){}
@@ -937,8 +938,11 @@ function renderPuan(){
 
 /* ================= NÖBET & KONTROL ================= */
 const DUTY_BASE = "2026-01-05"; // pazartesi
+// temizlik nöbetine girmeyenler (ör. Furkan): ops_settings.duty_exempt = [üye id]
+const dutyExempt = m=>(S.dutyExempt||[]).includes(m?.id);
+const dutyPool = ()=>actives().filter(m=>!dutyExempt(m));
 function dutyPairs(){
-  const a=actives(); const out=[];
+  const a=dutyPool(); const out=[];
   for(let i=0;i<a.length;i++) for(let j=i+1;j<a.length;j++) out.push([a[i],a[j]]);
   // her turda farklı kişiler denk gelsin diye sırayı karıştır (deterministik)
   return out.sort((p,q)=>((p[0].sort+p[1].sort*3)%7)-((q[0].sort+q[1].sort*3)%7));
@@ -1036,7 +1040,7 @@ function renderKontrol(){
   const dmAuto=()=>{
     modal(`<h3>Aylık nöbet listesi · otomatik</h3><div class="sub">İsimleri sırayla yaz (her satıra bir isim). Sıra, ay boyunca ikili nöbetin dönüş sırası olur; herkes herkesle eşit sayıda denk gelir.</div>
       <div class="flabel">Ay</div><input type="month" id="dm_month" value="${mFirst.slice(0,7)}">
-      <div class="flabel">İsimler (sırayla)</div><textarea id="dm_names" rows="7">${actives().map(m=>esc(m.name)).join("\n")}</textarea>
+      <div class="flabel">İsimler (sırayla)</div><textarea id="dm_names" rows="7">${dutyPool().map(m=>esc(m.name)).join("\n")}</textarea>
       <div class="btnrow"><button class="btn ghost" id="dmPaste">← Hazır tabloyu yapıştır</button><button class="btn" id="dmSave">Listeyi oluştur</button></div>`);
     $("dmPaste").onclick=()=>openRosterPaste();
     $("dmSave").onclick=async ()=>{
@@ -1089,7 +1093,8 @@ function renderKontrol(){
         (P.errs.size?`<div style="color:var(--red);font-weight:800;margin-top:6px">Bulunamayan: ${[...P.errs].map(([n,e])=>`${esc(n)} (${e})`).join(", ")} — önce Ekip sekmesinden ekle ya da adı düzelt.</div>`:"")+
         (P.bad.length?`<div style="color:var(--red);font-weight:800;margin-top:6px">Okunamayan satır: ${P.bad.map(esc).join(" · ")}</div>`:"")+
         (P.dup.length?`<div style="color:var(--red);font-weight:800;margin-top:6px">Aynı tarih iki kez: ${P.dup.map(trShort).join(", ")}</div>`:"")+
-        (P.sun.length?`<div style="margin-top:6px">Pazar satırları atlandı: ${P.sun.map(trShort).join(", ")}</div>`:"");
+        (P.sun.length?`<div style="margin-top:6px">Pazar satırları atlandı: ${P.sun.map(trShort).join(", ")}</div>`:"")+
+        (()=>{ const ex=[...new Set(P.rows.flatMap(r=>[r.a,r.b]).filter(m=>m&&dutyExempt(m)).map(m=>m.name))]; return ex.length?`<div style="margin-top:6px;font-weight:800">⚠ ${ex.map(esc).join(", ")} temizlik nöbetine girmiyor olarak işaretli; yine de kaydedersen listeye göre nöbet alır.</div>`:""; })();
       $("rpSave").disabled=!ok; };
     $("rpAuto").onclick=()=>dmAuto();
     $("rpSave").onclick=async ()=>{
@@ -1314,7 +1319,7 @@ function renderEkip(){
   const d14=[...Array(14)].map((_,i)=>addDays(today(),-i)).filter(d=>dow(d)!==0);
   const card=m=>{ const n=d14.filter(d=>dailyOf(m.id,d)).length; return `
     <div class="card"><div class="mcard">${av(m,"big")}<div style="flex:1"><div class="nm">${esc(m.name)}</div><div class="tk">${esc(m.tasks||"—")}</div>
-      <div class="mrow">${myRoles(m).map(k=>`<span class="pill">${ROLES[k].i} ${esc(ROLES[k].l)}</span>`).join("")}<span class="m">Son 14 gün doldurma <b>${n}/${d14.length}</b></span><span class="m">${m.user_id?"🔗 hesap bağlı":"⚠️ hesap bağlı değil"}</span>${m.active?"":chip("pasif","var(--gray-s)")}</div></div>
+      <div class="mrow">${myRoles(m).map(k=>`<span class="pill">${ROLES[k].i} ${esc(ROLES[k].l)}</span>`).join("")}<span class="m">Son 14 gün doldurma <b>${n}/${d14.length}</b></span><span class="m">${m.user_id?"🔗 hesap bağlı":"⚠️ hesap bağlı değil"}</span>${dutyExempt(m)?`<span class="m">🧹 temizlik nöbeti yok</span>`:""}${m.active?"":chip("pasif","var(--gray-s)")}</div></div>
       ${isAdmin()?`<button class="editbtn" data-medit="${m.id}">✏️</button>`:""}</div></div>`; };
   el.innerHTML=`
     <h2>Ekip</h2>
@@ -1338,7 +1343,8 @@ async function openMemberModal(id){
     <div class="flabel">Görevleri</div><input id="m_tasks" value="${esc(m.tasks||"")}">
     <div class="frow"><div><div class="flabel">Renk</div><input type="color" id="m_color" value="${m.color||"#FFC53D"}" style="height:46px;padding:4px"></div><div><div class="flabel">Sıra</div><input type="number" id="m_sort" value="${m.sort||0}"></div></div>
     <div class="flabel">Bağlı hesap</div><select id="m_user">${opt("","— bağlı değil —",m.user_id||"")}${profiles.map(p=>opt(p.id,`${p.name} (${p.role})`,m.user_id||"")).join("")}</select>
-    <label style="font-weight:800;font-size:.85rem;display:flex;align-items:center;gap:8px;margin-bottom:14px"><input type="checkbox" id="m_active" ${m.active?"checked":""} style="width:auto;margin:0">Aktif (ekipte)</label>
+    <label style="font-weight:800;font-size:.85rem;display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="checkbox" id="m_active" ${m.active?"checked":""} style="width:auto;margin:0">Aktif (ekipte)</label>
+    <label style="font-weight:800;font-size:.85rem;display:flex;align-items:center;gap:8px;margin-bottom:14px"><input type="checkbox" id="m_duty" ${id&&dutyExempt(m)?"":"checked"} style="width:auto;margin:0">Temizlik nöbetine girer</label>
     <button class="btn" id="mSave">Kaydet</button>`);
   $("mSave").onclick=async ()=>{
     const row={key:(id?m.key:$("m_key").value.trim().toLowerCase()), name:$("m_name").value.trim(), tasks:$("m_tasks").value.trim()||null, color:$("m_color").value, sort:numOrNull($("m_sort").value)||0, active:$("m_active").checked, user_id:$("m_user").value||null};
@@ -1348,6 +1354,12 @@ async function openMemberModal(id){
       else{ const {data,error}=await sb.from("ops_members").upsert(row,{onConflict:"key"}).select().single(); if(error) throw error;
         const i=S.members.findIndex(x=>x.key===row.key); if(i>=0) S.members[i]=data; else S.members.push(data); }
       S.me = S.members.find(x=>x.user_id===S.profile?.id) || S.me;
+      const saved=S.members.find(x=>x.key===row.key); const ex=!$("m_duty").checked;
+      if(saved && ex!==dutyExempt(saved)){
+        const next=(S.dutyExempt||[]).filter(x=>x!==saved.id).concat(ex?[saved.id]:[]);
+        if(!DEMO){ const {error}=await sb.from("ops_settings").upsert({key:"duty_exempt",value:next,updated_at:nowIso()},{onConflict:"key"}); if(error) throw error; }
+        S.dutyExempt=next;
+      }
       closeModal(); renderEkip();
     }catch(e){ toast(errMsg(e)); }
   };
