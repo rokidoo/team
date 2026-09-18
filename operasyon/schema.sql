@@ -618,3 +618,32 @@ create policy "pay_rates_admin" on public.pay_rates for all
   with check (coalesce(public.my_role() in ('admin','partner'), false));
 
 select 'pay_rates hazir' as durum;
+
+-- ============================================================
+-- v2.0 ANALİZ DOSYALARI (yönetim → 📈 Verimlilik)
+-- Claude'un haftalık/aylık analiz dosyaları burada saklanır.
+-- Sadece yönetici + ortaklar görür/ekler; silmeyi yönetici yapar.
+-- ============================================================
+create table if not exists public.analyses (
+  id           uuid primary key default gen_random_uuid(),
+  kind         text not null default 'haftalik',   -- haftalik | aylik
+  period_start date not null,
+  period_end   date not null,
+  title        text not null,
+  body         jsonb not null,
+  created_by   uuid references auth.users on delete set null,
+  created_at   timestamptz default now(),
+  unique (kind, period_start)
+);
+alter table public.analyses enable row level security;
+drop policy if exists "an_select" on public.analyses;
+drop policy if exists "an_insert" on public.analyses;
+drop policy if exists "an_update" on public.analyses;
+drop policy if exists "an_delete" on public.analyses;
+create policy "an_select" on public.analyses for select using (coalesce(public.my_role() in ('admin','partner'), false));
+create policy "an_insert" on public.analyses for insert with check (coalesce(public.my_role() in ('admin','partner'), false));
+create policy "an_update" on public.analyses for update
+  using (coalesce(public.my_role() in ('admin','partner'), false)) with check (coalesce(public.my_role() in ('admin','partner'), false));
+create policy "an_delete" on public.analyses for delete using (coalesce(public.my_role() = 'admin', false));
+
+select 'analyses hazir' as durum;

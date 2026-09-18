@@ -1032,11 +1032,13 @@ function renderKontrol(){
       renderKontrol();
     }catch(e){ toast(errMsg(e)); }
   });
-  const dm=$("dutyMonth"); if(dm) dm.onclick=()=>{
-    modal(`<h3>Aylık nöbet listesi</h3><div class="sub">İsimleri sırayla yaz (her satıra bir isim). Sıra, ay boyunca ikili nöbetin dönüş sırası olur; herkes herkesle eşit sayıda denk gelir.</div>
+  const dm=$("dutyMonth"); if(dm) dm.onclick=()=>openRosterPaste();
+  const dmAuto=()=>{
+    modal(`<h3>Aylık nöbet listesi · otomatik</h3><div class="sub">İsimleri sırayla yaz (her satıra bir isim). Sıra, ay boyunca ikili nöbetin dönüş sırası olur; herkes herkesle eşit sayıda denk gelir.</div>
       <div class="flabel">Ay</div><input type="month" id="dm_month" value="${mFirst.slice(0,7)}">
       <div class="flabel">İsimler (sırayla)</div><textarea id="dm_names" rows="7">${actives().map(m=>esc(m.name)).join("\n")}</textarea>
-      <button class="btn" id="dmSave">Listeyi oluştur</button>`);
+      <div class="btnrow"><button class="btn ghost" id="dmPaste">← Hazır tabloyu yapıştır</button><button class="btn" id="dmSave">Listeyi oluştur</button></div>`);
+    $("dmPaste").onclick=()=>openRosterPaste();
     $("dmSave").onclick=async ()=>{
       if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
       const first=$("dm_month").value+"-01"; if(!/^\d{4}-\d{2}-01$/.test(first)){ toast("Ay seç."); return; }
@@ -1053,6 +1055,54 @@ function renderKontrol(){
       catch(e){ toast(errMsg(e)); }
     };
   };
+  // hazır tablo: "17.09.2026 | Perşembe | Besra | Anıl" satırlarını gün gün aynen kaydeder
+  function openRosterPaste(){
+    modal(`<h3>Nöbet / temizlik listesi yükle</h3><div class="sub">Hazır listeyi olduğu gibi yapıştır. Her satırda tarih ve iki kişi olsun, ör. <code>17.09.2026 | Perşembe | Besra | Anıl</code>. Başlık ve özet satırları kendiliğinden atlanır; ay sınırı fark etmez.</div>
+      <textarea id="rp_text" rows="10" placeholder="17.09.2026 | Perşembe | Besra | Anıl"></textarea>
+      <div id="rp_prev" class="note" style="margin-top:6px">Listeyi yapıştır, önizleme burada çıkar.</div>
+      <div class="btnrow"><button class="btn ghost" id="rpAuto">Sıradan otomatik oluştur →</button><button class="btn" id="rpSave" disabled>Listeyi kaydet</button></div>`);
+    let parsed=null;
+    const findM=n=>{ const q=n.trim().toLocaleLowerCase("tr"); if(!q) return {err:"boş"};
+      const ex=S.members.filter(x=>x.name.toLocaleLowerCase("tr")===q); if(ex.length===1) return {m:ex[0]};
+      const fn=S.members.filter(x=>x.name.toLocaleLowerCase("tr").split(/\s+/)[0]===q); if(fn.length===1) return {m:fn[0]};
+      const sw=S.members.filter(x=>x.name.toLocaleLowerCase("tr").startsWith(q)); if(sw.length===1) return {m:sw[0]};
+      return {err:(ex.length+fn.length+sw.length)>1?"birden fazla kişiyle eşleşti":"ekipte yok"}; };
+    const parse=txt=>{ const rows=[], bad=[], sun=[], dup=[], errs=new Map(); const seen=new Set();
+      txt.split(/\n/).forEach(line=>{ const dm=line.match(/^\s*(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})/); if(!dm) return;   // sadece tarihle başlayan satırlar (başlık/dönem satırı atlanır)
+        const day=`${dm[3]}-${pad(+dm[2])}-${pad(+dm[1])}`;
+        let parts=line.slice(dm.index+dm[0].length).split(/\s*[|\t;]\s*/).map(x=>x.trim()).filter(Boolean);
+        if(parts.length<2) parts=line.slice(dm.index+dm[0].length).trim().split(/\s+/);
+        const names=parts.slice(-2);
+        if(names.length<2){ bad.push(line.trim()); return; }
+        if(dow(day)===0){ sun.push(day); return; }
+        if(seen.has(day)){ dup.push(day); return; } seen.add(day);
+        const A=findM(names[0]), B=findM(names[1]);
+        [[names[0],A],[names[1],B]].forEach(([n,r])=>{ if(r.err) errs.set(n,r.err); });
+        if(A.m&&B.m&&A.m.id===B.m.id){ bad.push(`${trShort(day)}: aynı kişi iki kez`); return; }
+        rows.push({day, a:A.m, b:B.m}); });
+      return {rows:rows.sort((x,y)=>x.day<y.day?-1:1), bad, sun, dup, errs}; };
+    $("rp_text").oninput=()=>{ parsed=parse($("rp_text").value); const P=parsed, ok=P.rows.length&&!P.errs.size&&!P.bad.length&&!P.dup.length;
+      const cnt={}; P.rows.forEach(r=>[r.a,r.b].forEach(m=>{ if(m) cnt[m.name]=(cnt[m.name]||0)+1; }));
+      $("rp_prev").innerHTML = !P.rows.length&&!P.errs.size ? "Tarihli satır bulunamadı." :
+        `<b>${P.rows.length} gün</b>${P.rows.length?` · ${trDate(P.rows[0].day)} – ${trDate(P.rows[P.rows.length-1].day)}`:""}<br>`+
+        Object.entries(cnt).sort((x,y)=>y[1]-x[1]).map(([n,c])=>`${esc(n)}: ${c}`).join(" · ")+
+        (P.errs.size?`<div style="color:var(--red);font-weight:800;margin-top:6px">Bulunamayan: ${[...P.errs].map(([n,e])=>`${esc(n)} (${e})`).join(", ")} — önce Ekip sekmesinden ekle ya da adı düzelt.</div>`:"")+
+        (P.bad.length?`<div style="color:var(--red);font-weight:800;margin-top:6px">Okunamayan satır: ${P.bad.map(esc).join(" · ")}</div>`:"")+
+        (P.dup.length?`<div style="color:var(--red);font-weight:800;margin-top:6px">Aynı tarih iki kez: ${P.dup.map(trShort).join(", ")}</div>`:"")+
+        (P.sun.length?`<div style="margin-top:6px">Pazar satırları atlandı: ${P.sun.map(trShort).join(", ")}</div>`:"");
+      $("rpSave").disabled=!ok; };
+    $("rpAuto").onclick=()=>dmAuto();
+    $("rpSave").onclick=async ()=>{
+      if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
+      if(!parsed||!parsed.rows.length) return;
+      const rows=parsed.rows.map(r=>({day:r.day, a_id:r.a.id, b_id:r.b.id, updated_at:nowIso()}));
+      $("rpSave").disabled=true;
+      try{ await upsert("ops_duty",rows,"day"); const days=new Set(rows.map(r=>r.day)); S.duty=S.duty.filter(x=>!days.has(x.day)).concat(rows);
+        const f=rows[0].day, l=rows[rows.length-1].day; S.kontrolDay=f<=today()&&today()<=l?today():f;
+        closeModal(); toast(`${rows.length} günlük liste kaydedildi ✓`); renderKontrol(); }
+      catch(e){ toast(errMsg(e)); $("rpSave").disabled=false; }
+    };
+  }
   const dc=$("dutyClear"); if(dc) dc.onclick=async ()=>{
     if(!confirm(trMonth(mFirst)+" nöbet listesi silinsin mi? Otomatik sıraya dönülür.")) return;
     try{ if(!DEMO){ const {error}=await sb.from("ops_duty").delete().gte("day",mFirst).lte("day",mLast); if(error) throw error; } S.duty=S.duty.filter(x=>!inRange(x.day,[mFirst,mLast])); renderKontrol(); }catch(e){ toast(errMsg(e)); }
