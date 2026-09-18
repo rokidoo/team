@@ -849,6 +849,8 @@ function renderMesai(){
     jump:(p,day)=>{ S.gunMember=p.id; S.day=day; S.tab="gun"; renderAll(); window.scrollTo(0,0); }});
 }
 
+// "teslim edilmeyen arama · bakmadı" sütunu SQL çalıştırıldıysa vardır (yoksa alan gizli, kayıt bozulmaz)
+const undelCol = ()=>DEMO || S.daily.some(r=>"undel_nolook" in r);
 /* ================= GÜNÜM ================= */
 function gunMember(){
   if(isAdmin()){ return memById(S.gunMember) || S.me || actives()[0] || null; }
@@ -878,7 +880,7 @@ function renderGun(){
         </div></div>
       <div class="sect"><h3>📦 Kargo & 📞 Arama</h3>
         <div class="fgrid">
-          ${num("cargo","Kargoladığım sipariş")}${num("call_total","Arama · toplam")}${num("call_send","Arama · gönderilecek")}${num("call_nolook","Arama · bakmadı")}
+          ${num("cargo","Kargoladığım sipariş")}${num("call_total","Arama · toplam")}${num("call_send","Arama · gönderilecek")}${num("call_nolook","Arama · bakmadı")}${undelCol()?num("undel_nolook","Teslim edilmeyen arama · bakmadı"):""}
         </div></div>
       <div class="sect"><h3>💬 Mesaj kanalları</h3>
         <div class="fgrid c3">
@@ -909,6 +911,7 @@ function renderGun(){
     if(dayLocked(day)){ toast(LOCK_MSG); return; }
     const row = { member_id:m.id, day, in_time:$("g_in_time").value||null, out_time:$("g_out_time").value||null, updated_at:nowIso() };
     ["leave_min","cargo","call_total","call_send","call_nolook","wp_msg","wp_order","ig_msg","ig_order","mail_msg","mail_order"].forEach(k=>row[k]=numOrNull($("g_"+k).value));
+    if(undelCol()) row.undel_nolook=numOrNull($("g_undel_nolook").value);
     row.note=$("g_note").value.trim()||null; row.wish=$("g_wish").value.trim()||null;
     { const c=otCalc(row); row.ot_min=(c.kind==="normal"||c.kind==="pazar")?c.min:null; }
     $("gunSave").disabled=true;
@@ -1549,7 +1552,7 @@ function bindRoles(root, rerender){
   root.querySelectorAll("[data-role]").forEach(b=>b.onclick=()=>{
     const k=b.dataset.role; const h=roleHolder(k);
     modal(`<h3>${ROLES[k].i} ${esc(ROLES[k].l)}</h3><div class="sub">${esc(ROLES[k].d)}</div>
-      <select id="rl_m">${opt("","— herkes —",h?.id||"")}${actives().map(m=>opt(m.id,m.name,h?.id||"")).join("")}</select>
+      <select id="rl_m">${opt("","— herkes —",h?.id||"")}${(k==="stok"?allActive():actives()).map(m=>opt(m.id,m.name,h?.id||"")).join("")}</select>
       <button class="btn" id="rlSave">Kaydet</button>`);
     $("rlSave").onclick=async ()=>{ const row={role_key:k, member_id:$("rl_m").value||null, updated_at:nowIso()};
       try{ if(!DEMO){ const {error}=await sb.from("ops_assignments").upsert(row,{onConflict:"role_key"}); if(error) throw error; }
