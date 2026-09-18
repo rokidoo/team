@@ -351,6 +351,8 @@
     padding:9px 13px; border-radius:12px; margin-bottom:16px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;
   }
   .demo select{width:auto; margin:0; padding:5px 9px; font-size:.74rem; border-radius:9px}
+.lockbar{border:var(--b2,2px solid #121212);border-radius:12px;background:var(--mustard-s,#FFF1C9);padding:10px 14px;margin:0 0 14px;font-size:.82rem;font-weight:700;line-height:1.45}
+.locked{opacity:.6;pointer-events:none}
 </style>
 </head>
 <body>
@@ -1356,6 +1358,12 @@ function renderAll(){
 const pad = n=>String(n).padStart(2,"0");
 const iso = d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const today = ()=>iso(new Date());
+// GÜN KİLİDİ: ekip üyesi günlük kaydını ve puanlarını yalnızca o gün (Türkiye saati, 23:59'a kadar) girer/değiştirir; yönetici + ortaklar her zaman
+const trToday = ()=>new Date().toLocaleDateString("sv-SE",{timeZone:"Europe/Istanbul"});
+const dayLocked = d=>!kreAdmin() && d!==trToday();
+const LOCK_MSG = "🔒 Bu günün kaydı kapandı. Düzeltme gerekiyorsa yöneticine söyle.";
+const lockNote = d=>dayLocked(d)?`<div class="lockbar">🔒 ${d<trToday()?"Bu gün kapandı":"Bu gün henüz gelmedi"} — kayıtlar yalnızca kendi gününde, gece 23:59'a kadar girilip değiştirilebilir. Düzeltme gerekiyorsa yöneticine söyle, o düzeltir.</div>`:"";
+const lockErr = e=>/row-level security|violates|permission denied/i.test(e?.message||"") ? LOCK_MSG : "Hata: "+(e?.message||e);
 const addDays = (s,n)=>{ const d=new Date(s+"T00:00:00"); d.setDate(d.getDate()+n); return iso(d); };
 const dow = s=>new Date(s+"T00:00:00").getDay();
 const monday = s=>addDays(s, -((dow(s)+6)%7));
@@ -1407,7 +1415,8 @@ function renderGun(){
     <div class="sub">Akşam çıkmadan 2 dakikada doldur: saatler, bugün ürettiklerin, notun.</div>
     ${dayNav("gunDay", day, sel + (kreAdmin()?`<button class="btn ghost sm" id="kTaskAdd">📌 Görev ata</button>`:""))}
     ${kTaskList(ini, day)}
-    <div class="card" style="margin-bottom:16px">
+    ${lockNote(day)}
+    <div class="card ${dayLocked(day)?"locked":""}" id="gunForm" style="margin-bottom:16px">
       <div class="sect"><h3>⏰ Saatler</h3><div class="fgrid">
         <div><div class="flabel">Giriş</div><input type="time" id="g_in_time" value="${v("in_time")}"></div>
         <div><div class="flabel">Çıkış</div><input type="time" id="g_out_time" value="${v("out_time")}"></div>
@@ -1441,8 +1450,10 @@ function renderGun(){
   bindDayNav(el,"gunDay",renderGun); bindKTasks(el, renderGun);
   const ka=$("kTaskAdd"); if(ka) ka.onclick=()=>openKTaskModal(ini, renderGun);
   const gs=$("gunIni"); if(gs) gs.onchange=e=>{ S.gunIni=e.target.value; renderGun(); };
+  if(dayLocked(day)) $("gunForm").querySelectorAll("input,textarea,button").forEach(x=>x.disabled=true);
   $("gunSave").onclick=async ()=>{
     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
+    if(dayLocked(day)){ toast(LOCK_MSG); return; }
     const row={initial:ini, day, in_time:$("g_in_time").value||null, out_time:$("g_out_time").value||null, updated_at:nowIso()};
     ["leave_min","ot_min","new_video","new_image","var_video","var_image"].forEach(k=>row[k]=numOrNull($("g_"+k).value));
     row.note=$("g_note").value.trim()||null; row.wish=$("g_wish").value.trim()||null;
@@ -1452,7 +1463,7 @@ function renderGun(){
       else{ const {data,error}=await sb.from("kre_daily").upsert(row,{onConflict:"initial,day"}).select().single(); if(error) throw error;
         const i=S.kdaily.findIndex(x=>x.initial===ini&&x.day===day); if(i>=0) S.kdaily[i]=data; else S.kdaily.unshift(data); }
       toast("Kaydedildi ✓"); renderGun();
-    }catch(e){ toast("Hata: "+e.message); $("gunSave").disabled=false; }
+    }catch(e){ toast(lockErr(e)); $("gunSave").disabled=false; }
   };
   if($("rqAdd")) $("rqAdd").onclick=async ()=>{
     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
@@ -1550,20 +1561,24 @@ function renderPuan(){
   const mine=k=>S.kscores.find(s=>s.day===day&&s.rater===me&&s.ratee===k)||{};
   el.innerHTML=`<h2>Ekip Puanı</h2><div class="sub">Her akşam ekip arkadaşlarını 1–10 arası puanla. Puanlar <b>yalnızca yöneticiye</b> görünür.</div>
     ${dayNav("puanDay",day)}
+    ${lockNote(day)}
+    <div id="puanForm" class="${dayLocked(day)?"locked":""}">
     ${others.map(k=>{ const s=mine(k); return `<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:10px;align-items:center">${ownBadge(k)}<b style="font-family:var(--fh);font-size:1.05rem">${esc(OWNERS[k].name)}</b></div>
       <div class="scrow" data-ratee="${esc(k)}">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="scbtn ${s.score===n?"on":""}" data-n="${n}">${n}</button>`).join("")}</div>
       <input type="text" id="pc_${esc(k)}" placeholder="Kısa not (isteğe bağlı)" value="${esc(s.comment||"")}" style="margin-bottom:0"></div>`; }).join("")}
-    <button class="btn" id="puanSave">Puanları Kaydet</button>`;
+    <button class="btn" id="puanSave">Puanları Kaydet</button></div>`;
   bindDayNav(el,"puanDay",renderPuan);
   const picked={}; others.forEach(k=>{ const s=mine(k); if(s.score!=null) picked[k]=s.score; });
   el.querySelectorAll(".scrow").forEach(row=>row.querySelectorAll(".scbtn").forEach(b=>b.onclick=()=>{ row.querySelectorAll(".scbtn").forEach(z=>z.classList.remove("on")); b.classList.add("on"); picked[row.dataset.ratee]=+b.dataset.n; }));
+  if(dayLocked(day)) $("puanForm").querySelectorAll("input,button").forEach(x=>x.disabled=true);
   $("puanSave").onclick=async ()=>{
     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
+    if(dayLocked(day)){ toast(LOCK_MSG); return; }
     const rows=others.filter(k=>picked[k]!=null).map(k=>({day,rater:me,ratee:k,score:picked[k],comment:$("pc_"+k).value.trim()||null,updated_at:nowIso()}));
     if(!rows.length){ toast("Önce puan seç."); return; }
     try{ if(DEMO){ rows.forEach(r=>{ const i=S.kscores.findIndex(s=>s.day===r.day&&s.rater===r.rater&&s.ratee===r.ratee); if(i>=0) S.kscores[i]={...S.kscores[i],...r}; else S.kscores.unshift({id:uid(),...r}); }); }
       else{ const {data,error}=await sb.from("kre_scores").upsert(rows,{onConflict:"day,rater,ratee"}).select(); if(error) throw error; data.forEach(r=>{ const i=S.kscores.findIndex(s=>s.id===r.id); if(i>=0) S.kscores[i]=r; else S.kscores.unshift(r); }); }
-      toast(`${rows.length} puan kaydedildi ✓`); renderPuan(); }catch(e){ toast("Hata: "+e.message); }
+      toast(`${rows.length} puan kaydedildi ✓`); renderPuan(); }catch(e){ toast(lockErr(e)); }
   };
 }
 async function importKre(data, say){
