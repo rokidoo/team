@@ -135,6 +135,8 @@
   .auth-msg { font-size: 12.5px; font-weight: 600; margin-top: 8px; padding: 10px 12px; border-radius: var(--radius-sm); border: var(--border-thin); display: none; }
   .auth-msg.err { display: block; background: var(--red-soft); color: var(--red); }
   .auth-msg.ok { display: block; background: var(--green-soft); color: #15803d; }
+  .auth-link { display:block; margin-top:12px; font-size:12.5px; font-weight:700; color: var(--ink-soft); text-align:center; text-decoration:underline; cursor:pointer; }
+  .auth-hint { font-size:12.5px; font-weight:600; color: var(--ink-soft); margin: 0 0 10px; }
 
   /* ============ SETUP UYARISI ============ */
   #setup { min-height: 100vh; display: none; place-items: center; padding: 24px; }
@@ -524,6 +526,19 @@
         <div class="field"><label>E-posta</label><input type="email" id="loginEmail" autocomplete="email" /></div>
         <div class="field"><label>Şifre</label><input type="password" id="loginPass" autocomplete="current-password" /></div>
         <button type="submit" class="btn btn-primary full" id="loginBtn">Giriş Yap</button>
+        <a class="auth-link" id="goForgot">Şifremi unuttum</a>
+      </form>
+      <form id="forgotForm" style="display:none">
+        <p class="auth-hint">E-postanı yaz, şifre yenileme bağlantısı gönderelim.</p>
+        <div class="field"><label>E-posta</label><input type="email" id="fgEmail" autocomplete="email" /></div>
+        <button type="submit" class="btn btn-primary full" id="fgBtn">Bağlantı gönder</button>
+        <a class="auth-link" id="fgBack">Girişe dön</a>
+      </form>
+      <form id="resetForm" style="display:none">
+        <p class="auth-hint"><b>Yeni şifreni belirle</b></p>
+        <div class="field"><label>Yeni şifre (min. 6 karakter)</label><input type="password" id="rsPass" autocomplete="new-password" /></div>
+        <div class="field"><label>Yeni şifre (tekrar)</label><input type="password" id="rsPass2" autocomplete="new-password" /></div>
+        <button type="submit" class="btn btn-primary full" id="rsBtn">Şifreyi kaydet ve gir</button>
       </form>
       <form id="signupForm" style="display:none">
         <div class="field"><label>Ad Soyad</label><input type="text" id="suName" placeholder="Elif Yılmaz" autocomplete="name" /></div>
@@ -791,6 +806,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 /* ============================================================
    ⚙️ AYARLAR (CONFIG)
    ============================================================ */
+// şifre sıfırlama bağlantısından mı gelindi? (supabase adresi temizlemeden önce oku)
+let pwRecovery = /type=recovery/.test(location.hash + location.search);
+const pwLinkErr = (() => { try { return new URLSearchParams(location.hash.slice(1)).get("error_description") || new URLSearchParams(location.search).get("error_description"); } catch (e) { return null; } })();
 const SUPABASE_URL      = "https://ciwpxeqqrwfsuoggdync.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpd3B4ZXFxcndmc3VvZ2dkeW5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MjI4ODQsImV4cCI6MjEwMjE5ODg4NH0.S_vgxYMAjQ9RtkRHxyMJs0NG9aj94_Jn2FfaGszzTOI";
 const SHEETS_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzOfv2NX3k_KjYcVgly7BvnGcXNRN_hEYmaD0ehd74z5FCDdjwEYDA92TFX8nBZZyaSVA/exec";
@@ -1457,10 +1475,13 @@ return { show, reset };
 async function boot() {
   if (!configured()) { $("#setup").classList.add("on"); return; }
   sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  if (pwLinkErr) { showAuth(); switchAuth("forgot"); authMsg("Şifre bağlantısı geçersiz ya da süresi dolmuş. Yeni bağlantı iste."); history.replaceState(null, "", location.pathname); }
   const { data:{ session } } = await sb.auth.getSession();
-  if (session?.user) await enterApp(session.user);
-  else showAuth();
+  if (pwRecovery) showReset();
+  else if (session?.user) await enterApp(session.user);
+  else if (!pwLinkErr) showAuth();
   sb.auth.onAuthStateChange(async (_e, s) => {
+    if (_e === "PASSWORD_RECOVERY" || pwRecovery) { pwRecovery = true; showReset(); return; }
     if (s?.user) { if (me?.id !== s.user.id) await enterApp(s.user); }
     else { me = null; profile = null; showAuth(); }
   });
@@ -2139,13 +2160,47 @@ async function exportToSheets() {
 $("#tabLogin").addEventListener("click", () => switchAuth("login"));
 $("#tabSignup").addEventListener("click", () => switchAuth("signup"));
 function switchAuth(which) {
-  const login = which === "login";
-  $("#tabLogin").classList.toggle("active", login);
-  $("#tabSignup").classList.toggle("active", !login);
-  $("#loginForm").style.display  = login ? "" : "none";
-  $("#signupForm").style.display = login ? "none" : "";
+  $("#tabLogin").classList.toggle("active", which === "login");
+  $("#tabSignup").classList.toggle("active", which === "signup");
+  $("#loginForm").style.display  = which === "login"  ? "" : "none";
+  $("#signupForm").style.display = which === "signup" ? "" : "none";
+  $("#forgotForm").style.display = which === "forgot" ? "" : "none";
+  $("#resetForm").style.display  = which === "reset"  ? "" : "none";
   $("#authMsg").className = "auth-msg";
 }
+/* ---------- Şifremi unuttum ---------- */
+function showReset() {
+  $("#app").classList.remove("on");
+  $("#pendingWrap").style.display = "none";
+  $("#authWrap").style.display = "grid";
+  switchAuth("reset");
+}
+$("#goForgot").addEventListener("click", () => { switchAuth("forgot"); $("#fgEmail").value = $("#loginEmail").value; });
+$("#fgBack").addEventListener("click", () => switchAuth("login"));
+$("#forgotForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const email = $("#fgEmail").value.trim();
+  if (!/^\S+@\S+\.\S+$/.test(email)) return authMsg("Geçerli bir e-posta yaz.");
+  $("#fgBtn").disabled = true;
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+  $("#fgBtn").disabled = false;
+  if (error) return authMsg(/rate|limit|seconds/i.test(error.message) ? "Çok sık denendi. Birkaç dakika bekleyip tekrar dene." : "Gönderilemedi: " + error.message);
+  authMsg("Bağlantı gönderildi ✓ E-postanı (gerekirse spam klasörünü) kontrol et. Bağlantıya tıklayınca yeni şifreni belirleyeceksin.", true);
+});
+$("#resetForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const p1 = $("#rsPass").value, p2 = $("#rsPass2").value;
+  if (p1.length < 6) return authMsg("Şifre en az 6 karakter olmalı.");
+  if (p1 !== p2) return authMsg("İki şifre aynı değil.");
+  $("#rsBtn").disabled = true;
+  const { error } = await sb.auth.updateUser({ password: p1 });
+  $("#rsBtn").disabled = false;
+  if (error) return authMsg("Şifre kaydedilemedi: " + error.message + " — bağlantının süresi dolmuş olabilir, yeni bağlantı iste.");
+  pwRecovery = false; history.replaceState(null, "", location.pathname); $("#rsPass").value = $("#rsPass2").value = "";
+  switchAuth("login");
+  const { data:{ session } } = await sb.auth.getSession();
+  if (session?.user) await enterApp(session.user);
+});
 function authMsg(text, ok=false) { const m = $("#authMsg"); m.textContent = text; m.className = "auth-msg " + (ok?"ok":"err"); }
 
 $("#loginForm").addEventListener("submit", async e => {
