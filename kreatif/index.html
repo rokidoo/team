@@ -1725,7 +1725,9 @@ function renderPuan(){
   S.puanDay=S.puanDay||today(); const day=S.puanDay; const me=myIni();
   if(!DEMO && !S.kreTables){ el.innerHTML=`<h2>Ekip Puanı</h2><div class="empty">schema-v1.7-gunum.sql çalıştırılmamış.</div>`; return; }
   if(!me||!OWNERS[me]){ el.innerHTML=`<h2>Ekip Puanı</h2><div class="empty">${kreAdmin()?"Puanlama kreatif ekip içindir; rapor Günüm altındaki Ekip özetinde.":"Profilinde kreatif harfin yok."}</div>`; return; }
-  const others=KRE_INIS().filter(k=>k!==me);
+  // ortaklar (kre_settings.roles.unrated, ör. Çağdaş + Erdem) puanlanmaz ama kendileri puan verir
+  const unrated=new Set(S.kreRoles?.unrated||[]);
+  const others=KRE_INIS().filter(k=>k!==me && !unrated.has(k));
   const mine=k=>S.kscores.find(s=>s.day===day&&s.rater===me&&s.ratee===k)||{};
   el.innerHTML=`<h2>Ekip Puanı</h2><div class="sub">Her akşam ekip arkadaşlarını 1–10 arası puanla. Puanlar <b>yalnızca yöneticiye</b> görünür.</div>
     ${dayNav("puanDay",day)}

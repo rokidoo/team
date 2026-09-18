@@ -467,3 +467,42 @@ create policy "pay_rates_admin" on public.pay_rates for all
   with check (coalesce(public.my_role() in ('admin','partner'), false));
 
 select 'pay_rates hazir' as durum;
+
+-- ============================================================
+-- v2.2 (tek seferde çalıştır)
+-- 1) Operasyon günlüğü: "teslim edilmeyen arama · bakmadı" alanı
+-- 2) Stok sorumluluğu Uğur abiye → Stok sekmesini sadece o (ve yöneticiler) görür
+-- 3) Kreatif: Çağdaş ve Erdem puanlanamaz, kendileri puan verebilir
+-- ============================================================
+alter table public.ops_daily add column if not exists undel_nolook integer;
+
+insert into public.ops_assignments(role_key, member_id, updated_at)
+select 'stok', id, now() from public.ops_members where name ilike 'u_ur%' order by active desc limit 1
+on conflict (role_key) do update set member_id = excluded.member_id, updated_at = now();
+
+update public.kre_settings
+set value = value || jsonb_build_object('unrated',
+      (select coalesce(jsonb_agg(initial), '[]'::jsonb) from public.team_members
+        where name ilike '_a_da_%' or name ilike 'erdem%')),
+    updated_at = now()
+where key = 'roles';
+
+create or replace function public.kre_unrated(p text)
+returns boolean language sql security definer stable
+set search_path = public
+as $$ select coalesce((select (value->'unrated') ? p from public.kre_settings where key = 'roles'), false) $$;
+
+drop policy if exists "ks_insert" on public.kre_scores;
+drop policy if exists "ks_update" on public.kre_scores;
+create policy "ks_insert" on public.kre_scores for insert
+  with check (not public.kre_unrated(ratee)
+              and (public.is_kre_admin() or (rater = public.my_initial() and day = public.tr_today())));
+create policy "ks_update" on public.kre_scores for update
+  using      (public.is_kre_admin() or (rater = public.my_initial() and day = public.tr_today()))
+  with check (not public.kre_unrated(ratee)
+              and (public.is_kre_admin() or (rater = public.my_initial() and day = public.tr_today())));
+
+-- kontrol: puanlanmayan harfler · stok sorumlusu · yeni alan (1 olmalı)
+select (select value->'unrated' from public.kre_settings where key = 'roles') as puanlanamaz,
+       (select m.name from public.ops_assignments a join public.ops_members m on m.id = a.member_id where a.role_key = 'stok') as stok_sorumlusu,
+       (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'ops_daily' and column_name = 'undel_nolook') as yeni_alan;
