@@ -396,6 +396,7 @@
       <input id="liPass" type="password" placeholder="Şifre" autocomplete="current-password">
       <button class="btn" id="btnLogin">Giriş Yap</button>
       <div class="switch">Hesabın yok mu? <a id="goSignup">Kayıt ol</a></div>
+      <div class="switch"><a id="goForgot">Şifremi unuttum</a></div>
     </div>
     <div id="authSignup" class="hidden">
       <input id="suName" type="text" placeholder="Ad Soyad">
@@ -404,6 +405,18 @@
       <input id="suPass" type="password" placeholder="Şifre (en az 6 karakter)" autocomplete="new-password">
       <button class="btn" id="btnSignup">Kayıt Ol</button>
       <div class="switch">Zaten hesabın var mı? <a id="goLogin">Giriş yap</a></div>
+    </div>
+    <div id="authForgot" class="hidden">
+      <p style="margin:0 0 10px;font-size:.85rem">E-postanı yaz, şifre yenileme bağlantısı gönderelim.</p>
+      <input id="fgEmail" type="email" placeholder="E-posta" autocomplete="email">
+      <button class="btn" id="btnForgot">Bağlantı gönder</button>
+      <div class="switch"><a id="goLogin2">Girişe dön</a></div>
+    </div>
+    <div id="authReset" class="hidden">
+      <p style="margin:0 0 10px;font-size:.85rem"><b>Yeni şifreni belirle</b></p>
+      <input id="rsPass" type="password" placeholder="Yeni şifre (en az 6 karakter)" autocomplete="new-password">
+      <input id="rsPass2" type="password" placeholder="Yeni şifre (tekrar)" autocomplete="new-password">
+      <button class="btn" id="btnReset">Şifreyi kaydet ve gir</button>
     </div>
     <div id="authMsg" class="authmsg"></div>
   </div>
@@ -470,10 +483,14 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 /* =========================================== */
 
 const DEMO = !SUPABASE_URL;
+// şifre sıfırlama bağlantısından mı gelindi? (supabase adresi temizlemeden önce oku)
+let pwRecovery = /type=recovery/.test(location.hash + location.search);
+const pwLinkErr = (()=>{ try{ return new URLSearchParams(location.hash.slice(1)).get("error_description") || new URLSearchParams(location.search).get("error_description"); }catch(e){ return null; } })();
 let sb = null;
 if(!DEMO){
   const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
   sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  sb.auth.onAuthStateChange(ev=>{ if(ev==="PASSWORD_RECOVERY"){ pwRecovery=true; try{ showReset(); }catch(e){} } });   // sayfa hazır değilse boot() formu açar
 }
 
 /* ---------- sözlükler ---------- */
@@ -1886,6 +1903,8 @@ async function boot(){
     $("demoRole").onchange=e=>{ setRole(e.target.value); S.tab="gun"; renderAll(); };
     await showApp(); return;
   }
+  if(pwLinkErr){ showAuth("Şifre bağlantısı geçersiz ya da süresi dolmuş. Yeni bağlantı iste.",true); authView("forgot"); history.replaceState(null,"",location.pathname); return; }
+  if(pwRecovery){ await sb.auth.getSession(); showReset(); return; }
   const {data:{session}}=await sb.auth.getSession();
   if(!session){ showAuth(); return; }
   let {data:prof}=await sb.from("profiles").select("*").eq("id",session.user.id).maybeSingle();
@@ -1918,6 +1937,31 @@ $("suMember").innerHTML+=MEMBER_SEED.map(([k,n])=>`<option value="${k}">${n}</op
       data.map(m=>`<option value="${esc(m.key)}">${esc(m.name)}</option>`).join("");
   }catch(e){}
 })();
+/* ---------- ŞİFREMİ UNUTTUM ---------- */
+function authView(v){ ["Login","Signup","Forgot","Reset"].forEach(k=>$("auth"+k).classList.toggle("hidden", k.toLowerCase()!==v)); }
+function showReset(){ showAuth("",false); authView("reset"); }
+$("goForgot").onclick=()=>{ authView("forgot"); $("fgEmail").value=$("liEmail").value; $("authMsg").textContent=""; };
+$("goLogin2").onclick=()=>{ authView("login"); $("authMsg").textContent=""; };
+$("btnForgot").onclick=async ()=>{
+  if(DEMO) return;
+  const email=$("fgEmail").value.trim(); if(!/^\S+@\S+\.\S+$/.test(email)){ showAuth("Geçerli bir e-posta yaz.",true); return; }
+  $("btnForgot").disabled=true;
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+  $("btnForgot").disabled=false;
+  if(error){ showAuth(/rate|limit|seconds/i.test(error.message)?"Çok sık denendi. Birkaç dakika bekleyip tekrar dene.":"Gönderilemedi: "+error.message,true); return; }
+  showAuth("Bağlantı gönderildi ✓ E-postanı (gerekirse spam klasörünü) kontrol et. Bağlantıya tıklayınca yeni şifreni belirleyeceksin.",false);
+};
+$("btnReset").onclick=async ()=>{
+  const p1=$("rsPass").value, p2=$("rsPass2").value;
+  if(p1.length<6){ showAuth("Şifre en az 6 karakter olmalı.",true); return; }
+  if(p1!==p2){ showAuth("İki şifre aynı değil.",true); return; }
+  $("btnReset").disabled=true;
+  const {error}=await sb.auth.updateUser({password:p1});
+  $("btnReset").disabled=false;
+  if(error){ showAuth("Şifre kaydedilemedi: "+error.message+" — bağlantının süresi dolmuş olabilir, yeni bağlantı iste.",true); return; }
+  pwRecovery=false; history.replaceState(null,"",location.pathname); $("rsPass").value=$("rsPass2").value="";
+  authView("login"); boot();
+};
 $("goSignup").onclick=()=>{ $("authLogin").classList.add("hidden"); $("authSignup").classList.remove("hidden"); $("authMsg").textContent=""; };
 $("goLogin").onclick =()=>{ $("authSignup").classList.add("hidden"); $("authLogin").classList.remove("hidden"); $("authMsg").textContent=""; };
 $("btnLogin").onclick=async ()=>{
