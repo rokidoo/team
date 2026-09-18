@@ -1593,14 +1593,28 @@ function viewAs(p){
   S.tab="board"; closeModal(); renderAll(); window.scrollTo(0,0);
 }
 async function openViewModal(){
-  const me=(REAL?REAL.profile:S.profile);
-  let list=[];
-  if(DEMO) list=[{id:"d1",name:"Demo Çağdaş",role:"creative",initial:"C"},{id:"d2",name:"Demo Ortak",role:"partner",initial:"O"}];
-  else{ const {data,error}=await sb.from("profiles").select("id,name,role,initial").order("name"); if(error){ alert("Kullanıcılar okunamadı: "+error.message); return; } list=(data||[]).filter(p=>p.id!==me.id); }
-  modal(`<h3>Kimin gözünden?</h3><div class="sub">Panel o kişinin yetkisiyle çizilir; veri değişmez.</div><div class="vlist">${list.map(p=>`<button class="btn ghost" data-vp="${esc(p.id)}">${esc(p.name)}<small>${roleLbl(p.role)}${p.initial?" · "+esc(p.initial):""}</small></button>`).join("")||"<div class='empty'>Başka kullanıcı yok</div>"}</div>`);
-  document.querySelectorAll("[data-vp]").forEach(b=>b.onclick=()=>viewAs(list.find(p=>String(p.id)===b.dataset.vp)));
+  const meNow = (REAL?REAL.profile:S.profile);
+  let accs = [];
+  if(DEMO) accs = [{id:"d_c",name:"Çağdaş",role:"partner",initial:"C"},{id:"d_i",name:"İmkan",role:"creative",initial:"İ"}];
+  else{
+    const {data,error} = await sb.from("profiles").select("id,name,role,initial").order("name");
+    if(error){ alert("Hesaplar okunamadı: "+error.message); return; }
+    accs = data||[];
+  }
+  // kreatif ekip: team_members'taki her harf — hesabı olan gerçek kullanıcıyla, olmayan simüle edilir
+  const team = Object.keys(OWNERS).map(k=>{
+    const acc = accs.find(a=>a.initial===k && a.role==="creative") || accs.find(a=>a.initial===k);
+    return {id: acc?.id || ("view_"+k), name: OWNERS[k].name, role:"creative", initial:k, hasAcc:!!acc};
+  });
+  const others = accs.filter(a=>a.id!==meNow.id && !team.some(t=>t.id===a.id));
+  const btn = (p,sub)=>`<button class="btn ghost" data-vp="${esc(p.id)}">${esc(p.name)}<small>${esc(sub)}</small></button>`;
+  modal(`<h3>Kimin gözünden?</h3><div class="sub">Panel o kişinin yetkisiyle çizilir; veri değişmez, kaydetme kapalıdır.</div>
+    <div class="flabel">Kreatif ekip görünümü</div>
+    <div class="vlist">${team.map(t=>btn(t, t.initial + (t.hasAcc?"":" · hesabı yok, görünüm simüle edilir"))).join("")}</div>
+    ${others.length?`<div class="flabel" style="margin-top:12px">Diğer hesaplar</div><div class="vlist">${others.map(a=>btn(a, roleLbl(a.role)+(a.initial?" · "+a.initial:""))).join("")}</div>`:""}`);
+  const all=[...team,...others];
+  document.querySelectorAll("[data-vp]").forEach(b=>b.onclick=()=>viewAs(all.find(x=>String(x.id)===b.dataset.vp)));
 }
-
 
 /* ================= LİNK KÜTÜPHANESİ (herkes ekler, herkes görür) ================= */
 const LINK_KATS = {
@@ -1825,6 +1839,7 @@ function openLinkModal(id){
   if(isNew) $("lmUrl").onblur = ()=>{ const u=$("lmUrl").value.trim(); if(u) $("lmKat").value = guessKat(u); };
   $("lmCancel").onclick = closeModal;
   $("lmSave").onclick = async ()=>{
+    if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
     const url = $("lmUrl").value.trim();
     if(!/^https?:\/\//i.test(url)){ alert("Geçerli bir link gir (https:// ile başlamalı)."); return; }
     const key = urlKey(url);
@@ -2135,6 +2150,7 @@ function openPipeModal(id, presetStage){
   `);
   $("pmCancel").onclick = closeModal;
   $("pmSave").onclick = async ()=>{
+    if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
     const title = $("pmTitle").value.trim();
     if(!title){ alert("Başlık gerekli."); return; }
     const row = {title, stage:$("pmStage").value, format:$("pmFormat").value||null,
@@ -2191,6 +2207,7 @@ function openIdeaModal(id, presetParent){
   `);
   $("imCancel").onclick = closeModal;
   $("imSave").onclick = async ()=>{
+    if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
     const parent = $("imParent").value.trim();
     const hs = [0,1,2,3,4].map(i=>$("imH"+i).value.trim()).filter(Boolean);
     if(!parent){ alert("Kreatif adı gerekli."); return; }
@@ -2227,6 +2244,7 @@ function openIdeaModal(id, presetParent){
 async function doImport(){
   const log = $("impLog"); log.classList.remove("hidden"); log.textContent="";
   const say = m => { log.textContent += m+"\n"; };
+  if(VIEW()){ say("👁 Görüntüleme modu: içe aktarma kapalı. Önce 'Kendime dön'."); return; }
   let data;
   try{ data = JSON.parse($("impJson").value); }
   catch(e){ say("❌ JSON okunamadı: "+e.message); return; }
