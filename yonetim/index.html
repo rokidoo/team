@@ -506,9 +506,9 @@
     <div class="auth-card" style="text-align:center">
       <div class="brand-row" style="justify-content:center">
         <div class="logo">R</div>
-        <div style="text-align:left"><h1>Remaks Ekip</h1><p>Onay Bekleniyor</p></div>
+        <div style="text-align:left"><h1>Remaks Ekip</h1><p id="pendingTitle">Onay Bekleniyor</p></div>
       </div>
-      <p style="font-size:13.5px; color:var(--ink-soft); line-height:1.6; margin:16px 0">
+      <p id="pendingText" style="font-size:13.5px; color:var(--ink-soft); line-height:1.6; margin:16px 0">
         Hesabın oluşturuldu ✅ Panele erişebilmen için yöneticinin seni onaylaması gerekiyor.
         Onaylandığında bu sayfayı yenileyip tekrar giriş yap.
       </p>
@@ -1184,8 +1184,17 @@ async function enterApp(user) {
   $("#authWrap").style.display = "none";
   await ensureProfile();
 
+  if (profile.is_active === false) {
+    $("#app").classList.remove("on");
+    $("#pendingTitle").textContent = "Hesap Kapatıldı";
+    $("#pendingText").textContent = "Erişimin yönetici tarafından kapatıldı. Hesabın ve geçmiş kayıtların duruyor; tekrar açılması için yöneticiye danış.";
+    $("#pendingWrap").style.display = "grid";
+    return;
+  }
   if (!profile.is_admin && !profile.is_approved) {
     $("#app").classList.remove("on");
+    $("#pendingTitle").textContent = "Onay Bekleniyor";
+    $("#pendingText").textContent = "Hesabın oluşturuldu ✅ Panele erişebilmen için yöneticinin seni onaylaması gerekiyor. Onaylandığında bu sayfayı yenileyip tekrar giriş yap.";
     $("#pendingWrap").style.display = "grid";
     return;
   }
@@ -1206,8 +1215,9 @@ async function ensureProfile() {
     ({ data } = await sb.from("profiles").select("*").eq("id", me.id).maybeSingle());
   }
   profile = data || { id: me.id, name: me.email, role: "creative" };
-  profile.is_admin = ["admin","partner"].includes(profile.role);   // yönetici + ortaklar görev yöneticisi
-  profile.is_realadmin = profile.role === "admin";
+  const act = profile.is_active !== false;
+  profile.is_admin = act && ["admin","partner"].includes(profile.role);   // yönetici + ortaklar görev yöneticisi
+  profile.is_realadmin = act && profile.role === "admin";
 }
 
 async function reloadAll() {
@@ -1299,18 +1309,23 @@ function renderTeamList() {
   $("#teamCount").textContent = others.length;
   $("#teamList").innerHTML = others.map(id => {
     const p = profiles[id];
-    const pending = !p.is_approved;
+    const inactive = p.is_active === false;
+    const pending = !inactive && !p.is_approved;
+    const durum = inactive
+      ? `<br><span style="color:var(--ink-mute); font-weight:800; font-size:10px">⏸ Pasif — giriş yapamaz</span>`
+      : pending ? `<br><span style="color:var(--pri-yuksek); font-weight:800; font-size:10px">Onay bekliyor</span>` : "";
     return `
-      <div class="cat-row" style="align-items:center; gap:8px">
+      <div class="cat-row" style="align-items:center; gap:8px; ${inactive?"opacity:.6":""}">
         <span class="mini-avatar" style="background:${colorFor(id)}; flex-shrink:0">${esc(initials(p.name))}</span>
         <span class="cat-name" style="flex:1; min-width:0">
           ${esc(p.name)}
           <br><span style="color:var(--ink-soft); font-weight:700; font-size:10px">${esc(ROLE_LABEL[p.role]||p.role||"")}${p.initial?" · "+esc(p.initial):""}</span>
-          ${pending ? `<br><span style="color:var(--pri-yuksek); font-weight:800; font-size:10px">Onay bekliyor</span>` : ""}
+          ${durum}
         </span>
         ${profile.is_realadmin ? `<select data-role-user="${id}" style="font-size:10.5px; padding:3px 4px; border-radius:8px; border:1px solid var(--line); background:var(--card)">${["creative","ops","partner","admin"].map(r=>`<option value="${r}" ${p.role===r?"selected":""}>${ROLE_LABEL[r]}</option>`).join("")}</select>` : ""}
         ${pending ? `<button type="button" class="btn btn-mustard" data-approve-user="${id}" style="padding:4px 9px; font-size:10.5px; flex-shrink:0">Onayla</button>` : ""}
-        ${profile.is_realadmin ? `<button type="button" class="cat-del" data-del-user="${id}" title="Kalıcı sil" style="opacity:1">✕</button>` : ""}
+        ${profile.is_realadmin ? `<button type="button" class="btn btn-ghost" data-toggle-user="${id}" style="padding:4px 9px; font-size:10.5px; flex-shrink:0">${inactive?"Geri aç":"Pasife al"}</button>` : ""}
+        ${profile.is_realadmin ? `<button type="button" class="cat-del" data-purge-user="${id}" title="Kalıcı sil (geri alınamaz)" style="opacity:.45">✕</button>` : ""}
       </div>`;
   }).join("") || `<div class="inbox-empty">Başka üye yok</div>`;
 }
@@ -1523,9 +1538,20 @@ async function changeRole(id, role) {
 document.addEventListener("change", e => {
   const r = e.target.closest("[data-role-user]"); if (r) changeRole(r.dataset.roleUser, r.value);
 });
+async function toggleUserActive(id) {
+  const p = profiles[id];
+  const makeInactive = p.is_active !== false;
+  if (makeInactive && !confirm(`${p?.name || "Bu kullanıcı"} pasife alınsın mı?\n\nGiriş yapamaz ve hiçbir veriyi göremez. Hesabı, görevleri ve tüm geçmişi durur; istediğinde "Geri aç" ile açarsın.`)) return;
+  const { error } = await sb.from("profiles").update({ is_active: !makeInactive }).eq("id", id);
+  if (error) { toast("Hata: " + error.message); return; }
+  toast(makeInactive ? "Pasife alındı ⏸" : "Geri açıldı ✅"); reloadAndRender();
+}
 async function deleteUser(id) {
   const p = profiles[id];
-  if (!confirm(`${p?.name || "Bu kullanıcı"} kalıcı olarak silinsin mi? Tüm görevleri, yorumları ve verileri de silinecek. Bu işlem geri alınamaz.`)) return;
+  const name = p?.name || "";
+  const typed = prompt(`KALICI SİLME — geri alınamaz.\n\n${name} hesabı, görevleri, yorumları ve günlük kayıtları silinecek.\nİşten ayrılmadıysa "Pasife al" kullan.\n\nOnaylamak için kişinin adını birebir yaz:`);
+  if (typed === null) return;
+  if (typed.trim().toLowerCase() !== name.trim().toLowerCase()) { toast("Ad eşleşmedi, silinmedi"); return; }
   const { data, error } = await sb.functions.invoke("admin-delete-user", { body: { targetUserId: id } });
   if (error) { toast("Silinemedi: " + (error.message || "bilinmeyen hata")); return; }
   if (data && data.ok === false) { toast("Silinemedi: " + data.error); return; }
@@ -1849,7 +1875,8 @@ document.addEventListener("click", e => {
   const delCat = e.target.closest("[data-del-cat]"); if (delCat) return deleteCategory(delCat.dataset.delCat);
   const delNote = e.target.closest("[data-del-note]"); if (delNote) return deleteNote(delNote.dataset.delNote);
   const approve = e.target.closest("[data-approve-user]"); if (approve) return approveUser(approve.dataset.approveUser);
-  const delUser = e.target.closest("[data-del-user]"); if (delUser) return deleteUser(delUser.dataset.delUser);
+  const tgUser = e.target.closest("[data-toggle-user]"); if (tgUser) return toggleUserActive(tgUser.dataset.toggleUser);
+  const purge = e.target.closest("[data-purge-user]"); if (purge) return deleteUser(purge.dataset.purgeUser);
   if (e.target.closest("a")) return;
   const card = e.target.closest(".card"); if (card) return openTaskEdit(card.dataset.id);
 });
