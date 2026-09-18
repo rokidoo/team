@@ -373,6 +373,15 @@
   .crow:last-child{border-bottom:none} .crow b{white-space:nowrap} .crow .ct{color:var(--ink-soft); font-weight:600; min-width:0}
 .lockbar{border:var(--b2,2px solid #121212);border-radius:12px;background:var(--mustard-s,#FFF1C9);padding:10px 14px;margin:0 0 14px;font-size:.82rem;font-weight:700;line-height:1.45}
 .locked{opacity:.6;pointer-events:none}
+.otp{color:#15803d}.otn{color:#c2410c}
+.ottbl td,.ottbl th{white-space:nowrap}.ottbl td.otwhy{white-space:normal;min-width:180px;font-size:.78rem;text-align:left}
+.ottbl tr.otsun td{background:var(--purple-s,#EFE7FF)}.ottbl tr.otwarn td{background:var(--red-s,#FFE1DC)}
+.ottbl tr.otsel td{background:var(--mustard-s,#FFF1C9)}.ottbl tr.ottot td{font-weight:800;border-top:2px solid var(--ink,#121212)}
+.ottbl a{color:inherit;font-weight:800;text-decoration:none}
+.otrate{width:96px;margin:0;padding:6px 8px}
+.otrule{border:var(--b2,2px solid #121212);border-radius:12px;padding:10px 14px;margin:0 0 14px;background:var(--card,#fff);font-size:.82rem}
+.otrule summary{cursor:pointer;font-weight:800}.otrule ul{margin:8px 0 0;padding-left:18px;line-height:1.55}
+.otlive{border:var(--b2,2px solid #121212);border-radius:10px;padding:9px 10px;font-weight:800;min-height:40px;background:var(--bg,#F4F2EC)}
 </style>
 </head>
 <body>
@@ -436,6 +445,7 @@
     </div>
     <div id="tabGun"></div>
     <div id="tabPuan" class="hidden"></div>
+    <div id="tabMesai" class="hidden"></div>
     <div id="tabKontrol" class="hidden"></div>
     <div id="tabKargo" class="hidden"></div>
     <div id="tabSes" class="hidden"></div>
@@ -607,6 +617,7 @@ async function loadAll(){
       fetchAll("ops_stock",     q=>q.gte("day",since).order("day")),
     ]);
     Object.assign(S,{members,products,daily,scores,checks,duty,team,voice,stock, dbOk:true, dbErr:""});
+    if(isAdmin()) await loadRates();
     try{ const [{data:aw},{data:st}]=await Promise.all([sb.from("ops_awards").select("*"), sb.from("ops_settings").select("*").eq("key","rank_weights").maybeSingle()]); S.awards=aw||[]; S.weights=st?.value||null; }catch(e){}
     try{ const [asg,tk,ta]=await Promise.all([fetchAll("ops_assignments"), fetchAll("tasks",q=>q.order("created_at",{ascending:false})), fetchAll("task_assignees")]); S.assign=asg||[]; S.tasks=unifyTasks(tk||[], ta||[]); }catch(e){}
     try{ const {data:br}=await sb.from("ops_brands").select("*").order("sort"); S.brands=br||[]; }catch(e){}
@@ -624,7 +635,7 @@ function renderNav(){
   if(canTab("kargo")) tabs.push(["kargo","📦","Kargo"]);
   tabs.push(["ses","💬","Müşteri"]);
   if(canTab("stok")) tabs.push(["stok","📊","Stok"]);
-  tabs.push(["birinci","🏆","Birinci"],["ekip","👥","Ekip"]);
+  tabs.push(["mesai","⏱","Mesai"],["birinci","🏆","Birinci"],["ekip","👥","Ekip"]);
   if(isAdmin()) tabs.push(["pano","📈","Pano"],["import","📥","Aktar"]);
   $("nav").innerHTML = tabs.map(([id,ic,l])=>`<button data-tab="${id}" class="${S.tab===id?"on":""}"><span class="ic">${ic}</span>${l}</button>`).join("");
   $("sideNav").innerHTML = tabs.map(([id,ic,l])=>`<button data-tab="${id}" class="navbtn ${S.tab===id?"on":""}"><span class="ic">${ic}</span><span class="lbl">${l}</span></button>`).join("");
@@ -634,8 +645,8 @@ function renderNav(){
   }
   document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab; renderAll(); window.scrollTo(0,0);});
 }
-const TABS = {gun:"Gun", puan:"Puan", kontrol:"Kontrol", denetim:"Denetim", kargo:"Kargo", ses:"Ses", stok:"Stok", birinci:"Birinci", ekip:"Ekip", pano:"Pano", import:"Import"};
-const RENDER = {gun:renderGun, puan:renderPuan, kontrol:renderKontrol, denetim:renderDenetim, kargo:renderKargo, ses:renderSes, stok:renderStok, birinci:renderBirinci, ekip:renderEkip, pano:renderPano, import:renderImport};
+const TABS = {gun:"Gun", puan:"Puan", mesai:"Mesai", kontrol:"Kontrol", denetim:"Denetim", kargo:"Kargo", ses:"Ses", stok:"Stok", birinci:"Birinci", ekip:"Ekip", pano:"Pano", import:"Import"};
+const RENDER = {gun:renderGun, puan:renderPuan, mesai:renderMesai, kontrol:renderKontrol, denetim:renderDenetim, kargo:renderKargo, ses:renderSes, stok:renderStok, birinci:renderBirinci, ekip:renderEkip, pano:renderPano, import:renderImport};
 function renderAll(){
   renderNav();
   if((S.tab==="pano"||S.tab==="import") && !isAdmin()) S.tab="gun";
@@ -674,6 +685,140 @@ function openViewModal(){
 }
 
 
+/* ================= MESAİ (iki panelde aynı kod) =================
+   Mesai günü 09:00–18:00 (pzt–cmt). 09:00'dan önce gelmek mesai sayılmaz.
+   Günlük mesai = 18:00 sonrası kalınan − geç gelme − erken çıkma − saate yansımayan izin.
+   İzin geç gelme/erken çıkmayı anlatıyorsa bir kez düşülür. Pazar: çalışılan tüm süre, ×1,5.
+   Ay içindeki günler birbirini götürür. Ücret = saatlik × (normal + pazar × 1,5). */
+const WORK_START=9*60, WORK_END=18*60, SUNDAY_X=1.5;
+function otCalc(r){
+  const i=mins(r?.in_time), o=mins(r?.out_time), lv=Math.max(0,+(r?.leave_min)||0);
+  const z={late:0,early:0,extra:0,leave:0};
+  if(i==null||o==null) return {kind:"eksik",min:0,...z};
+  if(o-i<60) return {kind:"hata",min:0,...z};   // çıkış girişten önce ya da 1 saatten kısa gün: büyük ihtimalle yanlış girilmiş
+  if(dow(r.day)===0) return {kind:"pazar",min:o-i,...z,extra:o-i};
+  const late=Math.max(0,i-WORK_START), early=Math.max(0,WORK_END-o);
+  const extra=Math.max(0,o-Math.max(WORK_END,i));
+  const leave=Math.max(0,lv-(late+early));
+  return {kind:"normal",min:extra-late-early-leave,late,early,extra,leave};
+}
+const otTxt=m=>{ m=Math.round(m||0); if(!m) return "0"; const s=m<0?"−":"+"; m=Math.abs(m); const h=Math.floor(m/60), k=m%60; return s+[h?h+" sa":"", k?k+" dk":""].filter(Boolean).join(" "); };
+const otHrs=m=>{ m=Math.round(m||0); const s=m<0?"−":""; m=Math.abs(m); const h=Math.floor(m/60), k=m%60; return s+(h?h+" sa":"")+(h&&k?" ":"")+(k||!h?k+" dk":""); };
+const otCls=m=>m>0?"otp":m<0?"otn":"";
+const otTl=v=>v==null?"—":(v<0?"−":"")+nf.format(Math.abs(Math.round(v)))+" ₺";
+// eksi ayda ek ödeme 0; eksik tutar bilgi olarak altında (kesinti kararı yönetimin)
+const payCell=x=>x==null?"<b>—</b>":x>=0?`<b class="${otCls(x)}">${otTl(x)}</b>`:`<b>0 ₺</b><small class="otn" style="display:block">eksik ${otTl(-x)}</small>`;
+const otDayLbl=s=>new Date(s+"T00:00:00").toLocaleDateString("tr-TR",{day:"2-digit",month:"short",weekday:"short"});
+function otSum(rows){
+  const o={normal:0,pazar:0,days:0,pzDays:0,bad:[],miss:[]};
+  rows.forEach(r=>{ const c=otCalc(r);
+    if(c.kind==="normal"){ o.normal+=c.min; o.days++; }
+    else if(c.kind==="pazar"){ o.pazar+=c.min; o.pzDays++; }
+    else if(c.kind==="hata") o.bad.push(r); else o.miss.push(r); });
+  o.weighted=o.normal+o.pazar*SUNDAY_X; return o;
+}
+function rateFor(key, monthFirst){
+  const xs=(S.rates||[]).filter(r=>r.person===key && r.month<=monthFirst).sort((a,b)=>a.month<b.month?1:-1);
+  return xs.length? +xs[0].hourly : null;
+}
+function otWhy(c){
+  if(c.kind==="pazar") return "Pazar — tümü mesai (×1,5)";
+  if(c.kind==="hata") return "⚠ Saatler hatalı görünüyor (çıkış girişten önce ya da 1 saatten kısa) — düzeltilmeli";
+  if(c.kind==="eksik") return "Giriş/çıkış saati girilmemiş — hesaba katılmadı";
+  const p=[]; if(c.late) p.push(`geç geldi ${otHrs(c.late)}`); if(c.early) p.push(`erken çıktı ${otHrs(c.early)}`);
+  if(c.leave) p.push(`izin ${otHrs(c.leave)}`); if(c.extra) p.push(`18:00 sonrası ${otHrs(c.extra)}`);
+  return p.join(" · ") || "tam saat";
+}
+function otDays(rows, canJump){
+  const xs=[...rows].sort((a,b)=>a.day<b.day?-1:1);
+  if(!xs.length) return `<div class="empty">Bu ay kayıt yok.</div>`;
+  return `<div class="tblwrap"><table class="compact ottbl"><tr><th>Gün</th><th>Giriş</th><th>Çıkış</th><th>İzin</th><th>Hesap</th><th>Mesai</th></tr>
+    ${xs.map(r=>{ const c=otCalc(r); const warn=c.kind==="hata"||c.kind==="eksik";
+      return `<tr class="${c.kind==="pazar"?"otsun":""}${warn?" otwarn":""}"><td>${canJump?`<a href="#" data-otjump="${r.day}">${otDayLbl(r.day)}</a>`:otDayLbl(r.day)}</td><td>${esc(r.in_time||"—")}</td><td>${esc(r.out_time||"—")}</td><td>${r.leave_min?r.leave_min+" dk":"—"}</td><td class="otwhy">${esc(otWhy(c))}</td><td class="${otCls(c.min)}"><b>${warn?"—":otTxt(c.min)}</b></td></tr>`; }).join("")}
+  </table></div>`;
+}
+function otRule(){
+  return `<details class="otrule"><summary>Mesai nasıl hesaplanıyor?</summary><ul>
+    <li>Mesai günü <b>09:00–18:00</b> (pazartesi–cumartesi). 09:00'dan önce gelmek mesai sayılmaz.</li>
+    <li>Günlük mesai = <b>18:00 sonrası kalınan süre − geç gelme − erken çıkma − izin</b>. 09:30'da gelip 18:30'da çıkan için sonuç 0.</li>
+    <li>İzin zaten geç gelmeyi ya da erken çıkmayı anlatıyorsa bir kez düşülür (11:00'de gelip 120 dk izin yazan için −2 sa).</li>
+    <li><b>Pazar</b> çalışılan tüm süre mesaidir ve ücrette <b>×1,5</b> sayılır.</li>
+    <li>Ay içindeki günler birbirini götürür; ay sonundaki toplam esas alınır.</li></ul></details>`;
+}
+/* cfg: {admin, persons:[{key,id,name,badge,active,rows}], me, jump(person,day)} */
+function renderMesaiView(el, cfg){
+  S.otMonth=S.otMonth||today().slice(0,8)+"01";
+  const mF=S.otMonth, mL=monthEnd(mF), inM=r=>r.day>=mF && r.day<=mL;
+  const head=`<h2>Mesai</h2>
+    <div class="sub">${cfg.admin?"Ekibin aylık mesaisi ve ek ödeme hesabı. Saatlik ücreti girince ek ödeme hesaplanır.":"Bu ay ne kadar mesai yaptığın. Günlük giriş/çıkış saatlerinden otomatik hesaplanır."}</div>
+    <div class="dayrow"><button class="nb" data-otm="-1">‹</button><span class="dl" style="font-size:1rem">${trMonth(mF)}</span><button class="nb" data-otm="1">›</button></div>
+    ${otRule()}`;
+  const bindNav=()=>el.querySelectorAll("[data-otm]").forEach(b=>b.onclick=()=>{ const d=new Date(mF+"T00:00:00"); d.setMonth(d.getMonth()+ +b.dataset.otm); S.otMonth=iso(d).slice(0,8)+"01"; renderMesaiView(el,cfg); });
+  const bindJump=p=>el.querySelectorAll("[data-otjump]").forEach(a=>a.onclick=e=>{ e.preventDefault(); cfg.jump(p, a.dataset.otjump); });
+  const warnHtml=s=>(s.bad.length||s.miss.length)?`<div class="lockbar">${s.bad.length?`⚠ ${s.bad.length} günde saatler hatalı görünüyor (hesaba katılmadı). `:""}${s.miss.length?`${s.miss.length} günde giriş ya da çıkış saati eksik (hesaba katılmadı).`:""}</div>`:"";
+
+  if(!cfg.admin){
+    const me=cfg.me;
+    if(!me){ el.innerHTML=head+`<div class="empty">Hesabın bir ekip üyesine bağlı değil.</div>`; bindNav(); return; }
+    const rows=me.rows.filter(inM), s=otSum(rows);
+    el.innerHTML=head+`<div class="kpis">
+      <div class="kpi"><span>Normal gün mesaisi</span><b class="${otCls(s.normal)}">${otTxt(s.normal)}</b><small>${s.days} gün · geç gelme ve izin düşüldü</small></div>
+      <div class="kpi"><span>Pazar mesaisi</span><b class="${otCls(s.pazar)}">${otTxt(s.pazar)}</b><small>${s.pzDays} gün · ücrette ×1,5 sayılır</small></div>
+      <div class="kpi"><span>Bu ay toplam</span><b class="${otCls(s.normal+s.pazar)}">${otTxt(s.normal+s.pazar)}</b><small>saat olarak</small></div>
+    </div>${warnHtml(s)}<div class="sect"><h3>📅 Günlerim</h3>${otDays(rows,false)}</div>`;
+    bindNav(); return;
+  }
+
+  const list=cfg.persons.map(p=>{ const rows=p.rows.filter(inM); return {...p, rows, s:otSum(rows), rate:rateFor(p.key,mF)}; }).filter(p=>p.active||p.rows.length);
+  const pay=p=>p.rate==null?null:p.rate/60*p.s.weighted;
+  const tot=list.reduce((a,p)=>a+Math.max(0,pay(p)||0),0);
+  if(!S.otPerson || !list.find(p=>p.key===S.otPerson)) S.otPerson=list[0]?.key||null;
+  const sel=list.find(p=>p.key===S.otPerson);
+  const noTable=S.ratesErr?`<div class="lockbar">Saatlik ücret tablosu bulunamadı — Supabase'de <b>mesai SQL</b>'ini çalıştır. Saatler yine de aşağıda.</div>`:"";
+  el.innerHTML=head+noTable+`
+    <div class="tblwrap"><table class="compact ottbl"><tr><th>Kişi</th><th>Gün</th><th>Normal</th><th>Pazar</th><th>Ücrete esas</th><th>Saatlik ₺</th><th>Ek ödeme</th></tr>
+      ${list.map(p=>`<tr class="${p.key===S.otPerson?"otsel":""}"><td><a href="#" data-otp="${esc(p.key)}" style="display:inline-flex;gap:6px;align-items:center">${p.badge||""}${esc(p.name)}</a>${(p.s.bad.length||p.s.miss.length)?` <span title="Eksik/hatalı saat var">⚠</span>`:""}</td>
+        <td>${p.s.days+p.s.pzDays}</td><td class="${otCls(p.s.normal)}">${otTxt(p.s.normal)}</td><td class="${otCls(p.s.pazar)}">${otTxt(p.s.pazar)}</td>
+        <td class="${otCls(p.s.weighted)}"><b>${otTxt(p.s.weighted)}</b></td>
+        <td><input type="number" inputmode="decimal" min="0" step="0.01" class="otrate" data-rate="${esc(p.key)}" value="${p.rate??""}" placeholder="—"></td>
+        <td data-pay="${esc(p.key)}">${payCell(pay(p))}</td></tr>`).join("")}
+      <tr class="ottot"><td colspan="6">Toplam ek ödeme</td><td id="otTotal"><b>${otTl(tot)}</b></td></tr>
+    </table></div>
+    <div class="note">Ücrete esas = normal + pazar × 1,5. Girdiğin saatlik ücret <b>${trMonth(mF)}</b> ayından itibaren geçerli olur; sonraki aylar yeni ücret girilene kadar bunu kullanır. Ekip ücretleri görmez, sadece kendi saatlerini görür.</div>
+    <button class="btn" id="otSave">💾 Ücretleri kaydet</button>
+    ${sel?`<div class="sect" style="margin-top:18px"><h3>📅 ${esc(sel.name)} · ${trMonth(mF)}</h3>${warnHtml(sel.s)}${otDays(sel.rows,true)}<div class="note">Güne tıklayınca o günün kaydı açılır; saati oradan düzeltebilirsin.</div></div>`:""}`;
+  bindNav(); if(sel) bindJump(sel);
+  el.querySelectorAll("[data-otp]").forEach(a=>a.onclick=e=>{ e.preventDefault(); S.otPerson=a.dataset.otp; renderMesaiView(el,cfg); });
+  const recalc=()=>{ let t=0; list.forEach(p=>{ const v=el.querySelector(`[data-rate="${CSS.escape(p.key)}"]`).value; const r=v===""?null:+v; const x=r==null?null:r/60*p.s.weighted; t+=Math.max(0,x||0);
+    const td=el.querySelector(`[data-pay="${CSS.escape(p.key)}"]`); td.innerHTML=payCell(x); }); $("otTotal").innerHTML=`<b>${otTl(t)}</b>`; };
+  el.querySelectorAll(".otrate").forEach(i=>i.oninput=recalc);
+  $("otSave").onclick=async ()=>{
+    if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
+    const rows=[]; list.forEach(p=>{ const v=el.querySelector(`[data-rate="${CSS.escape(p.key)}"]`).value; if(v==="") return; const h=+v; if(!(h>=0)) return;
+      if(h!==p.rate) rows.push({person:p.key, month:mF, hourly:h, updated_by:S.profile?.id||null, updated_at:nowIso()}); });
+    if(!rows.length){ toast("Değişen ücret yok."); return; }
+    $("otSave").disabled=true;
+    try{
+      if(!DEMO){ const {error}=await sb.from("pay_rates").upsert(rows,{onConflict:"person,month"}); if(error) throw error; }
+      S.rates=(S.rates||[]).filter(r=>!rows.some(x=>x.person===r.person&&x.month===r.month)).concat(rows);
+      toast(`${rows.length} ücret kaydedildi ✓`); renderMesaiView(el,cfg);
+    }catch(e){ toast("Hata: "+(e?.message||e)); $("otSave").disabled=false; }
+  };
+}
+async function loadRates(){
+  S.rates=[]; S.ratesErr=null;
+  if(DEMO) return;
+  const {data,error}=await sb.from("pay_rates").select("*");
+  if(error) S.ratesErr=error.message; else S.rates=data||[];
+}
+
+function renderMesai(){
+  const el=$("tabMesai");
+  const persons=[...S.members].sort((a,b)=>(a.sort||0)-(b.sort||0)).map(m=>({key:"ops:"+m.id, id:m.id, name:m.name, active:!!m.active, badge:av(m), rows:S.daily.filter(r=>r.member_id===m.id)}));
+  renderMesaiView(el,{admin:isAdmin(), persons, me:S.me?persons.find(p=>p.id===S.me.id):null,
+    jump:(p,day)=>{ S.gunMember=p.id; S.day=day; S.tab="gun"; renderAll(); window.scrollTo(0,0); }});
+}
+
 /* ================= GÜNÜM ================= */
 function gunMember(){
   if(isAdmin()){ return memById(S.gunMember) || S.me || actives()[0] || null; }
@@ -699,7 +844,7 @@ function renderGun(){
         <div class="fgrid">
           <div><div class="flabel">Giriş</div><input type="time" id="g_in_time" value="${v("in_time")}"></div>
           <div><div class="flabel">Çıkış</div><input type="time" id="g_out_time" value="${v("out_time")}"></div>
-          ${num("leave_min","İzin (dk)")}${num("ot_min","Mesai (dk)")}
+          ${num("leave_min","İzin (dk)")}<div><div class="flabel">Mesai (otomatik)</div><div class="otlive" id="g_otlive"></div></div>
         </div></div>
       <div class="sect"><h3>📦 Kargo & 📞 Arama</h3>
         <div class="fgrid">
@@ -720,18 +865,22 @@ function renderGun(){
     <div class="sect"><h3>👥 ${trDate(day)} · kim doldurdu</h3><div class="who">${filled}</div></div>
     ${last7.length?`<div class="sect"><h3>📅 Son günlerim</h3><div class="tblwrap"><table class="compact">
       <tr><th>Gün</th><th>Giriş</th><th>Çıkış</th><th>Kargo</th><th>Arama</th><th>Bakmadı</th><th>Mesaj</th><th>Sipariş</th><th>Mesai</th></tr>
-      ${last7.map(x=>`<tr><td>${trShort(x.day)}</td><td class="${mins(x.in_time)>LATE_MIN?"late":""}">${esc(x.in_time||"—")}</td><td>${esc(x.out_time||"—")}</td><td>${x.cargo??"—"}</td><td>${x.call_total??"—"}</td><td>${x.call_nolook??"—"}</td><td>${msgOf(x)}</td><td>${ordOf(x)}</td><td>${durTxt(x.ot_min)}</td></tr>`).join("")}
+      ${last7.map(x=>`<tr><td>${trShort(x.day)}</td><td class="${mins(x.in_time)>LATE_MIN?"late":""}">${esc(x.in_time||"—")}</td><td>${esc(x.out_time||"—")}</td><td>${x.cargo??"—"}</td><td>${x.call_total??"—"}</td><td>${x.call_nolook??"—"}</td><td>${msgOf(x)}</td><td>${ordOf(x)}</td><td>${(()=>{ const c=otCalc(x); return c.kind==="normal"||c.kind==="pazar"?`<span class="${otCls(c.min)}">${otTxt(c.min)}</span>`:"—"; })()}</td></tr>`).join("")}
     </table></div></div>`:""}
   `;
   bindDayNav(el,"day",renderGun); bindTaskList(el, renderGun);
   if(isAdmin()){ $("gunMember").onchange=e=>{ S.gunMember=e.target.value; renderGun(); }; $("gunTask").onclick=()=>openTaskModal(m.id, renderGun); }
+  const otLive=()=>{ const c=otCalc({day, in_time:$("g_in_time").value, out_time:$("g_out_time").value, leave_min:numOrNull($("g_leave_min").value)});
+    $("g_otlive").innerHTML = c.kind==="eksik" ? `<span style="color:var(--mut)">saatleri gir</span>` : c.kind==="hata" ? "⚠ saatleri kontrol et" : `<span class="${otCls(c.min)}">${otTxt(c.min)}</span>${c.kind==="pazar"?" <small>pazar ×1,5</small>":""}`; };
+  ["g_in_time","g_out_time","g_leave_min"].forEach(k=>$(k).addEventListener("input",otLive)); otLive();
   if(dayLocked(day)) $("gunForm").querySelectorAll("input,textarea,button").forEach(x=>x.disabled=true);
   $("gunSave").onclick = async ()=>{
     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
     if(dayLocked(day)){ toast(LOCK_MSG); return; }
     const row = { member_id:m.id, day, in_time:$("g_in_time").value||null, out_time:$("g_out_time").value||null, updated_at:nowIso() };
-    ["leave_min","ot_min","cargo","call_total","call_send","call_nolook","wp_msg","wp_order","ig_msg","ig_order","mail_msg","mail_order"].forEach(k=>row[k]=numOrNull($("g_"+k).value));
+    ["leave_min","cargo","call_total","call_send","call_nolook","wp_msg","wp_order","ig_msg","ig_order","mail_msg","mail_order"].forEach(k=>row[k]=numOrNull($("g_"+k).value));
     row.note=$("g_note").value.trim()||null; row.wish=$("g_wish").value.trim()||null;
+    { const c=otCalc(row); row.ot_min=(c.kind==="normal"||c.kind==="pazar")?c.min:null; }
     $("gunSave").disabled=true;
     try{
       if(DEMO){ const i=S.daily.findIndex(x=>x.member_id===m.id&&x.day===day); if(i>=0) S.daily[i]={...S.daily[i],...row}; else S.daily.unshift({id:uid(),...row}); }
@@ -1461,7 +1610,7 @@ function renderPano(){
   const people=S.members.filter(m=>m.active||D.some(x=>x.member_id===m.id)).sort((x,y)=>(x.sort||0)-(y.sort||0));
   const prow=m=>{ const r=D.filter(x=>x.member_id===m.id); const ins=r.map(x=>mins(x.in_time)).filter(x=>x!=null);
     const recv=SC.filter(s=>s.ratee_id===m.id).map(s=>s.score), given=SC.filter(s=>s.rater_id===m.id).map(s=>s.score);
-    return `<tr><td>${esc(m.name)}</td><td>${r.length}</td><td>${nf.format(sum(r,x=>x.call_total))}</td><td>${nf.format(sum(r,x=>x.call_nolook))}</td><td>${nf.format(sum(r,msgOf))}</td><td>${nf.format(sum(r,ordOf))}</td><td>${nf.format(sum(r,x=>x.cargo))}</td><td>${hhmm(avg(ins))}</td><td class="${ins.filter(x=>x>LATE_MIN).length?"late":""}">${ins.filter(x=>x>LATE_MIN).length}</td><td>${durTxt(sum(r,x=>x.ot_min))}</td><td>${durTxt(sum(r,x=>x.leave_min))}</td><td><b>${recv.length?nf1.format(avg(recv)):"—"}</b> <small>(${recv.length})</small></td><td>${given.length?nf1.format(avg(given)):"—"}</td></tr>`; };
+    return `<tr><td>${esc(m.name)}</td><td>${r.length}</td><td>${nf.format(sum(r,x=>x.call_total))}</td><td>${nf.format(sum(r,x=>x.call_nolook))}</td><td>${nf.format(sum(r,msgOf))}</td><td>${nf.format(sum(r,ordOf))}</td><td>${nf.format(sum(r,x=>x.cargo))}</td><td>${hhmm(avg(ins))}</td><td class="${ins.filter(x=>x>LATE_MIN).length?"late":""}">${ins.filter(x=>x>LATE_MIN).length}</td><td>${otTxt(sum(r,x=>otCalc(x).min))}</td><td>${durTxt(sum(r,x=>x.leave_min))}</td><td><b>${recv.length?nf1.format(avg(recv)):"—"}</b> <small>(${recv.length})</small></td><td>${given.length?nf1.format(avg(given)):"—"}</td></tr>`; };
 
   // doldurma disiplini (son 14 iş günü)
   const d14=[]; for(let i=0;d14.length<14;i++){ const d=addDays(today(),-i); if(dow(d)!==0) d14.unshift(d); }
