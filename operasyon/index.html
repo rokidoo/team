@@ -621,8 +621,8 @@ function renderNav(){
   $("nav").innerHTML = tabs.map(([id,ic,l])=>`<button data-tab="${id}" class="${S.tab===id?"on":""}"><span class="ic">${ic}</span>${l}</button>`).join("");
   $("sideNav").innerHTML = tabs.map(([id,ic,l])=>`<button data-tab="${id}" class="navbtn ${S.tab===id?"on":""}"><span class="ic">${ic}</span><span class="lbl">${l}</span></button>`).join("");
   if(realAdmin()){
-    $("nav").insertAdjacentHTML("beforeend", `<button onclick="location.href='/kreatif/'"><span class="ic">🎬</span>Kreatif</button><button onclick="location.href='/ortaklar/'"><span class="ic">🤝</span>Ortaklar</button>`);
-    $("sideNav").insertAdjacentHTML("beforeend", `<a class="navbtn" href="/kreatif/" style="text-decoration:none;margin-top:10px;border-style:dashed;border-color:var(--mut)"><span class="ic">🎬</span><span class="lbl">Kreatif paneline geç</span></a><a class="navbtn" href="/ortaklar/" style="text-decoration:none;border-style:dashed;border-color:var(--mut)"><span class="ic">🤝</span><span class="lbl">Ortaklar paneli</span></a>`);
+    $("nav").insertAdjacentHTML("beforeend", `<button onclick="location.href='/kreatif/'"><span class="ic">🎬</span>Kreatif</button><button onclick="location.href='/yonetim/'"><span class="ic">📋</span>Yönetim</button>`);
+    $("sideNav").insertAdjacentHTML("beforeend", `<a class="navbtn" href="/kreatif/" style="text-decoration:none;margin-top:10px;border-style:dashed;border-color:var(--mut)"><span class="ic">🎬</span><span class="lbl">Kreatif paneline geç</span></a><a class="navbtn" href="/yonetim/" style="text-decoration:none;border-style:dashed;border-color:var(--mut)"><span class="ic">📋</span><span class="lbl">Yönetim paneli</span></a>`);
   }
   document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab; renderAll(); window.scrollTo(0,0);});
 }
