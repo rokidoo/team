@@ -1,0 +1,1890 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Remaks Ekip · Görev Yönetim Paneli</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     SOFT BRUTALISM — Design Tokens
+     Neo-Brutalism (yüksek kontrast, kalın siyah kenar) +
+     Neumorphism (yumuşak, hacimli, dokunsal gölgeler)
+     ============================================================ */
+  :root {
+    --cream:      #F4F2EC;
+    --cream-2:    #EAE7E1;
+    --card:       #FFFDF9;
+    --card-2:     #FFFFFF;
+    --ink:        #121212;
+    --ink-soft:   #4A4A46;
+    --ink-mute:   #8A867E;
+
+    --cobalt:     #2F5DFF;
+    --cobalt-soft:#E4EBFF;
+    --red:        #E8402A;
+    --red-soft:   #FDE4DF;
+    --mustard:    #FFC53D;
+    --mustard-soft:#FFF3D6;
+    --green:      #22C55E;
+    --green-soft: #DFF6E7;
+    --purple:     #A855F7;
+    --purple-soft:#F1E4FE;
+
+    --pri-kritik:  #E63946;
+    --pri-yuksek:  #FF8A00;
+    --pri-normal:  #2F5DFF;
+    --pri-dusuk:   #9AA0A6;
+
+    --radius-lg: 24px;
+    --radius-md: 16px;
+    --radius-sm: 12px;
+
+    --border: 3px solid var(--ink);
+    --border-thin: 2px solid var(--ink);
+
+    --shadow-brutal: 6px 6px 0px var(--ink);
+    --shadow-brutal-sm: 4px 4px 0px var(--ink);
+    --shadow-neu: 0 24px 50px -24px rgba(18,18,18,.35);
+    --shadow-card: var(--shadow-brutal), var(--shadow-neu);
+    --shadow-inset: inset 3px 3px 8px rgba(18,18,18,.18), inset -2px -2px 6px rgba(255,255,255,.6);
+
+    --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+    --ease-soft: cubic-bezier(.22, .61, .36, 1);
+
+    --font-head: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+    --font-body: 'Plus Jakarta Sans', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--font-body);
+    background: var(--cream);
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(18,18,18,.06) 1px, transparent 0);
+    background-size: 22px 22px;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  h1, h2, h3, h4, .font-head { font-family: var(--font-head); letter-spacing: -.02em; }
+  .mono { font-family: var(--font-mono); }
+  ::selection { background: var(--mustard); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--ink); border-radius: 20px; border: 2px solid var(--cream); }
+
+  /* ---------- Genel butonlar ---------- */
+  .btn {
+    font-family: var(--font-head); font-weight: 700; cursor: pointer;
+    border: var(--border); border-radius: var(--radius-sm);
+    background: var(--card-2); color: var(--ink);
+    box-shadow: var(--shadow-brutal-sm);
+    transition: transform .18s var(--ease-spring), box-shadow .18s var(--ease-spring);
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 10px 16px; font-size: 13.5px;
+  }
+  .btn:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0px var(--ink); }
+  .btn:active { transform: translate(1px, 1px); box-shadow: 2px 2px 0px var(--ink); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+  .btn-primary { background: var(--cobalt); color: #fff; }
+  .btn-mustard { background: var(--mustard); color: var(--ink); }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-ghost { background: var(--card-2); }
+  .btn-icon { width: 38px; height: 38px; padding: 0; border-radius: var(--radius-sm); }
+  .full { width: 100%; }
+
+  input, textarea, select {
+    font-family: var(--font-body); font-size: 13.5px; color: var(--ink);
+    border: var(--border-thin); border-radius: var(--radius-sm);
+    background: var(--card-2); padding: 10px 13px; outline: none;
+    transition: box-shadow .15s var(--ease-soft), border-color .15s;
+  }
+  input:focus, textarea:focus, select:focus { box-shadow: 3px 3px 0px var(--ink); }
+  select { cursor: pointer; appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23121212' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat: no-repeat; background-position: right 12px center; padding-right: 34px; }
+  label { display: block; font-size: 11.5px; font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+
+  /* ============ AUTH EKRANI ============ */
+  .auth-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+  .auth-card {
+    width: 100%; max-width: 420px; background: var(--card);
+    border: var(--border); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card); padding: 32px;
+  }
+  .brand-row { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+  .logo {
+    width: 46px; height: 46px; border-radius: var(--radius-sm);
+    background: var(--mustard); border: var(--border);
+    display: grid; place-items: center; font-weight: 800; font-size: 20px;
+    box-shadow: var(--shadow-brutal-sm); font-family: var(--font-head);
+  }
+  .brand-row h1 { font-size: 19px; font-weight: 700; }
+  .brand-row p { font-size: 12px; color: var(--ink-soft); font-weight: 600; margin-top: 2px; }
+
+  .tabs { display: flex; gap: 8px; background: var(--cream-2); border: var(--border-thin); border-radius: var(--radius-sm); padding: 4px; margin-bottom: 20px; }
+  .tabs button { flex: 1; background: none; border: none; font-family: var(--font-head); font-weight: 700; font-size: 13px; padding: 9px; border-radius: 9px; cursor: pointer; color: var(--ink-soft); }
+  .tabs button.active { background: var(--card-2); color: var(--ink); box-shadow: var(--shadow-brutal-sm); }
+
+  .field { margin-bottom: 14px; }
+  .auth-msg { font-size: 12.5px; font-weight: 600; margin-top: 8px; padding: 10px 12px; border-radius: var(--radius-sm); border: var(--border-thin); display: none; }
+  .auth-msg.err { display: block; background: var(--red-soft); color: var(--red); }
+  .auth-msg.ok { display: block; background: var(--green-soft); color: #15803d; }
+
+  /* ============ SETUP UYARISI ============ */
+  #setup { min-height: 100vh; display: none; place-items: center; padding: 24px; }
+  #setup.on { display: grid; }
+  .setup-card { max-width: 560px; background: var(--card); border: var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); padding: 30px; line-height: 1.65; }
+  .setup-card code { background: var(--cream-2); padding: 2px 7px; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; }
+  .setup-card ol { margin: 12px 0 0 20px; font-size: 13.5px; color: var(--ink-soft); }
+  .setup-card li { margin-bottom: 9px; }
+
+  /* ============ APP LAYOUT — BENTO GRID ============ */
+  #app { display: none; }
+  #app.on { display: block; }
+  .topbar {
+    display: flex; align-items: center; gap: 14px; padding: 18px 26px;
+    flex-wrap: wrap;
+  }
+  .topbar .brand-row { margin-bottom: 0; }
+  .topbar .logo { width: 40px; height: 40px; font-size: 17px; }
+  .topbar .spacer { flex: 1; }
+  .search-box { display: flex; align-items: center; gap: 8px; background: var(--card-2); border: var(--border-thin); border-radius: var(--radius-sm); padding: 8px 13px; min-width: 200px; }
+  .search-box input { border: none; padding: 0; font-size: 13px; flex: 1; }
+  .hamburger { display: none; }
+
+  .bento {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr) 300px;
+    gap: 18px; padding: 0 26px 26px;
+    align-items: start;
+  }
+
+  .panel {
+    background: var(--card); border: var(--border); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card); padding: 18px;
+  }
+  .panel + .panel { margin-top: 18px; }
+  .panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .panel-head h3 { font-size: 13.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+  .panel-head .count-chip { margin-left: auto; background: var(--cream-2); border: var(--border-thin); font-family: var(--font-mono); font-weight: 700; font-size: 11px; padding: 2px 9px; border-radius: 20px; }
+
+  /* ---------- SOL PANEL ---------- */
+  .left-col { display: flex; flex-direction: column; }
+  .profile-card { display: flex; align-items: center; gap: 11px; }
+  .avatar {
+    width: 42px; height: 42px; border-radius: var(--radius-sm); border: var(--border-thin);
+    display: grid; place-items: center; font-weight: 800; font-size: 15px; color: #fff;
+    flex-shrink: 0; font-family: var(--font-head);
+  }
+  .profile-meta { min-width: 0; flex: 1; }
+  .profile-meta .name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .profile-meta .role { font-size: 11.5px; color: var(--ink-soft); font-weight: 600; }
+  .admin-pill { font-size: 9.5px; font-weight: 800; background: var(--mustard); border: var(--border-thin); padding: 2px 7px; border-radius: 20px; }
+  .logout-btn { margin-top: 12px; }
+
+  .cat-list { display: flex; flex-direction: column; gap: 8px; }
+  .cat-row { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: var(--radius-sm); border: var(--border-thin); background: var(--card-2); position: relative; }
+  .cat-dot { width: 14px; height: 14px; border-radius: 5px; border: 2px solid var(--ink); flex-shrink: 0; }
+  .cat-row .cat-name { font-size: 12.5px; font-weight: 700; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cat-del { border: none; background: none; cursor: pointer; color: var(--ink-mute); font-size: 13px; opacity: 0; transition: .15s; padding: 2px; }
+  .cat-row:hover .cat-del { opacity: 1; }
+  .cat-del:hover { color: var(--red); }
+
+  .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .metric-box { background: var(--cream-2); border: var(--border-thin); border-radius: var(--radius-sm); padding: 12px; text-align: center; }
+  .metric-box .num { font-family: var(--font-mono); font-size: 26px; font-weight: 700; }
+  .metric-box .lbl { font-size: 10px; font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
+
+  .personal-toggle-btn { margin-top: 4px; }
+
+  /* ---------- ORTA PANEL: SPRINT BOARD ---------- */
+  .mid-col { min-width: 0; }
+  .quickadd { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .quickadd input[type=text] { flex: 2; min-width: 160px; }
+  .quickadd select { flex: 1; min-width: 110px; }
+  .quickadd input[type=date], .quickadd input[type=time] { flex: 0 0 128px; }
+  .quickadd input[type=url] { flex: 2; min-width: 160px; }
+  .quickadd .btn { flex-shrink: 0; }
+
+  .priority-filters { display: flex; gap: 7px; margin-bottom: 16px; flex-wrap: wrap; }
+  .pf-btn {
+    font-family: var(--font-head); font-weight: 700; font-size: 11.5px; cursor: pointer;
+    border: var(--border-thin); border-radius: 20px; padding: 6px 13px;
+    background: var(--card-2); color: var(--ink-soft);
+    transition: transform .15s var(--ease-spring);
+  }
+  .pf-btn:hover { transform: translateY(-1px); }
+  .pf-btn.active { background: var(--ink); color: #fff; }
+
+  .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .column { background: var(--cream-2); border: var(--border-thin); border-radius: var(--radius-md); padding: 12px; min-height: 160px; transition: background .2s, border-color .2s; }
+  .column.drag-over { background: var(--mustard-soft); border-color: var(--mustard); }
+  .col-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 0 2px; }
+  .col-dot { width: 9px; height: 9px; border-radius: 50%; }
+  .col-todo .col-dot { background: var(--ink-mute); }
+  .col-doing .col-dot { background: var(--mustard); }
+  .col-done .col-dot { background: var(--green); }
+  .col-head .col-title { font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; }
+  .col-head .col-count { margin-left: auto; font-family: var(--font-mono); font-size: 11px; font-weight: 700; background: var(--card-2); border: 1.5px solid var(--ink); padding: 1px 7px; border-radius: 20px; }
+  .cards { display: flex; flex-direction: column; gap: 10px; min-height: 60px; }
+  .drop-empty { text-align: center; font-size: 11.5px; font-weight: 600; color: var(--ink-mute); padding: 20px 8px; border: 2px dashed var(--ink-mute); border-radius: var(--radius-sm); }
+
+  .card {
+    background: var(--card-2); border: var(--border-thin); border-radius: var(--radius-md);
+    padding: 12px; cursor: grab; position: relative;
+    box-shadow: var(--shadow-brutal-sm);
+    transition: transform .2s var(--ease-spring), box-shadow .25s var(--ease-spring);
+    animation: cardIn .32s var(--ease-spring);
+  }
+  @keyframes cardIn { from { opacity: 0; transform: translateY(10px) scale(.95); } to { opacity: 1; transform: none; } }
+  .card:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0px var(--ink); }
+  .card.dragging { opacity: .5; transform: rotate(2deg); }
+  .card.done {
+    box-shadow: var(--shadow-inset);
+    transform: scale(.97) translateY(1px);
+    background: var(--cream-2);
+  }
+  .card.done:hover { transform: scale(.97) translateY(1px); box-shadow: var(--shadow-inset); }
+
+  .card-top { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 7px; }
+  .check {
+    width: 21px; height: 21px; border-radius: 6px; flex-shrink: 0; margin-top: 1px;
+    border: 2.5px solid var(--ink); background: var(--card-2); cursor: pointer;
+    display: grid; place-items: center; color: transparent; font-size: 12px; font-weight: 900;
+    transition: all .25s var(--ease-spring);
+  }
+  .card.done .check { background: var(--green); color: #fff; transform: scale(.9); }
+  .card-title { font-size: 13.5px; font-weight: 700; line-height: 1.3; flex: 1; }
+  .card.done .card-title { text-decoration: line-through; color: var(--ink-mute); }
+  .card-desc { font-size: 11.5px; color: var(--ink-soft); margin: 0 0 9px 30px; line-height: 1.5; }
+  .card.done .card-desc { color: var(--ink-mute); text-decoration: line-through; opacity: .7; }
+
+  .card-tags { display: flex; gap: 6px; margin: 0 0 9px 30px; flex-wrap: wrap; }
+  .tag { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 20px; border: 1.5px solid var(--ink); }
+  .pri-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 20px; border: 1.5px solid var(--ink); color: #fff; }
+  .pri-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  .card-foot { display: flex; align-items: center; gap: 8px; margin-left: 30px; flex-wrap: wrap; }
+  .assignee { display: flex; align-items: center; gap: 6px; }
+  .mini-avatar { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--ink); display: grid; place-items: center; font-size: 9px; font-weight: 800; color: #fff; }
+  .a-name { font-size: 11px; font-weight: 600; color: var(--ink-soft); }
+  .due { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 20px; background: var(--cream-2); border: 1.5px solid var(--ink); text-decoration: none; color: var(--ink); white-space: nowrap; }
+  .card-badges-right { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .due.soon { background: var(--mustard-soft); border-color: var(--mustard); }
+  .due.overdue { background: var(--red-soft); border-color: var(--red); color: var(--red); }
+
+  .card-del {
+    position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-radius: 6px;
+    border: none; background: none; color: var(--ink-mute); cursor: pointer;
+    display: grid; place-items: center; opacity: 0; transition: .15s; font-size: 14px;
+  }
+  .card:hover .card-del { opacity: 1; }
+  .card-del:hover { background: var(--red-soft); color: var(--red); }
+
+  /* draggable inbox note over board */
+  .card.note-drag-target { outline: 3px dashed var(--cobalt); }
+
+  /* ---------- SAĞ PANEL: FİKİR HAVUZU ---------- */
+  .inbox-add { display: flex; gap: 8px; margin-bottom: 12px; }
+  .inbox-add textarea { flex: 1; min-height: 54px; resize: none; font-size: 12.5px; }
+  .inbox-list { display: flex; flex-direction: column; gap: 8px; }
+  .inbox-note {
+    background: var(--mustard-soft); border: var(--border-thin); border-radius: var(--radius-sm);
+    padding: 10px 11px; font-size: 12px; font-weight: 600; cursor: grab; position: relative;
+    box-shadow: var(--shadow-brutal-sm); transition: transform .2s var(--ease-spring);
+    line-height: 1.4;
+  }
+  .inbox-note:hover { transform: translate(-2px,-2px); box-shadow: 4px 4px 0px var(--ink); }
+  .inbox-note.dragging { opacity: .5; }
+  .inbox-note .note-del { position: absolute; top: 6px; right: 6px; border: none; background: none; cursor: pointer; opacity: 0; font-size: 12px; color: var(--ink-mute); }
+  .inbox-note:hover .note-del { opacity: 1; }
+  .inbox-empty { text-align: center; font-size: 11.5px; color: var(--ink-mute); font-weight: 600; padding: 18px 8px; border: 2px dashed var(--ink-mute); border-radius: var(--radius-sm); }
+  .inbox-hint { font-size: 10.5px; color: var(--ink-mute); font-weight: 600; margin-top: 10px; text-align: center; line-height: 1.5; }
+
+  /* ============ ZAMAN ÇİZELGESİ (admin, kendi görevleri) ============ */
+  .timeline { position: relative; margin-top: 4px; }
+  .tl-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1.5px dashed var(--cream-2); }
+  .tl-time { font-family: var(--font-mono); font-size: 11px; font-weight: 700; width: 82px; flex-shrink: 0; color: var(--ink-soft); }
+  .tl-bar { flex: 1; background: var(--cobalt-soft); border: var(--border-thin); border-radius: var(--radius-sm); padding: 7px 11px; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .tl-bar a { color: var(--cobalt); }
+  .tl-empty { text-align: center; font-size: 12px; color: var(--ink-mute); font-weight: 600; padding: 16px 8px; border: 2px dashed var(--ink-mute); border-radius: var(--radius-sm); line-height: 1.5; }
+
+  /* ---------- MODAL (Kategori Ekle) ---------- */
+  html body.modal-lock { overflow: hidden; height: 100%; }
+  .overlay { position: fixed; inset: 0; background: rgba(18,18,18,.5); backdrop-filter: blur(4px); z-index: 100; display: grid; place-items: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity .25s var(--ease-soft); overscroll-behavior: contain; }
+  .overlay.open { opacity: 1; pointer-events: auto; }
+  .modal { background: var(--card); border: var(--border); border-radius: var(--radius-lg); width: 100%; max-width: 400px; box-shadow: var(--shadow-card); padding: 24px; transform: translateY(14px) scale(.97); transition: transform .28s var(--ease-spring); max-height: 88vh; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .overlay.open .modal { transform: none; }
+  .modal h3 { font-size: 16px; margin-bottom: 16px; }
+  .swatches { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .swatch { width: 28px; height: 28px; border-radius: 8px; border: 2.5px solid var(--ink); cursor: pointer; transition: transform .15s var(--ease-spring); }
+  .swatch.sel { transform: scale(1.15); box-shadow: 0 0 0 3px var(--ink); }
+  .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+  .modal-actions .btn { flex: 1; }
+  .modal .field.row { flex-wrap: wrap; }
+
+  .comment-item { background: var(--cream-2); border: var(--border-thin); border-radius: var(--radius-sm); padding: 9px 11px; }
+  .comment-item .c-head { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
+  .comment-item .c-avatar { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--ink); display: grid; place-items: center; font-size: 9px; font-weight: 800; color: #fff; flex-shrink: 0; }
+  .comment-item .c-name { font-size: 11.5px; font-weight: 700; }
+  .comment-item .c-time { font-size: 10px; color: var(--ink-mute); font-weight: 600; margin-left: auto; }
+  .comment-item .c-text { font-size: 12.5px; color: var(--ink-soft); line-height: 1.4; }
+  .comment-empty { text-align: center; font-size: 11.5px; color: var(--ink-mute); font-weight: 600; padding: 10px; }
+
+  /* ---------- Quick Capture (Shift+Space) ---------- */
+  .capture-overlay { position: fixed; inset: 0; background: rgba(18,18,18,.55); z-index: 200; display: none; place-items: flex-start; justify-content: center; padding-top: 14vh; }
+  .capture-overlay.on { display: grid; }
+  .capture-box { width: 100%; max-width: 480px; background: var(--card); border: var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); padding: 18px; }
+  .capture-box textarea { width: 100%; min-height: 70px; resize: none; font-size: 14px; }
+  .capture-hint { font-size: 11px; color: var(--ink-mute); font-weight: 600; margin-top: 8px; }
+
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(90px); background: var(--ink); color: #fff; padding: 12px 18px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700; box-shadow: var(--shadow-brutal); z-index: 300; opacity: 0; transition: all .3s var(--ease-spring); }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  .scrim { display: none; }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 1100px) {
+    .bento { grid-template-columns: 1fr; }
+    .board { grid-template-columns: 1fr; }
+    /* Mobilde panel sırası: Sprint -> Fikir Havuzu -> Zaman Çizelgesi -> Kategoriler -> Performans */
+    .left-col, .mid-col, .right-col { display: contents; }
+    .panel + .panel { margin-top: 0; }
+    .panel { margin-bottom: 18px; }
+    #inboxPanel     { order: 1; }
+    #sprintPanel    { order: 2; }
+    #timelinePanel  { order: 3; }
+    #categoriesPanel{ order: 4; }
+    #metricsPanel   { order: 5; }
+    #teamPanel      { order: 6; }
+    #profilePanel   { order: 7; margin-bottom: 0; }
+  }
+  @media (max-width: 640px) {
+    .quickadd input[type=text] { flex: 1 1 100%; }
+    .modal { padding: 18px; max-height: 92vh; }
+    .field.row { flex-direction: column; gap: 12px !important; }
+  }
+  .hub{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 20px;background:var(--card);border-bottom:1px solid var(--line, #e5e2da)}
+  .hub-lbl{font-size:12px;font-weight:800;color:var(--ink-soft)}
+  .hub-link{text-decoration:none;font-size:12px;padding:6px 10px}
+
+  /* ===================== RAPORLAR (Özet + Kişisel) ===================== */
+  #reportArea{
+    --cream:#F4F2EC; --cream2:#EAE7E1; --card:#FFFDF9; --ink:#121212; --ink-soft:#4A4A46; --mut:#8A867E;
+    --cobalt:#2F5DFF; --cobalt-s:#E4EBFF; --green:#22C55E; --green-s:#DFF6E7; --mustard:#FFC53D; --mustard-s:#FFF3D6;
+    --red:#E8402A; --red-s:#FDE4DF; --purple:#A855F7; --purple-s:#F1E4FE; --orange:#FF8A00; --orange-s:#FFE9D1; --gray-s:#ECEAE4;
+    --fh:'Space Grotesk','Plus Jakarta Sans',sans-serif; --fb:'Plus Jakarta Sans',sans-serif; --fm:'JetBrains Mono',monospace;
+    --b:3px solid var(--ink); --b2:2px solid var(--ink); --sh:6px 6px 0 var(--ink); --sh-sm:4px 4px 0 var(--ink); --r:16px;
+    padding:20px 16px 60px; max-width:1180px; margin:0 auto; font-family:var(--fb); color:var(--ink);
+  }
+  @media(min-width:960px){ #reportArea{padding:26px 28px 60px} }
+  #reportArea .hidden{display:none!important}
+  #reportArea h2{font-family:var(--fh); font-size:1.35rem; margin:0 0 4px}
+  #reportArea .sub{color:var(--mut); font-size:.82rem; font-weight:600; margin-bottom:18px}
+  #reportArea .sect{margin-bottom:26px}
+  #reportArea .sect h3{font-family:var(--fh); font-size:.78rem; text-transform:uppercase; letter-spacing:.09em; margin:0 0 12px; display:flex; align-items:center; gap:8px}
+  #reportArea .sect h3 .cnt{background:var(--ink); color:var(--card); border-radius:99px; padding:1px 9px; font-size:.68rem; font-family:var(--fm)}
+  #reportArea .cards{display:grid; gap:14px}
+  @media(min-width:1100px){ #reportArea .cards{grid-template-columns:1fr 1fr} }
+  #reportArea .card{background:var(--card); border:var(--b); border-radius:var(--r); padding:16px; box-shadow:var(--sh); margin:0}
+  #reportArea .cards .empty{grid-column:1/-1}
+  #reportArea .empty{text-align:center; color:var(--mut); font-size:.85rem; font-weight:600; padding:30px 12px; border:2px dashed var(--mut); border-radius:var(--r); background:var(--cream2)}
+  #reportArea .chip{display:inline-flex; align-items:center; border-radius:99px; padding:4px 11px; font-size:.68rem; font-weight:800; border:var(--b2); color:var(--ink); white-space:nowrap}
+  #reportArea .pill{display:inline-block; border:var(--b2); border-radius:8px; padding:2px 8px; font-size:.66rem; font-weight:800; background:var(--card); white-space:nowrap}
+  #reportArea .own{width:28px;height:28px;border-radius:9px; display:inline-flex; border:var(--b2); align-items:center;justify-content:center; font-weight:800; font-size:.8rem; flex-shrink:0}
+  #reportArea .own.big{width:44px;height:44px;border-radius:12px;font-size:.95rem}
+  #reportArea .mrow{display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:12px}
+  #reportArea .m{font-size:.78rem; color:var(--ink-soft); font-weight:600}
+  #reportArea .m b{font-family:var(--fm); font-weight:700}
+  #reportArea .mini{font-size:.74rem; color:var(--ink-soft); font-weight:600; margin-top:3px}
+  #reportArea .note{font-size:.74rem; color:var(--mut); font-weight:600; margin-top:8px}
+  #reportArea .flabel{font-size:.66rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); margin:2px 0 4px}
+  #reportArea .filters{display:flex; gap:8px; overflow-x:auto; padding:4px 2px 8px; margin-bottom:10px; scrollbar-width:none}
+  #reportArea .filters::-webkit-scrollbar{display:none}
+  #reportArea .fchip{flex-shrink:0; background:var(--card); border:var(--b2); color:var(--ink-soft); border-radius:99px; padding:7px 14px; font-size:.75rem; font-weight:800; cursor:pointer; font-family:var(--fb)}
+  #reportArea .fchip.on{background:var(--ink); border-color:var(--ink); color:var(--card); box-shadow:var(--sh-sm)}
+  #reportArea .kpis{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:20px}
+  @media(min-width:700px){ #reportArea .kpis{grid-template-columns:repeat(4,1fr)} }
+  #reportArea .kpi{background:var(--card); border:var(--b); border-radius:var(--r); padding:14px; box-shadow:var(--sh-sm)}
+  #reportArea .kpi b{display:block; font-size:1.35rem; font-family:var(--fm)}
+  #reportArea .kpi span{font-size:.68rem; color:var(--mut); font-weight:800; text-transform:uppercase; letter-spacing:.05em}
+  #reportArea .kpi small{display:block; font-size:.66rem; font-weight:700; margin-top:2px; font-family:var(--fm)}
+  #reportArea .tblwrap{overflow-x:auto; border:var(--b); border-radius:var(--r); background:var(--card); box-shadow:var(--sh)}
+  #reportArea table{border-collapse:collapse; width:100%; font-size:.78rem}
+  #reportArea th,#reportArea td{padding:10px 12px; text-align:right; border-bottom:var(--b2); white-space:nowrap}
+  #reportArea th:first-child,#reportArea td:first-child{text-align:left; position:sticky; left:0; background:var(--card)}
+  #reportArea th{font-size:.66rem; text-transform:uppercase; letter-spacing:.06em; background:var(--mustard-s)}
+  #reportArea td{font-family:var(--fm); font-weight:500}
+  #reportArea td:first-child{font-family:var(--fb); font-weight:700}
+  #reportArea tr:last-child td{border-bottom:none}
+  #reportArea table.compact th,#reportArea table.compact td{padding:7px 8px}
+  #reportArea .dayrow{display:flex; gap:8px; align-items:center; margin-bottom:14px; flex-wrap:wrap}
+  #reportArea .dayrow select{width:auto; margin:0; padding:9px 12px; font-size:.85rem; background:var(--card); border:var(--b2); border-radius:12px; font-weight:700; font-family:var(--fb)}
+  #reportArea .nb{background:var(--card); border:var(--b2); border-radius:10px; width:38px; height:38px; cursor:pointer; font-weight:800; font-family:var(--fm); box-shadow:var(--sh-sm)}
+  #reportArea .dl{font-family:var(--fh); font-weight:700; font-size:1rem}
+  #reportArea .who{display:flex; flex-wrap:wrap; gap:8px}
+  #reportArea .who .w{display:inline-flex; align-items:center; gap:6px; border:var(--b2); border-radius:99px; padding:6px 12px; font-size:.74rem; font-weight:800; background:var(--card)}
+  #reportArea .who .w.ok{background:var(--green-s)} #reportArea .who .w.no{background:var(--red-s)}
+  #reportArea .chk{display:flex; align-items:center; gap:12px; padding:10px 12px; border:var(--b2); border-radius:12px; background:var(--card); margin-bottom:8px}
+  #reportArea .chk .bx{width:26px;height:26px;border:var(--b2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;background:var(--cream2);color:#fff}
+  #reportArea .chk.on{background:var(--green-s)} #reportArea .chk.on .bx{background:var(--green)}
+  #reportArea .chk .lbl{font-weight:700; font-size:.88rem; flex:1}
+  #reportArea .chk .by{font-size:.64rem; color:var(--mut); font-weight:700; font-family:var(--fm); white-space:nowrap}
+  #reportArea .crow{display:flex; gap:8px; align-items:center; padding:8px 0; border-bottom:2px solid var(--cream2); font-size:.78rem}
+  #reportArea .crow:last-child{border-bottom:none} #reportArea .crow b{white-space:nowrap} #reportArea .crow .ct{color:var(--ink-soft); font-weight:600; min-width:0; flex:1}
+  #reportArea .disc{display:grid; gap:4px; overflow-x:auto}
+  #reportArea .disc .r{display:grid; grid-template-columns:110px repeat(var(--n),minmax(18px,1fr)); gap:3px; align-items:center; font-size:.7rem; font-weight:700}
+  #reportArea .disc .c{height:22px; border:2px solid var(--ink); border-radius:6px; background:var(--red-s)}
+  #reportArea .disc .c.ok{background:var(--green)} #reportArea .disc .c.na{background:var(--gray-s); border-style:dashed; border-color:var(--mut)}
+  #reportArea .disc .h{font-size:.58rem; text-align:center; color:var(--mut); font-family:var(--fm)}
+  #reportArea .bar{height:10px; background:var(--cream2); border:var(--b2); border-radius:99px; overflow:hidden; min-width:60px} #reportArea .bar i{display:block;height:100%;background:var(--cobalt)}
+  #reportArea .mcard{display:flex; gap:12px; align-items:flex-start}
+  #reportArea .mcard .nm{font-family:var(--fh); font-weight:700; font-size:1.05rem}
+  #reportArea .mcard .tk{font-size:.76rem; color:var(--ink-soft); font-weight:600; margin-top:2px}
+  #reportArea .logcard .lt{font-size:.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin-top:8px}
+  #reportArea .logcard .lv{font-size:.86rem;font-weight:600;white-space:pre-wrap}
+  #reportArea .secthead{display:flex;align-items:center;gap:10px;margin:26px 0 12px}
+  #reportArea .secthead h2{margin:0;font-size:1.2rem}
+  #reportArea .secthead a{font-size:.74rem;font-weight:800;color:var(--cobalt);text-decoration:none;margin-left:auto}
+  #reportArea .demo{background:var(--mustard-s); border:var(--b2); font-size:.74rem; font-weight:700; padding:9px 13px; border-radius:12px; margin-bottom:16px}
+  #reportArea .late{color:var(--red); font-weight:800}
+  #reportArea .up{color:var(--green)} #reportArea .down{color:var(--red)}
+  #reportArea .vtext{font-size:.9rem; font-weight:600; margin:8px 0; white-space:pre-wrap}
+</style>
+</head>
+<body>
+
+  <!-- ===================== SETUP UYARISI ===================== -->
+  <div id="setup">
+    <div class="setup-card">
+      <h2 class="font-head">⚙️ Önce kurulum gerekli</h2>
+      <p>Uygulamanın çalışması için <code>index.html</code> içindeki <b>AYARLAR</b> bloğunu doldurmalısın.</p>
+      <ol>
+        <li><b>Supabase</b> projesi aç → Project Settings → API'den <code>Project URL</code> ve <code>anon key</code>'i kopyala.</li>
+        <li><code>schema.sql</code> dosyasını Supabase → SQL Editor'de çalıştır.</li>
+        <li><b>Google Sheets</b>'te <code>apps-script.gs</code>'i web uygulaması olarak yayınla, <code>/exec</code> URL'sini al.</li>
+        <li>Bu üç değeri <code>index.html</code> en üstteki <b>CONFIG</b> alanına yapıştır ve sayfayı yenile.</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ===================== AUTH ===================== -->
+  <div class="auth-wrap" id="authWrap" style="display:none">
+    <div class="auth-card">
+      <div class="brand-row">
+        <div class="logo">R</div>
+        <div><h1>Remaks Ekip</h1><p>Takım Lideri Görev Paneli</p></div>
+      </div>
+      <div class="tabs">
+        <button id="tabLogin" class="active">Giriş Yap</button>
+        <button id="tabSignup">Kayıt Ol</button>
+      </div>
+      <form id="loginForm">
+        <div class="field"><label>E-posta</label><input type="email" id="loginEmail" autocomplete="email" /></div>
+        <div class="field"><label>Şifre</label><input type="password" id="loginPass" autocomplete="current-password" /></div>
+        <button type="submit" class="btn btn-primary full" id="loginBtn">Giriş Yap</button>
+      </form>
+      <form id="signupForm" style="display:none">
+        <div class="field"><label>Ad Soyad</label><input type="text" id="suName" placeholder="Elif Yılmaz" autocomplete="name" /></div>
+        <div class="field"><label>Ekip</label><select id="suTeam"><option value="creative">Kreatif ekibi</option><option value="ops">Operasyon ekibi</option></select></div>
+        <div class="field"><label>E-posta</label><input type="email" id="suEmail" autocomplete="email" /></div>
+        <div class="field"><label>Şifre (min. 6 karakter)</label><input type="password" id="suPass" autocomplete="new-password" /></div>
+        <button type="submit" class="btn btn-primary full" id="suBtn">Kayıt Ol</button>
+      </form>
+      <div class="auth-msg" id="authMsg"></div>
+    </div>
+  </div>
+
+  <!-- ===================== ONAY BEKLENİYOR ===================== -->
+  <div class="auth-wrap" id="pendingWrap" style="display:none">
+    <div class="auth-card" style="text-align:center">
+      <div class="brand-row" style="justify-content:center">
+        <div class="logo">R</div>
+        <div style="text-align:left"><h1>Remaks Ekip</h1><p>Onay Bekleniyor</p></div>
+      </div>
+      <p style="font-size:13.5px; color:var(--ink-soft); line-height:1.6; margin:16px 0">
+        Hesabın oluşturuldu ✅ Panele erişebilmen için yöneticinin seni onaylaması gerekiyor.
+        Onaylandığında bu sayfayı yenileyip tekrar giriş yap.
+      </p>
+      <button class="btn btn-ghost full" id="pendingLogoutBtn">Çıkış Yap</button>
+    </div>
+  </div>
+
+  <!-- ===================== APP ===================== -->
+  <div id="app">
+    <header class="topbar">
+      <button class="btn btn-icon hamburger" id="hamburger">☰</button>
+      <div class="brand-row">
+        <div class="logo">R</div>
+        <div><h1 style="font-size:16px">Remaks Ekip</h1><p style="font-size:11px;color:var(--ink-soft);font-weight:600">Görev Yönetim Paneli</p></div>
+      </div>
+      <div class="spacer"></div>
+      <div class="search-box">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8A867E" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+        <input type="text" id="searchInput" placeholder="Görev ara..." />
+      </div>
+      <div id="viewToggle" class="tabs" style="display:none; width:auto">
+        <button data-view="mine" class="active">Görevlerim</button>
+        <button data-view="all">Tüm Ekip</button>
+      </div>
+      <button class="btn btn-ghost" id="exportBtn">📤 Sheets'e Aktar</button>
+    </header>
+    <div id="hub" class="hub" style="display:none"></div>
+    <div id="reportArea" style="display:none">
+      <div id="tabGunluk" class="hidden"></div>
+      <div id="tabOzet" class="hidden"></div>
+      <div id="tabRapor" class="hidden"></div>
+    </div>
+
+    <!-- ============ TAKIM PANOSU ============ -->
+    <div id="teamArea">
+      <div class="bento">
+        <!-- SOL -->
+        <div class="left-col">
+          <div class="panel" id="profilePanel">
+            <div class="profile-card">
+              <div class="avatar" id="meAvatar"></div>
+              <div class="profile-meta">
+                <div class="name" id="meName"></div>
+                <div class="role" id="meRole"></div>
+              </div>
+              <span class="admin-pill" id="mePill" style="display:none">ADMIN</span>
+            </div>
+            <button class="btn btn-ghost full" id="notifyBtn" style="margin-top:8px">🔔 Bildirimleri Aç</button>
+            <button class="btn btn-ghost full logout-btn" id="logoutBtn">Çıkış Yap</button>
+          </div>
+
+          <div class="panel" id="teamPanel" style="display:none">
+            <div class="panel-head">
+              <h3>Kullanıcılar</h3>
+              <span class="count-chip" id="teamCount">0</span>
+            </div>
+            <div class="cat-list" id="teamList"></div>
+          </div>
+
+          <div class="panel" id="categoriesPanel">
+            <div class="panel-head">
+              <h3>Kategoriler</h3>
+              <span class="count-chip" id="catCount">0</span>
+            </div>
+            <div class="cat-list" id="catList"></div>
+            <button class="btn btn-ghost full" id="addCatBtn" style="margin-top:10px; display:none">+ Kategori Ekle</button>
+          </div>
+
+          <div class="panel" id="metricsPanel">
+            <div class="panel-head"><h3>Performans Özeti</h3></div>
+            <div class="metrics-grid">
+              <div class="metric-box"><div class="num mono" id="metricTotal">0</div><div class="lbl">Toplam</div></div>
+              <div class="metric-box"><div class="num mono" id="metricDone">0</div><div class="lbl">Biten</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ORTA -->
+        <div class="mid-col">
+          <div class="panel" id="sprintPanel">
+            <div class="panel-head">
+              <h3>Sprint Görev Akışı</h3>
+              <span class="count-chip" id="subtitleChip"></span>
+            </div>
+
+            <div class="quickadd">
+              <input type="text" id="qaTitle" placeholder="Yeni görev planı yaz..." />
+              <select id="qaCategory"></select>
+              <select id="qaPriority">
+                <option value="kritik">Kritik</option>
+                <option value="yuksek">Yüksek</option>
+                <option value="normal" selected>Normal</option>
+                <option value="dusuk">Düşük</option>
+              </select>
+              <select id="qaAssignee" style="display:none"></select>
+              <input type="date" id="qaDue" title="Son teslim tarihi" />
+              <button class="btn btn-mustard" id="qaAddBtn">Ekle</button>
+            </div>
+            <div class="field" id="qaExtraRow" style="display:none">
+              <label>+ Ek Kişiler (opsiyonel, birden fazla seçilebilir)</label>
+              <select id="qaExtraAssignees" multiple style="min-height:74px"></select>
+            </div>
+            <div class="quickadd" id="qaPersonalRow" style="display:none">
+              <input type="time" id="qaStart" title="Başlangıç saati" />
+              <input type="time" id="qaEnd" title="Bitiş saati" />
+              <input type="url" id="qaLink" placeholder="🔗 Link (opsiyonel, sadece sana özel)" style="flex:2" />
+            </div>
+
+            <div class="priority-filters" id="priorityFilters">
+              <button class="pf-btn active" data-pri="all">Tümü</button>
+              <button class="pf-btn" data-pri="kritik">🔴 Kritik</button>
+              <button class="pf-btn" data-pri="yuksek">🟠 Yüksek</button>
+              <button class="pf-btn" data-pri="normal">🔵 Normal</button>
+              <button class="pf-btn" data-pri="dusuk">⚪ Düşük</button>
+            </div>
+
+            <div class="board" id="board"></div>
+          </div>
+        </div>
+
+        <!-- SAĞ -->
+        <div class="right-col">
+          <div class="panel" id="inboxPanel">
+            <div class="panel-head">
+              <h3>Fikir Havuzu</h3>
+              <span class="count-chip" id="inboxCount">0</span>
+            </div>
+            <div class="inbox-add">
+              <textarea id="inboxInput" placeholder="Aklına gelen fikri buraya yaz..."></textarea>
+            </div>
+            <button class="btn btn-primary full" id="inboxAddBtn" style="margin-bottom:12px">Notu Ekle</button>
+            <div class="inbox-list" id="inboxList"></div>
+            <div class="inbox-hint">Notları sürükleyip panodaki bir sütuna bırak → görev kartına dönüşsün.<br><b>Shift + Space</b> ile hızlı yakala.</div>
+          </div>
+
+          <div class="panel" id="timelinePanel" style="display:none">
+            <div class="panel-head"><h3>🕐 Bugünün Zaman Çizelgesi</h3></div>
+            <div class="timeline" id="timeline"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL: Kategori ===================== -->
+  <div class="overlay" id="catOverlay">
+    <div class="modal">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px">
+        <h3 style="margin:0">Yeni Kategori Ekle</h3>
+        <button type="button" class="btn btn-icon" id="catCloseXBtn" style="width:32px; height:32px; flex-shrink:0">✕</button>
+      </div>
+      <form id="catForm">
+        <div class="field"><label>Kategori Adı</label><input type="text" id="catName" placeholder="Örn. Pazarlama" /></div>
+        <div class="field">
+          <label>Renk</label>
+          <div class="swatches" id="colorSwatches"></div>
+        </div>
+        <div class="field" style="display:flex; align-items:center; gap:9px; margin-top:2px">
+          <input type="checkbox" id="catPersonal" style="width:18px; height:18px; accent-color:var(--cobalt)" />
+          <label for="catPersonal" style="margin:0; text-transform:none; font-weight:600; font-size:12.5px; color:var(--ink)">🔒 Sadece bana özel (ekip göremez)</label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="catCancelBtn">Vazgeç</button>
+          <button type="submit" class="btn btn-primary">Ekle</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL: Görev Düzenle ===================== -->
+  <div class="overlay" id="taskEditOverlay">
+    <div class="modal" style="max-width:480px">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px">
+        <h3 style="margin:0">Görevi Düzenle</h3>
+        <button type="button" class="btn btn-icon" id="teCloseBtn" style="width:32px; height:32px; flex-shrink:0">✕</button>
+      </div>
+      <form id="taskEditForm">
+        <div class="field"><label>Başlık</label><input type="text" id="teTitle" /></div>
+        <div class="field"><label>Açıklama</label><textarea id="teDesc" style="min-height:60px"></textarea></div>
+        <div class="field row" style="display:flex; gap:10px">
+          <div style="flex:1"><label>Kategori</label><select id="teCategory"></select></div>
+          <div style="flex:1">
+            <label>Öncelik</label>
+            <select id="tePriority">
+              <option value="kritik">Kritik</option>
+              <option value="yuksek">Yüksek</option>
+              <option value="normal">Normal</option>
+              <option value="dusuk">Düşük</option>
+            </select>
+          </div>
+        </div>
+        <div class="field row" style="display:flex; gap:10px">
+          <div style="flex:1" id="teAssigneeWrap"><label>Ana Sorumlu</label><select id="teAssignee"></select></div>
+          <div style="flex:1"><label>Son Teslim Tarihi</label><input type="date" id="teDue" /></div>
+        </div>
+        <div class="field" id="teExtraWrap" style="display:none">
+          <label>+ Ek Kişiler (opsiyonel)</label>
+          <select id="teExtraAssignees" multiple style="min-height:74px"></select>
+        </div>
+        <div class="field row" id="tePersonalWrap" style="display:none; gap:10px">
+          <div style="flex:1"><label>Başlangıç Saati</label><input type="time" id="teStart" /></div>
+          <div style="flex:1"><label>Bitiş Saati</label><input type="time" id="teEnd" /></div>
+        </div>
+        <div class="field" id="teLinkWrap" style="display:none"><label>Link</label><input type="url" id="teLink" placeholder="https://" /></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="teCancelBtn">Vazgeç</button>
+          <button type="submit" class="btn btn-primary">Kaydet</button>
+        </div>
+      </form>
+
+      <div style="margin-top:18px; border-top:2px solid var(--cream-2); padding-top:14px">
+        <label style="margin-bottom:8px">💬 Yorumlar / Açıklamalar</label>
+        <div id="teComments" style="max-height:180px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:10px"></div>
+        <div style="display:flex; gap:8px">
+          <input type="text" id="teCommentInput" placeholder="Bir açıklama/yorum yaz..." style="flex:1" />
+          <button type="button" class="btn btn-mustard" id="teCommentBtn">Gönder</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== HIZLI YAKALAMA (Shift+Space) ===================== -->
+  <div class="capture-overlay" id="captureOverlay">
+    <div class="capture-box">
+      <textarea id="captureInput" placeholder="Aklındaki fikri yaz, Enter'a bas..."></textarea>
+      <div class="capture-hint">Enter: Fikir Havuzuna kaydet · Esc: Kapat</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+/* ============================================================
+   ⚙️ AYARLAR (CONFIG)
+   ============================================================ */
+const SUPABASE_URL      = "https://ciwpxeqqrwfsuoggdync.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpd3B4ZXFxcndmc3VvZ2dkeW5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MjI4ODQsImV4cCI6MjEwMjE5ODg4NH0.S_vgxYMAjQ9RtkRHxyMJs0NG9aj94_Jn2FfaGszzTOI";
+const SHEETS_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzOfv2NX3k_KjYcVgly7BvnGcXNRN_hEYmaD0ehd74z5FCDdjwEYDA92TFX8nBZZyaSVA/exec";
+const VAPID_PUBLIC_KEY  = "BK2bD83oZ2ePuEnF4HAhdFF9ZmnRO-H09KpzlHiU3cPGy4ojx3in-TChfUUDe5fpOuXCbWCq-5Iz5RwE_Kj6Zcg";
+/* ============================================================ */
+
+const $  = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+
+const AVATAR_PALETTE = ["#2F5DFF","#E8402A","#FFC53D","#22C55E","#A855F7","#0EA5E9","#EC4899","#84CC16","#FB923C","#6366F1"];
+const COLUMNS = [
+  { id:"todo",  title:"Yapılacaklar", cls:"col-todo"  },
+  { id:"doing", title:"Süreçtekiler", cls:"col-doing" },
+  { id:"done",  title:"Tamamlandı",   cls:"col-done"  },
+];
+const STATUS_LABEL = { todo:"Yapılacak", doing:"Süreçte", done:"Tamamlandı" };
+const ROLE_LABEL = { admin:"Yönetici", partner:"Ortak", ops:"Operasyon ekibi", creative:"Kreatif ekibi" };
+const PANELS = { kreatif:{href:"/kreatif/", l:"🎬 Kreatif paneli"}, operasyon:{href:"/operasyon/", l:"🏭 Operasyon paneli"} };
+function panelsFor(role){ return role==="admin"||role==="partner" ? ["kreatif","operasyon"] : role==="ops" ? ["operasyon"] : role==="creative" ? ["kreatif"] : []; }
+function renderHub(){
+  const el = $("#hub"); if(!el) return;
+  const ps = panelsFor(profile.role);
+  const links = ps.length ? `<span class="hub-lbl">Panellerin:</span>` + ps.map(k => `<a class="btn btn-ghost hub-link" href="${PANELS[k].href}">${PANELS[k].l}</a>`).join("") : "";
+  const tabs = profile.is_admin ? `<div class="tabs" id="mainTabs" style="width:auto">
+      <button data-main="gorev" class="${mainTab==="gorev"?"active":""}">📋 Görevler</button>
+      <button data-main="gunluk" class="${mainTab==="gunluk"?"active":""}">📝 Günlük</button>
+      <button data-main="ozet" class="${mainTab==="ozet"?"active":""}">📊 Özet</button>
+      <button data-main="rapor" class="${mainTab==="rapor"?"active":""}">👤 Kişisel</button>
+    </div>` : "";
+  el.innerHTML = tabs + links;
+  el.style.display = (tabs || links) ? "flex" : "none";
+  $$("#mainTabs [data-main]").forEach(b => b.onclick = () => showMain(b.dataset.main));
+}
+let mainTab = "gorev";
+function showMain(tab){
+  mainTab = tab;
+  const isTasks = tab === "gorev";
+  $("#teamArea").style.display = isTasks ? "" : "none";
+  $("#reportArea").style.display = isTasks ? "none" : "";
+  const sbx = $(".search-box"); if (sbx) sbx.style.display = isTasks ? "" : "none";
+  $("#exportBtn").style.display = isTasks ? "" : "none";
+  $("#viewToggle").style.display = (isTasks && profile.is_admin) ? "flex" : "none";
+  $$("#mainTabs [data-main]").forEach(b => b.classList.toggle("active", b.dataset.main === tab));
+  if (!isTasks) REPORT.show(tab);
+  window.scrollTo(0, 0);
+}
+const PRIORITY_LABEL = { kritik:"Kritik", yuksek:"Yüksek", normal:"Normal", dusuk:"Düşük" };
+const PRIORITY_ORDER = { kritik:0, yuksek:1, normal:2, dusuk:3 };
+const PRIORITY_COLOR = { kritik:"var(--pri-kritik)", yuksek:"var(--pri-yuksek)", normal:"var(--pri-normal)", dusuk:"var(--pri-dusuk)" };
+const PRIORITY_ICON = { kritik:"🔴", yuksek:"🟠", normal:"🔵", dusuk:"⚪" };
+
+const SWATCHES = ["#E8402A","#2F5DFF","#22C55E","#A855F7","#FFC53D","#0EA5E9","#EC4899","#84CC16","#FB923C","#6366F1","#121212","#9AA0A6"];
+
+/* ---------- Durum ---------- */
+let sb = null;
+let me = null;
+let profile = null;
+let profiles = {};
+let categories = [];
+let tasks = [];
+let inboxNotes = [];
+let view = "mine";
+let priorityFilter = "all";
+let searchQuery = "";
+let selectedSwatch = SWATCHES[0];
+let channel = null;
+let editingTaskId = null;
+let taskAssigneesMap = {}; // { task_id: [user_id, ...] } -- ek atananlar
+
+const initials = n => (n||"?").trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase();
+const colorFor = id => { let h=0; for(const c of String(id)) h=(h*31+c.charCodeAt(0))>>>0; return AVATAR_PALETTE[h%AVATAR_PALETTE.length]; };
+const esc = (s="") => String(s).replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
+const configured = () => !SUPABASE_URL.includes("YOUR-PROJECT") && !SUPABASE_ANON_KEY.includes("YOUR-ANON-KEY");
+const todayStr = () => new Date().toISOString().slice(0,10);
+
+function dueMeta(dateStr, done) {
+  if (!dateStr) return { show:false };
+  const today = new Date(); today.setHours(0,0,0,0);
+  const due = new Date(dateStr + "T00:00:00");
+  const diff = Math.round((due - today) / 86400000);
+  const label = due.toLocaleDateString("tr-TR", { day:"numeric", month:"short" });
+  if (done) return { cls:"", label, show:true };
+  if (diff < 0)  return { cls:"overdue", label: label + " · gecikti", show:true };
+  if (diff === 0) return { cls:"soon", label:"Bugün", show:true };
+  if (diff <= 3) return { cls:"soon", label: label + " · " + diff + " gün", show:true };
+  return { cls:"", label, show:true };
+}
+function toast(msg) {
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove("show"), 2400);
+}
+const openM  = el => { el.classList.add("open"); document.body.classList.add("modal-lock"); };
+const closeM = el => { el.classList.remove("open"); if (!$$(".overlay.open").length) document.body.classList.remove("modal-lock"); };
+
+/* ================= RAPORLAR · Özet + Kişisel (ortaklar panelinden taşındı) ================= */
+const REPORT = (() => {
+const DEMO = false;
+const roRow = t => `<div class="chk ${t.done?"on":""}"><div class="bx">${t.done?"✓":""}</div><div class="lbl">${esc(t.title)}${t.detail?`<div class="note" style="margin:2px 0 0">${esc(t.detail)}</div>`:""}${t.done_note?`<div class="note" style="margin:2px 0 0;color:var(--green)">↳ ${esc(t.done_note)}</div>`:""}</div><div class="by">${t.due?trShort(t.due):""}${(t.due&&!t.done&&t.due<today())?" ⚠️ gecikti":""}</div></div>`;
+/* ---------- sözlükler ---------- */
+const ST = {
+  yeni:{l:"Yeni",s:"#ECEAE4"}, testte:{l:"Testte",s:"#E4EBFF"}, yetersiz_veri:{l:"Yetersiz Veri",s:"#F1E4FE"},
+  winner_adayi:{l:"Winner Adayı",s:"#FFF3D6"}, onayli_winner:{l:"Onaylı Winner",s:"#DFF6E7"},
+  yorulma_riski:{l:"Yorulma Riski",s:"#FFE9D1"}, loser:{l:"Loser",s:"#FDE4DF"}, arsiv:{l:"Arşiv",s:"#EFEFEF"},
+};
+const WIN=["onayli_winner","winner_adayi"];
+const STAGES = {fikirler:"Fikirler",hooklar:"Hooklar",k_yapilacak:"Kreatif yapılacak",k_revize:"Revize",k_varyasyon:"Varyasyon",k_yapiliyor:"Kreatif yapılıyor",k_yapildi:"Kreatif yapıldı",k_kontrol:"Kontrol",r_yapilacak:"Reklam yapılacak",r_yapiliyor:"Reklam yapılıyor",r_yapildi:"Reklam yapıldı",r_yayinlanacak:"Yayınlanacak",r_yayinda:"Yayında"};
+const TAGS = {erimis:"Erimiş",eksik:"Eksik",yanlis:"Yanlış ürün",gec:"Geç kargo",iade:"İade",iptal:"İptal",kullanim:"Kullanım",icerik:"İçerik",fiyat:"Fiyat",ekitap:"E-kitap",diger:"Diğer"};
+const ROLES = {stok:"📊 Stok sayımı",kargo:"📦 Kargo girişi",mesaj_kontrol:"💬 Mesaj kontrolü",temizlik_kontrol:"🧹 Temizlik kontrolü",mesaj_kanali:"📨 Mesaj kanalı temizleme"};
+const PALETTE=["#2F5DFF","#FF8A00","#EC4899","#A855F7","#22C55E","#FFC53D","#0EA5E9","#E8402A"];
+const LATE_MIN=9*60+10;
+
+/* ---------- durum ---------- */
+const S = {
+  profile:null, tab:"gun", day:null, gunUser:null, period:"hafta", ref:null, rpPerson:"", rpPeriod:"hafta", rpRef:null,
+  partners:[], profiles:[], prtDaily:[], prtTasks:[], tasksRaw:null, assigneesRaw:[], prtTables:true, missing:[],
+  k:{weeks:[],creatives:[],results:[],fins:[],team:[],daily:[],scores:[],reqs:[],pipeline:[]},
+  o:{members:[],daily:[],scores:[],team:[],checks:[],tasks:[],voice:[],stock:[],products:[],assign:[]},
+  rank:{},
+};
+
+/* ---------- yardımcılar ---------- */
+const $ = id=>document.getElementById(id);
+const esc = s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+const nf=new Intl.NumberFormat("tr-TR"), nf1=new Intl.NumberFormat("tr-TR",{maximumFractionDigits:1}), nf2=new Intl.NumberFormat("tr-TR",{maximumFractionDigits:2});
+const tl=v=>v==null?"—":"₺"+nf.format(Math.round(v));
+const pct=v=>v==null?"—":nf1.format(v*100)+"%";
+const pad=n=>String(n).padStart(2,"0");
+const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const today=()=>iso(new Date());
+const addDays=(s,n)=>{ const d=new Date(s+"T00:00:00"); d.setDate(d.getDate()+n); return iso(d); };
+const dow=s=>new Date(s+"T00:00:00").getDay();
+const monday=s=>addDays(s,-((dow(s)+6)%7));
+const monthEnd=f=>{ const d=new Date(f+"T00:00:00"); d.setMonth(d.getMonth()+1); d.setDate(0); return iso(d); };
+const trDate=s=>new Date(s+"T00:00:00").toLocaleDateString("tr-TR",{day:"numeric",month:"long"});
+const trDateW=s=>new Date(s+"T00:00:00").toLocaleDateString("tr-TR",{day:"numeric",month:"short",weekday:"long"});
+const trShort=s=>new Date(s+"T00:00:00").toLocaleDateString("tr-TR",{day:"2-digit",month:"2-digit"});
+const trMonth=s=>new Date(s+"T00:00:00").toLocaleDateString("tr-TR",{month:"long",year:"numeric"});
+const mins=t=>{ if(!t||!/^\d{1,2}:\d{2}/.test(t)) return null; const [h,m]=t.split(":").map(Number); return h*60+m; };
+const hhmm=m=>m==null?"—":`${pad(Math.floor(m/60))}:${pad(Math.round(m%60))}`;
+const durTxt=m=>!m?"—":m>=60?`${Math.floor(m/60)} sa${m%60?" "+(m%60)+" dk":""}`:`${m} dk`;
+const sum=(arr,f)=>arr.reduce((a,x)=>a+(+(f?f(x):x)||0),0);
+const avg=arr=>arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:null;
+const nowIso=()=>new Date().toISOString();
+const uid=()=>"d"+Math.random().toString(36).slice(2,10);
+const inRange=(d,[a,b])=>d>=a&&d<=b;
+const initials=n=>String(n||"?").trim().split(/\s+/).map(x=>x[0]).join("").slice(0,2).toUpperCase();
+const colorOf=(key)=>PALETTE[[...String(key)].reduce((a,c)=>a+c.charCodeAt(0),0)%PALETTE.length];
+const av=(name,key,big)=>`<span class="own ${big?"big":""}" style="background:${colorOf(key||name)}40;border-color:${colorOf(key||name)}">${esc(initials(name))}</span>`;
+const isAdmin=()=>S.profile?.role==="admin";
+const chip=(l,s)=>`<span class="chip" style="background:${s}">${esc(l)}</span>`;
+const opt=(v,l,cur)=>`<option value="${esc(v)}" ${String(v)===String(cur)?"selected":""}>${esc(l)}</option>`;
+const dayNav=(id,val,extra="")=>`<div class="dayrow"><button class="nb" data-dn="${id}" data-d="-1">‹</button><input type="date" id="${id}" value="${val}"><button class="nb" data-dn="${id}" data-d="1">›</button><span class="dl">${trDateW(val)}</span>${extra}</div>`;
+function bindDayNav(root,key,rerender){
+  root.querySelectorAll("[data-dn]").forEach(b=>b.onclick=()=>{ S[key]=addDays(S[key],+b.dataset.d); rerender(); });
+  const inp=root.querySelector("input[type=date][id]"); if(inp) inp.onchange=e=>{ if(e.target.value){ S[key]=e.target.value; rerender(); } };
+}
+const userName=id=>S.partners.find(p=>p.id===id)?.name || "—";
+const ownersOf=c=>c?[c.owner_initial,...String(c.co_owner||"").split(",").map(x=>x.trim())].filter(Boolean):[];
+const kName=k=>S.k.team.find(t=>t.initial===k)?.name || k;
+const oName=id=>S.o.members.find(m=>m.id===id)?.name || "—";
+const msgOf=r=>(r.wp_msg||0)+(r.ig_msg||0)+(r.mail_msg||0);
+const ordOf=r=>(r.wp_order||0)+(r.ig_order||0)+(r.mail_order||0);
+const prodOf=r=>(r.new_video||0)+(r.new_image||0)+(r.var_video||0)+(r.var_image||0);
+function periodRange(p,ref){
+  if(p==="hafta"){ const m=monday(ref); return [m,addDays(m,6)]; }
+  if(p==="ay"){ const f=ref.slice(0,8)+"01"; return [f,monthEnd(f)]; }
+  return ["2000-01-01","2999-12-31"];
+}
+function shiftRef(key,p,n){ if(p==="hafta") S[key]=addDays(S[key],7*n); else if(p==="ay"){ const d=new Date(S[key].slice(0,8)+"01T00:00:00"); d.setMonth(d.getMonth()+n); S[key]=iso(d); } }
+const periodTitle=(p,[a,b])=>p==="hafta"?`${trDate(a)} – ${trDate(b)}`:p==="ay"?trMonth(a):"Tüm zamanlar";
+function workdays([a,b]){ let n=0; const from=a<"2026-06-01"?"2026-06-01":a; const to=b<today()?b:today(); for(let d=from; d<=to; d=addDays(d,1)) if(dow(d)!==0) n++; return n; }
+
+/* ---------- veri ---------- */
+async function fetchAll(table,build){
+  let out=[],from=0;
+  while(true){ let q=sb.from(table).select("*"); if(build) q=build(q); const {data,error}=await q.range(from,from+999); if(error) throw error; out.push(...(data||[])); if(!data||data.length<1000) break; from+=1000; }
+  return out;
+}
+const tryAll=async (table,build)=>{ try{ return await fetchAll(table,build); }catch(e){ S.missing.push(table+": "+e.message); return null; } };
+async function loadAll(){
+  if(DEMO) return;
+  S.missing=[]; const since="2026-06-01";
+  const [profiles,pd,tk,ta]=await Promise.all([tryAll("profiles",q=>q.order("name")), tryAll("prt_daily",q=>q.order("day",{ascending:false})), tryAll("tasks",q=>q.order("created_at",{ascending:false})), tryAll("task_assignees")]);
+  S.profiles=profiles||[];
+  S.partners=(profiles||[]).filter(p=>["admin","partner"].includes(p.role));
+  if(!S.partners.find(p=>p.id===S.profile.id)) S.partners.unshift(S.profile);
+  S.prtTables=!!pd; S.prtDaily=pd||[]; S.tasksRaw=tk||[]; S.assigneesRaw=ta||[];
+  S.prtTasks=unifyTasks(S.tasksRaw,S.assigneesRaw).filter(t=>S.partners.some(u=>u.id===t.assigned_to));
+  const [weeks,creatives,results,fins,team,kdaily,kscores,kreq,pipeline]=await Promise.all([
+    tryAll("weeks",q=>q.order("week",{ascending:false})), tryAll("creatives"), tryAll("weekly_results"), tryAll("weekly_financials"),
+    tryAll("team_members",q=>q.order("sort")), tryAll("kre_daily",q=>q.gte("day",since)), tryAll("kre_scores",q=>q.gte("day",since)),
+    tryAll("kre_requests",q=>q.order("created_at",{ascending:false})), tryAll("pipeline_cards"),
+  ]);
+  Object.assign(S.k,{weeks:weeks||[],creatives:creatives||[],results:results||[],fins:fins||[],team:team||[],daily:kdaily||[],scores:kscores||[],reqs:kreq||[],pipeline:pipeline||[]});
+  const [members,odaily,oscores,oteam,ochecks,otasks,ovoice,ostock,oprod,oassign]=await Promise.all([
+    tryAll("ops_members",q=>q.order("sort")), tryAll("ops_daily",q=>q.gte("day",since)), tryAll("ops_scores",q=>q.gte("day",since)),
+    tryAll("ops_team_daily",q=>q.gte("day",since)), tryAll("ops_checks",q=>q.gte("day",since)), Promise.resolve([]),
+    tryAll("ops_voice",q=>q.gte("day",since)), tryAll("ops_stock"), tryAll("ops_products"), tryAll("ops_assignments"),
+  ]);
+  Object.assign(S.o,{members:members||[],daily:odaily||[],scores:oscores||[],team:oteam||[],checks:ochecks||[],tasks:[],voice:ovoice||[],stock:ostock||[],products:oprod||[],assign:oassign||[]});
+  // operasyon ekibinin işleri: ortak tasks tablosundan, üye hesabına göre
+  S.o.tasks=unifyTasks(S.tasksRaw,S.assigneesRaw).map(t=>{ const m=S.o.members.find(x=>x.user_id===t.assigned_to); return m?{...t,member_id:m.id}:null; }).filter(Boolean);
+}
+// ortak görev tablosu -> panel şekli (her atanan kişi için bir satır)
+function unifyTasks(rows, assignees){
+  const out=[]; const nm=id=>S.profiles?.find(p=>p.id===id)?.name || S.partners.find(p=>p.id===id)?.name || "";
+  (rows||[]).forEach(t=>{
+    const uids=[t.user_id, ...(assignees||[]).filter(a=>a.task_id===t.id).map(a=>a.user_id)].filter((v,i,a)=>v&&a.indexOf(v)===i);
+    uids.forEach(uid=>out.push({id:t.id, assigned_to:uid, assigned_name:nm(uid), title:t.title, detail:t.descr||null, due:t.due, created_by:t.assigned_by, created_name:nm(t.assigned_by), done:t.status==="done", done_at:t.done_at, done_note:t.done_note, created_at:t.created_at, source:t.source}));
+  });
+  return out;
+}
+const taskUpd = upd=>({status: upd.done?"done":"todo", done_at: upd.done_at||null, done_note: upd.done_note||null});
+async function ranking(from,to){
+  const k=`${from}|${to}`; if(Array.isArray(S.rank[k])) return S.rank[k];
+  if(DEMO){ // basit yerel: puan ort + doldurma
+    const rows=S.o.members.filter(m=>m.active).map(m=>{ const D=S.o.daily.filter(x=>x.member_id===m.id&&inRange(x.day,[from,to])); const sc=S.o.scores.filter(s=>s.ratee_id===m.id&&inRange(s.day,[from,to])&&s.score!=null).map(s=>s.score); return {member_id:m.id,name:m.name,total:Math.round(((avg(sc)||0)*10*0.6+Math.min(100,D.length/Math.max(workdays([from,to]),1)*100)*0.4)*10)/10,puan:(avg(sc)||0)*10,n_puan:sc.length}; }).filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
+    S.rank[k]=rows; return rows;
+  }
+  const {data,error}=await sb.rpc("ops_ranking",{p_from:from,p_to:to,p_full:true});
+  S.rank[k]=error?[]:(data||[]); return S.rank[k];
+}
+
+/* ================= ÖZET ================= */
+function kreStatusMap(range){ // kreatif → dönemdeki son durumu
+  const wr=[monday(range[0]),range[1]]; const m={};
+  S.k.results.filter(r=>inRange(r.week,wr)).sort((a,b)=>a.week<b.week?-1:1).forEach(r=>{ m[r.creative_code]=r.status_at_week||m[r.creative_code]; });
+  if(range[0]==="2000-01-01") S.k.creatives.forEach(c=>{ if(!m[c.code]) m[c.code]=c.status; });
+  return m;
+}
+function firstSeen(){ const m={}; S.k.results.forEach(r=>{ if(!m[r.creative_code]||r.week<m[r.creative_code]) m[r.creative_code]=r.week; }); return m; }
+function kpi(l,v,sub){ return `<div class="kpi"><span>${l}</span><b>${v}</b>${sub?`<small>${sub}</small>`:""}</div>`; }
+function renderOzet(){
+  const el=$("tabOzet"); const range=periodRange(S.period,S.ref); const [a,b]=range; const title=periodTitle(S.period,range);
+  const rk=`${a}|${b}`; if(!S.rank[rk]){ S.rank[rk]="…"; ranking(a,b).then(()=>{ if(S.tab==="ozet") renderOzet(); }); }
+  if(S.rank[rk]==="…" && DEMO) {}
+  // kreatif
+  const sm=kreStatusMap(range); const fs=firstSeen();
+  const cnt=k=>Object.values(sm).filter(s=>k.includes(s)).length;
+  const newC=Object.entries(fs).filter(([c,w])=>inRange(w,[monday(a),b])).length;
+  const wr=[monday(a),b]; const R=S.k.results.filter(r=>inRange(r.week,wr)); const F=S.k.fins.filter(f=>inRange(f.week,wr));
+  const spend=sum(F,f=>f.spend), rev=sum(F,f=>f.revenue), sales=sum(R,r=>r.sales);
+  const roas=spend?rev/spend:null, gpt=(sales&&spend)?spend/sales*((rev/spend)-1):null;
+  const winners=Object.entries(sm).filter(([c,s])=>WIN.includes(s)).map(([c])=>S.k.creatives.find(x=>x.code===c)).filter(Boolean);
+  const perOwner={}; winners.forEach(c=>ownersOf(c).forEach(o=>perOwner[o]=(perOwner[o]||0)+1));
+  const KD=S.k.daily.filter(x=>inRange(x.day,range));
+  const kreOpen=S.k.reqs.filter(q=>!q.done); const pipe={}; S.k.pipeline.forEach(p=>pipe[p.stage]=(pipe[p.stage]||0)+1);
+  const weekNotes=S.k.weeks.filter(w=>inRange(w.week,wr)&&w.note).slice(0,2);
+  // operasyon
+  const OD=S.o.daily.filter(x=>inRange(x.day,range)); const OT=S.o.team.filter(x=>inRange(x.day,range));
+  const cargo=OT.length?sum(OT,x=>x.cargo_total):sum(OD,x=>x.cargo);
+  const act=S.o.members.filter(m=>m.active); const wd=workdays(range);
+  const fillPct=act.length&&wd?Math.round(OD.length/(act.length*wd)*100):null;
+  const OC=S.o.checks.filter(c=>inRange(c.day,range)); const oOpen=S.o.tasks.filter(t=>!t.done);
+  const tagC={}; S.o.voice.filter(v=>inRange(v.day,range)).forEach(v=>(v.tags||[]).forEach(t=>tagC[t]=(tagC[t]||0)+1));
+  const tags=Object.entries(tagC).sort((x,y)=>y[1]-x[1]).slice(0,5);
+  const lastStock=S.o.products.filter(p=>p.active!==false).map(p=>{ const r=S.o.stock.filter(s=>s.product===p.key).sort((x,y)=>y.day<x.day?-1:1)[0]; return {p,r}; });
+  const rows=S.rank[rk]; const rankHtml=rows==="…"?`<span class="mini">hesaplanıyor…</span>`:rows.length?rows.slice(0,3).map((r,i)=>`<span class="pill" style="background:${i===0?"var(--mustard-s)":"var(--card)"}">${i+1}. ${esc(r.name)} ${r.total!=null?nf1.format(r.total):""}</span>`).join(" "):`<span class="mini">veri yok</span>`;
+  // ortaklar
+  const todayLogs=S.partners.map(u=>({u,ok:S.prtDaily.some(d=>d.user_id===u.id&&d.day===today())}));
+  const pOpen=S.prtTasks.filter(t=>!t.done);
+  el.innerHTML=`
+    <h2>Özet</h2><div class="sub">Tüm panellerin tek ekranı.</div>
+    <div class="dayrow"><div class="filters" style="margin:0;padding:0">${[["hafta","Hafta"],["ay","Ay"],["tumu","Tümü"]].map(([k,l])=>`<button class="fchip ${S.period===k?"on":""}" data-pp="${k}">${l}</button>`).join("")}</div>${S.period!=="tumu"?`<button class="nb" data-ps="-1">‹</button><span class="dl">${title}</span><button class="nb" data-ps="1">›</button>`:`<span class="dl">${title}</span>`}</div>
+    ${S.missing.length?`<div class="demo" style="background:var(--red-s)">Okunamayan tablolar: ${esc(S.missing.map(x=>x.split(":")[0]).join(", "))} — ilgili SQL çalıştırılmamış ya da yetki yok.</div>`:""}
+
+    <div class="secthead"><h2>🎬 Kreatif</h2><a href="/kreatif/">panele git →</a></div>
+    <div class="kpis">${kpi("Winner",cnt(WIN),`${cnt(["testte","yetersiz_veri","yeni"])} testte · ${cnt(["loser"])} loser · ${cnt(["yorulma_riski"])} yorulma`)}${kpi("Yeni kreatif",newC,"dönemde ilk kez")}${kpi("Harcama",tl(spend),`ciro ${tl(rev)}`)}${kpi("ROAS · GPT",roas!=null?nf2.format(roas):"—",gpt!=null?"GPT "+tl(gpt)+` · ${nf.format(sales)} satış`:"")}</div>
+    <div class="cards">
+      <div class="card"><div class="flabel">Kişi bazlı winner</div><div class="mrow" style="margin-top:4px">${S.k.team.map(t=>`<span class="m">${esc(t.name)} <b>${perOwner[t.initial]||0}</b></span>`).join("")||"<span class='mini'>ekip tablosu yok</span>"}</div>
+        <div class="flabel" style="margin-top:12px">Günlük üretim (${KD.length} kayıt)</div><div class="mrow" style="margin-top:4px">${S.k.team.map(t=>{ const r=KD.filter(x=>x.initial===t.initial); return `<span class="m">${esc(t.name)} <b>${sum(r,prodOf)}</b> <small>(${sum(r,x=>x.new_video)}sv ${sum(r,x=>x.new_image)}sg ${sum(r,x=>x.var_video)}vv ${sum(r,x=>x.var_image)}vg)</small></span>`; }).join("")}</div>
+        ${weekNotes.length?`<div class="flabel" style="margin-top:12px">Hafta notu</div>${weekNotes.map(w=>`<div class="mini">${trShort(w.week)}: ${esc(w.note)}</div>`).join("")}`:""}</div>
+      <div class="card"><div class="flabel">Üretim akışı</div><div class="mrow" style="margin-top:4px">${Object.entries(pipe).length?Object.entries(pipe).map(([k,n])=>`<span class="m">${esc(STAGES[k]||k)} <b>${n}</b></span>`).join(""):"<span class='mini'>kart yok</span>"}</div>
+        <div class="flabel" style="margin-top:12px">Talepler</div><div class="mini">${kreOpen.length} açık · ${kreOpen.filter(q=>!q.approved).length} onay bekliyor</div>${kreOpen.slice(0,4).map(q=>`<div class="mini">• ${esc(q.by_name||q.by_initial||"")}: ${esc(q.text).slice(0,70)}</div>`).join("")}</div>
+    </div>
+
+    <div class="secthead"><h2>🏭 Operasyon</h2><a href="/operasyon/">panele git →</a></div>
+    <div class="kpis">${kpi("Kargo",nf.format(cargo),`${nf.format(sum(OT,x=>x.failed))} teslimat başarısız`)}${kpi("Arama",nf.format(sum(OD,x=>x.call_total)),`${nf.format(sum(OD,x=>x.call_nolook))} bakmadı`)}${kpi("Mesaj",nf.format(sum(OD,msgOf)),`${nf.format(sum(OD,ordOf))} sipariş`)}${kpi("Doldurma",fillPct!=null?fillPct+"%":"—",`${OD.length} kayıt · ${act.length} kişi`)}</div>
+    <div class="cards">
+      <div class="card"><div class="flabel">Sıralama (${esc(title)})</div><div style="margin-top:4px">${rankHtml}</div>
+        <div class="flabel" style="margin-top:12px">Kişi bazlı</div><div class="tblwrap" style="box-shadow:none"><table class="compact"><tr><th>Kişi</th><th>Gün</th><th>Arama</th><th>Mesaj</th><th>Sipariş</th><th>Kargo</th><th>Geç</th><th>Puan</th></tr>${act.map(m=>{ const r=OD.filter(x=>x.member_id===m.id); const ins=r.map(x=>mins(x.in_time)).filter(x=>x!=null); const sc=S.o.scores.filter(s=>s.ratee_id===m.id&&inRange(s.day,range)&&s.score!=null).map(s=>s.score); return `<tr><td>${esc(m.name)}</td><td>${r.length}</td><td>${nf.format(sum(r,x=>x.call_total))}</td><td>${nf.format(sum(r,msgOf))}</td><td>${sum(r,ordOf)}</td><td>${nf.format(sum(r,x=>x.cargo))}</td><td class="${ins.filter(x=>x>LATE_MIN).length?"late":""}">${ins.filter(x=>x>LATE_MIN).length}</td><td>${sc.length?nf1.format(avg(sc)):"—"}</td></tr>`; }).join("")}</table></div></div>
+      <div class="card"><div class="flabel">Kontrol tikleri</div><div class="mini">${OC.length} tik · ${wd?nf1.format(OC.length/wd):"—"}/gün</div>
+        <div class="flabel" style="margin-top:12px">Açık işler</div><div class="mini">${oOpen.length} açık${oOpen.filter(t=>t.due&&t.due<today()).length?` · <span class="late">${oOpen.filter(t=>t.due&&t.due<today()).length} gecikti</span>`:""}</div>${oOpen.slice(0,4).map(t=>`<div class="mini">• ${esc(oName(t.member_id))}: ${esc(t.title)}</div>`).join("")}
+        <div class="flabel" style="margin-top:12px">Müşteri sesi</div><div class="mrow" style="margin-top:4px">${tags.map(([t,n])=>`<span class="m">${esc(TAGS[t]||t)} <b>${n}</b></span>`).join("")||"<span class='mini'>etiket yok</span>"}</div>
+        <div class="flabel" style="margin-top:12px">Stok (son sayım)</div><div class="mrow" style="margin-top:4px">${lastStock.map(({p,r})=>`<span class="m ${r&&p.min_qty&&r.qty<p.min_qty?"late":""}">${esc(p.name)} <b>${r?nf.format(r.qty):"—"}</b> <small>${r?trShort(r.day):""}</small></span>`).join("")||"<span class='mini'>ürün yok</span>"}</div></div>
+    </div>
+
+    <div class="secthead"><h2>🤝 Ortaklar</h2></div>
+    <div class="cards">
+      <div class="card"><div class="flabel">Bugün günlük yazdı</div><div class="who" style="margin-top:6px">${todayLogs.map(({u,ok})=>`<span class="w ${ok?"ok":"no"}">${ok?"✓":"✗"} ${esc(u.name)}</span>`).join("")}</div></div>
+      <div class="card"><div class="flabel">Açık işler</div><div class="mini">${pOpen.length} açık</div>${pOpen.slice(0,5).map(t=>`<div class="mini">• ${esc(t.assigned_name||userName(t.assigned_to))}: ${esc(t.title)}${t.due?` (${trShort(t.due)})`:""}</div>`).join("")}</div>
+    </div>
+  `;
+  el.querySelectorAll("[data-pp]").forEach(b=>b.onclick=()=>{ S.period=b.dataset.pp; renderOzet(); });
+  el.querySelectorAll("[data-ps]").forEach(b=>b.onclick=()=>{ shiftRef("ref",S.period,+b.dataset.ps); renderOzet(); });
+}
+
+/* ================= KİŞİSEL RAPOR ================= */
+function people(){
+  const out=[];
+  S.k.team.forEach(t=>out.push({id:"k:"+t.initial,name:t.name,grp:"Kreatif ekip"}));
+  S.o.members.filter(m=>m.active).forEach(m=>out.push({id:"o:"+m.id,name:m.name,grp:"Operasyon ekibi"}));
+  S.partners.forEach(u=>out.push({id:"p:"+u.id,name:u.name,grp:"Ortaklar"}));
+  return out;
+}
+function renderRapor(){
+  const el=$("tabRapor"); const ps=people(); if(!S.rpPerson&&ps.length) S.rpPerson=ps[0].id;
+  const range=periodRange(S.rpPeriod,S.rpRef); const [a,b]=range; const title=periodTitle(S.rpPeriod,range);
+  const grps=[...new Set(ps.map(p=>p.grp))];
+  const sel=`<select id="rpSel">${grps.map(g=>`<optgroup label="${esc(g)}">${ps.filter(p=>p.grp===g).map(p=>opt(p.id,p.name,S.rpPerson)).join("")}</optgroup>`).join("")}</select>`;
+  const head=`<h2>Kişisel Rapor</h2><div class="sub">Bir kişi seç; iki panelden toplanan her şey.</div>
+    <div class="dayrow">${sel}<div class="filters" style="margin:0;padding:0">${[["hafta","Hafta"],["ay","Ay"],["tumu","Tümü"]].map(([k,l])=>`<button class="fchip ${S.rpPeriod===k?"on":""}" data-rp="${k}">${l}</button>`).join("")}</div>${S.rpPeriod!=="tumu"?`<button class="nb" data-rs="-1">‹</button><span class="dl">${title}</span><button class="nb" data-rs="1">›</button>`:`<span class="dl">${title}</span>`}</div>`;
+  let body="";
+  const [kind,key]=(S.rpPerson||"").split(":");
+  if(kind==="k"){
+    const t=S.k.team.find(x=>x.initial===key); const D=S.k.daily.filter(x=>x.initial===key&&inRange(x.day,range));
+    const ins=D.map(x=>mins(x.in_time)).filter(x=>x!=null); const SC=S.k.scores.filter(s=>s.ratee===key&&inRange(s.day,range)&&s.score!=null);
+    const sm=kreStatusMap(range); const mine=S.k.creatives.filter(c=>ownersOf(c).includes(key)&&sm[c.code]);
+    const st={}; mine.forEach(c=>{ const s=sm[c.code]; st[s]=(st[s]||0)+1; }); const wins=mine.filter(c=>WIN.includes(sm[c.code]));
+    const decided=mine.filter(c=>WIN.includes(sm[c.code])||sm[c.code]==="loser"||sm[c.code]==="yorulma_riski");
+    const wr=[monday(a),b]; const finMine=S.k.fins.filter(f=>inRange(f.week,wr)&&mine.some(c=>c.code===f.creative_code));
+    body=`<div class="card" style="margin-bottom:16px"><div class="mcard">${av(t?.name||key,key,true)}<div><div class="nm">${esc(t?.name||key)}</div><div class="tk">Kreatif ekip · harf ${esc(key)}</div></div></div></div>
+      <div class="kpis">${kpi("Winner",wins.length,`${mine.length} aktif kreatif · isabet ${decided.length?Math.round(wins.length/decided.length*100)+"%":"—"}`)}${kpi("Üretim",sum(D,prodOf),`${sum(D,x=>x.new_video)} sıfır video · ${sum(D,x=>x.new_image)} sıfır görsel`)}${kpi("Varyasyon",sum(D,x=>x.var_video)+sum(D,x=>x.var_image),`${sum(D,x=>x.var_video)} video · ${sum(D,x=>x.var_image)} görsel`)}${kpi("Ekip puanı",SC.length?nf1.format(avg(SC.map(s=>s.score))):"—",`${SC.length} puan`)}</div>
+      <div class="kpis">${kpi("Doldurulan gün",D.length,`${workdays(range)} iş günü`)}${kpi("Ort. giriş",hhmm(avg(ins)),`${ins.filter(x=>x>LATE_MIN).length} geç`)}${kpi("Mesai",durTxt(sum(D,x=>x.ot_min)),`izin ${durTxt(sum(D,x=>x.leave_min))}`)}${kpi("Harcama (kreatifleri)",tl(sum(finMine,f=>f.spend)),`ciro ${tl(sum(finMine,f=>f.revenue))}`)}</div>
+      <div class="cards">
+        <div class="card"><div class="flabel">Kreatif durumları</div><div class="mrow" style="margin-top:4px">${Object.entries(st).map(([s,n])=>chip(`${ST[s]?.l||s} ${n}`,ST[s]?.s||"#eee")).join("")||"<span class='mini'>dönemde aktif kreatif yok</span>"}</div>
+          ${wins.length?`<div class="flabel" style="margin-top:12px">Winner'lar</div>${wins.slice(0,12).map(c=>`<div class="mini">🏆 ${esc(c.code)}${c.hook_text?` — ${esc(c.hook_text).slice(0,60)}`:""}</div>`).join("")}`:""}</div>
+        <div class="card"><div class="flabel">Günlük notları</div>${D.filter(x=>x.note||x.wish).slice(0,8).map(x=>`<div class="mini"><b>${trShort(x.day)}</b> ${esc(x.note||"")}${x.wish?` · <i>istek: ${esc(x.wish)}</i>`:""}</div>`).join("")||"<span class='mini'>not yok</span>"}
+          ${SC.filter(s=>s.comment).length?`<div class="flabel" style="margin-top:12px">Hakkında yazılanlar (gizli)</div>${SC.filter(s=>s.comment).slice(0,8).map(s=>`<div class="mini"><b>${trShort(s.day)}</b> ${esc(s.rater)}: ${esc(s.comment)} (${s.score})</div>`).join("")}`:""}</div>
+      </div>`;
+  } else if(kind==="o"){
+    const m=S.o.members.find(x=>x.id===key); const D=S.o.daily.filter(x=>x.member_id===key&&inRange(x.day,range));
+    const ins=D.map(x=>mins(x.in_time)).filter(x=>x!=null); const SC=S.o.scores.filter(s=>s.ratee_id===key&&inRange(s.day,range)&&s.score!=null);
+    const ticks=S.o.checks.filter(c=>c.done_by===key&&inRange(c.day,range)).length; const tasks=S.o.tasks.filter(t=>t.member_id===key);
+    const roles=S.o.assign.filter(x=>x.member_id===key).map(x=>ROLES[x.role_key]||x.role_key);
+    const rk=`${a}|${b}`; if(!S.rank[rk]){ S.rank[rk]="…"; ranking(a,b).then(()=>{ if(S.tab==="rapor") renderRapor(); }); }
+    const rows=S.rank[rk]; const pos=Array.isArray(rows)?rows.findIndex(r=>r.member_id===key):-1; const rrow=Array.isArray(rows)&&pos>=0?rows[pos]:null;
+    body=`<div class="card" style="margin-bottom:16px"><div class="mcard">${av(m?.name,key,true)}<div><div class="nm">${esc(m?.name||"")}</div><div class="tk">Operasyon ekibi · ${esc(m?.tasks||"")}</div><div class="mrow">${roles.map(r=>`<span class="pill">${esc(r)}</span>`).join("")}</div></div></div></div>
+      <div class="kpis">${kpi("Sıralama",rrow?`${pos+1}.`:(rows==="…"?"…":"—"),rrow?`toplam ${nf1.format(rrow.total)} · ${rows.length} kişi`:"")}${kpi("Ekip puanı",SC.length?nf1.format(avg(SC.map(s=>s.score))):"—",`${SC.length} puan`)}${kpi("Doldurulan gün",D.length,`${workdays(range)} iş günü`)}${kpi("Ort. giriş",hhmm(avg(ins)),`${ins.filter(x=>x>LATE_MIN).length} geç · mesai ${durTxt(sum(D,x=>x.ot_min))}`)}</div>
+      <div class="kpis">${kpi("Arama",nf.format(sum(D,x=>x.call_total)),`${nf.format(sum(D,x=>x.call_nolook))} bakmadı`)}${kpi("Mesaj",nf.format(sum(D,msgOf)),`${sum(D,ordOf)} sipariş`)}${kpi("Kargo",nf.format(sum(D,x=>x.cargo)),"")}${kpi("Kontrol tiki",ticks,`işler: ${tasks.filter(t=>t.done).length} ✓ · ${tasks.filter(t=>!t.done).length} açık`)}</div>
+      <div class="cards">
+        <div class="card"><div class="flabel">Verilen işler</div>${tasks.slice(0,8).map(t=>`<div class="mini">${t.done?"✓":"○"} ${esc(t.title)}${t.due?` (${trShort(t.due)})`:""}${t.done_note?` — <i>${esc(t.done_note)}</i>`:""}</div>`).join("")||"<span class='mini'>iş yok</span>"}
+          <div class="flabel" style="margin-top:12px">Günlük notları</div>${D.filter(x=>x.note||x.wish).slice(0,8).map(x=>`<div class="mini"><b>${trShort(x.day)}</b> ${esc(x.note||"")}${x.wish?` · <i>istek: ${esc(x.wish)}</i>`:""}</div>`).join("")||"<span class='mini'>not yok</span>"}</div>
+        <div class="card"><div class="flabel">Hakkında yazılanlar (gizli)</div>${SC.filter(s=>s.comment).slice(0,10).map(s=>`<div class="mini"><b>${trShort(s.day)}</b> ${esc(oName(s.rater_id))}: ${esc(s.comment)} (${s.score})</div>`).join("")||"<span class='mini'>yorum yok</span>"}</div>
+      </div>`;
+  } else if(kind==="p"){
+    const u=S.partners.find(x=>x.id===key); const L=S.prtDaily.filter(x=>x.user_id===key&&inRange(x.day,range)); const T=S.prtTasks.filter(t=>t.assigned_to===key);
+    body=`<div class="card" style="margin-bottom:16px"><div class="mcard">${av(u?.name,key,true)}<div><div class="nm">${esc(u?.name||"")}</div><div class="tk">${u?.role==="admin"?"Yönetici":"Ortak"}</div></div></div></div>
+      <div class="kpis">${kpi("Günlük yazdı",L.length,`${workdays(range)} iş günü`)}${kpi("Verilen iş",T.length,`${T.filter(t=>t.done).length} ✓ · ${T.filter(t=>!t.done).length} açık`)}${kpi("Geciken",T.filter(t=>!t.done&&t.due&&t.due<today()).length,"")}${kpi("Verdiği iş",S.prtTasks.filter(t=>t.created_by===key).length,"")}</div>
+      <div class="cards">${L.slice(0,10).map(x=>`<div class="card logcard"><span class="pill">${trDateW(x.day)}</span>${x.did?`<div class="lt">Yaptım</div><div class="lv">${esc(x.did)}</div>`:""}${x.saw?`<div class="lt">Gördüm</div><div class="lv">${esc(x.saw)}</div>`:""}${x.plan?`<div class="lt">Sırada</div><div class="lv">${esc(x.plan)}</div>`:""}</div>`).join("")||"<div class='empty'>Dönemde günlük yok</div>"}</div>
+      ${T.length?`<div class="sect" style="margin-top:18px"><h3>İşler</h3>${T.slice(0,15).map(roRow).join("")}</div>`:""}`;
+  } else body=`<div class="empty">Kişi yok</div>`;
+  el.innerHTML=head+body;
+  $("rpSel").onchange=e=>{ S.rpPerson=e.target.value; renderRapor(); };
+  el.querySelectorAll("[data-rp]").forEach(b=>b.onclick=()=>{ S.rpPeriod=b.dataset.rp; renderRapor(); });
+  el.querySelectorAll("[data-rs]").forEach(b=>b.onclick=()=>{ shiftRef("rpRef",S.rpPeriod,+b.dataset.rs); renderRapor(); });
+}
+
+
+/* ---- Ortak günlüğü (ortaklar panelinden taşındı) ---- */
+function renderGunluk(){
+  const el=$("tabGunluk"); const day=S.day;
+  if(!S.prtTables){ el.innerHTML=`<h2>Günlük</h2><div class="empty">Günlük tablosu (prt_daily) okunamıyor — ilgili SQL çalıştırılmamış olabilir.<br><small>${esc(S.missing.filter(x=>x.startsWith("prt_")).join(" · ")||"")}</small></div>`; return; }
+  const users=S.partners; const u=users.find(x=>x.id===(S.gunUser||S.profile.id))||S.profile; const mine=u.id===S.profile.id;
+  const r=S.prtDaily.find(x=>x.user_id===u.id&&x.day===day)||{};
+  const filled=users.map(x=>{ const ok=S.prtDaily.some(d=>d.user_id===x.id&&d.day===day); return `<span class="w ${ok?"ok":"no"}">${ok?"✓":"✗"} ${esc(x.name)}</span>`; }).join("");
+  const last=S.prtDaily.filter(x=>x.user_id===u.id&&x.day<day).sort((a,b)=>b.day<a.day?-1:1).slice(0,7);
+  el.innerHTML=`
+    <h2>Günlük</h2><div class="sub">Yönetim günlüğü — ne yaptım, ne gördüm, sırada ne var.</div>
+    ${dayNav("gunDay",day,`<select id="gunUser">${users.map(x=>opt(x.id,x.name,u.id)).join("")}</select>`)}
+    <div class="card" style="margin-bottom:16px">
+      <div class="flabel">Bugün ne yaptım</div><textarea id="p_did" rows="4" placeholder="Toplantılar, kararlar, yapılan işler…" ${mine?"":"disabled"}>${esc(r.did||"")}</textarea>
+      <div class="flabel">Ne gördüm — gözlem, sorun, fırsat</div><textarea id="p_saw" rows="3" placeholder="Ekipte, reklamda, operasyonda dikkatimi çeken…" ${mine?"":"disabled"}>${esc(r.saw||"")}</textarea>
+      <div class="flabel">Sırada ne var</div><textarea id="p_plan" rows="2" placeholder="Yarın / bu hafta" ${mine?"":"disabled"}>${esc(r.plan||"")}</textarea>
+      ${mine?`<button class="btn btn-primary full" id="pSave">${r.id?"Güncelle":"Kaydet"}</button>`:`<div class="note">Sadece kendi günlüğünü yazabilirsin; ${esc(u.name)} adına görüntülüyorsun.</div>`}
+      ${r.updated_at?`<div class="note">Son kayıt: ${new Date(r.updated_at).toLocaleString("tr-TR")}</div>`:""}
+    </div>
+    <div class="sect"><h3>👥 ${trDate(day)} · kim yazdı</h3><div class="who">${filled}</div></div>
+    ${last.length?`<div class="sect"><h3>📅 ${esc(u.name)} · önceki günler</h3><div class="cards">${last.map(x=>`<div class="card logcard"><span class="pill">${trDateW(x.day)}</span>${x.did?`<div class="lt">Yaptım</div><div class="lv">${esc(x.did)}</div>`:""}${x.saw?`<div class="lt">Gördüm</div><div class="lv">${esc(x.saw)}</div>`:""}${x.plan?`<div class="lt">Sırada</div><div class="lv">${esc(x.plan)}</div>`:""}</div>`).join("")}</div></div>`:""}
+  `;
+  bindDayNav(el,"day",renderGunluk);
+  $("gunUser").onchange=e=>{ S.gunUser=e.target.value; renderGunluk(); };
+  const sv=$("pSave"); if(sv) sv.onclick=async ()=>{
+    const row={user_id:S.profile.id,name:S.profile.name,day,did:$("p_did").value.trim()||null,saw:$("p_saw").value.trim()||null,plan:$("p_plan").value.trim()||null,updated_at:nowIso()};
+    sv.disabled=true;
+    try{
+      const {data,error}=await sb.from("prt_daily").upsert(row,{onConflict:"user_id,day"}).select().single(); if(error) throw error;
+      const i=S.prtDaily.findIndex(x=>x.user_id===row.user_id&&x.day===day); if(i>=0) S.prtDaily[i]=data; else S.prtDaily.unshift(data);
+      toast("Kaydedildi ✓"); renderGunluk();
+    }catch(e){ toast("Hata: "+e.message); sv.disabled=false; }
+  };
+}
+let loaded=false, loading=false;
+const VIEWS={gunluk:["tabGunluk",renderGunluk], ozet:["tabOzet",renderOzet], rapor:["tabRapor",renderRapor]};
+async function show(tab){
+  S.profile = profile; S.tab = tab;
+  Object.entries(VIEWS).forEach(([k,v])=>$(v[0]).classList.toggle("hidden", k!==tab));
+  const el = $(VIEWS[tab][0]);
+  if(!loaded){
+    if(loading) return;
+    loading=true; el.innerHTML = `<div class="empty">Veriler yükleniyor…</div>`;
+    S.day=S.day||today(); S.ref=S.ref||today(); S.rpRef=S.rpRef||today();
+    try{ await loadAll(); loaded=true; }
+    catch(e){ el.innerHTML = `<div class="empty">Veriler okunamadı.<br><small>${esc(e.message||e)}</small></div>`; loading=false; return; }
+    loading=false;
+  }
+  VIEWS[tab][1]();
+}
+function reset(){ loaded=false; S.rank={}; }
+return { show, reset };
+})();
+
+/* ============================================================
+   BAŞLANGIÇ
+   ============================================================ */
+async function boot() {
+  if (!configured()) { $("#setup").classList.add("on"); return; }
+  sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { data:{ session } } = await sb.auth.getSession();
+  if (session?.user) await enterApp(session.user);
+  else showAuth();
+  sb.auth.onAuthStateChange(async (_e, s) => {
+    if (s?.user) { if (me?.id !== s.user.id) await enterApp(s.user); }
+    else { me = null; profile = null; showAuth(); }
+  });
+}
+
+function showAuth() {
+  $("#app").classList.remove("on");
+  $("#pendingWrap").style.display = "none";
+  $("#authWrap").style.display = "grid";
+}
+
+async function enterApp(user) {
+  me = user;
+  $("#authWrap").style.display = "none";
+  await ensureProfile();
+
+  if (!profile.is_admin && !profile.is_approved) {
+    $("#app").classList.remove("on");
+    $("#pendingWrap").style.display = "grid";
+    return;
+  }
+  $("#pendingWrap").style.display = "none";
+  $("#app").classList.add("on");
+  await reloadAll();
+  subscribeRealtime();
+  renderMe();
+  render();
+  $("#qaDue").value = todayStr();
+}
+
+async function ensureProfile() {
+  let { data } = await sb.from("profiles").select("*").eq("id", me.id).maybeSingle();
+  if (!data) {
+    const md = me.user_metadata || {};
+    await sb.from("profiles").insert({ id: me.id, name: md.name || me.email, role: ["ops","creative"].includes(md.role) ? md.role : "creative" });
+    ({ data } = await sb.from("profiles").select("*").eq("id", me.id).maybeSingle());
+  }
+  profile = data || { id: me.id, name: me.email, role: "creative" };
+  profile.is_admin = ["admin","partner"].includes(profile.role);   // yönetici + ortaklar görev yöneticisi
+  profile.is_realadmin = profile.role === "admin";
+}
+
+async function reloadAll() {
+  const [p, c, t, ib, ta] = await Promise.all([
+    sb.from("profiles").select("*"),
+    sb.from("categories").select("*").order("sort_order"),
+    sb.from("tasks").select("*").order("created_at", { ascending:true }),
+    sb.from("inbox_notes").select("*").eq("user_id", me.id).order("created_at", { ascending:false }),
+    sb.from("task_assignees").select("*"),
+  ]);
+  profiles = {}; (p.data||[]).forEach(x => { x.is_admin = ["admin","partner"].includes(x.role); profiles[x.id] = x; });
+  categories = c.data || [];
+  tasks = t.data || [];
+  inboxNotes = ib.data || [];
+  taskAssigneesMap = {};
+  (ta.data||[]).forEach(row => {
+    (taskAssigneesMap[row.task_id] ||= []).push(row.user_id);
+  });
+}
+
+async function reloadAndRender() { await reloadAll(); render(); }
+
+function subscribeRealtime() {
+  if (channel) sb.removeChannel(channel);
+  channel = sb.channel("rt")
+    .on("postgres_changes", { event:"*", schema:"public", table:"tasks" }, reloadAndRender)
+    .on("postgres_changes", { event:"*", schema:"public", table:"profiles" }, reloadAndRender)
+    .on("postgres_changes", { event:"*", schema:"public", table:"categories" }, reloadAndRender)
+    .on("postgres_changes", { event:"*", schema:"public", table:"inbox_notes" }, reloadAndRender)
+    .on("postgres_changes", { event:"*", schema:"public", table:"task_assignees" }, reloadAndRender)
+    .subscribe();
+}
+
+function extraAssignees(taskId) { return taskAssigneesMap[taskId] || []; }
+function isAssignedToMe(t) {
+  return t.user_id === me.id || extraAssignees(t.id).includes(me.id);
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function renderMe() {
+  $("#meAvatar").textContent = initials(profile.name);
+  $("#meAvatar").style.background = colorFor(me.id);
+  $("#meName").textContent = profile.name;
+  $("#meRole").textContent = ROLE_LABEL[profile.role] || profile.title || profile.role || "";
+  renderHub();
+  $("#mePill").style.display = profile.is_admin ? "" : "none";
+  $("#viewToggle").style.display = profile.is_admin ? "flex" : "none";
+  $("#addCatBtn").style.display = profile.is_admin ? "" : "none";
+  $("#qaAssignee").style.display = profile.is_admin ? "" : "none";
+  $("#qaExtraRow").style.display = profile.is_admin ? "" : "none";
+  $("#qaPersonalRow").style.display = profile.is_admin ? "flex" : "none";
+  $("#teamPanel").style.display = profile.is_admin ? "" : "none";
+}
+
+function scopedTasks() {
+  if (!profile.is_admin) return tasks.slice();
+  return view === "mine"
+    ? tasks.filter(t => isAssignedToMe(t))
+    : tasks.filter(t => !isAssignedToMe(t));
+}
+
+function visibleTasks() {
+  let list = scopedTasks();
+  if (priorityFilter !== "all") list = list.filter(t => t.priority === priorityFilter);
+  if (searchQuery) {
+    list = list.filter(t => {
+      const leader = profiles[t.user_id];
+      const hay = (t.title + " " + (t.descr||"") + " " + (leader?.name||"")).toLowerCase();
+      return hay.includes(searchQuery);
+    });
+  }
+  return list;
+}
+
+function render() {
+  renderCategories();
+  renderQuickaddOptions();
+  renderBoard();
+  renderMetrics();
+  renderInbox();
+  $("#timelinePanel").style.display = profile.is_admin ? "" : "none";
+  if (profile.is_admin) { renderTimeline(); renderTeamList(); }
+}
+
+function renderTeamList() {
+  const others = Object.keys(profiles).filter(id => id !== me.id);
+  $("#teamCount").textContent = others.length;
+  $("#teamList").innerHTML = others.map(id => {
+    const p = profiles[id];
+    const pending = !p.is_approved;
+    return `
+      <div class="cat-row" style="align-items:center; gap:8px">
+        <span class="mini-avatar" style="background:${colorFor(id)}; flex-shrink:0">${esc(initials(p.name))}</span>
+        <span class="cat-name" style="flex:1; min-width:0">
+          ${esc(p.name)}
+          <br><span style="color:var(--ink-soft); font-weight:700; font-size:10px">${esc(ROLE_LABEL[p.role]||p.role||"")}${p.initial?" · "+esc(p.initial):""}</span>
+          ${pending ? `<br><span style="color:var(--pri-yuksek); font-weight:800; font-size:10px">Onay bekliyor</span>` : ""}
+        </span>
+        ${profile.is_realadmin ? `<select data-role-user="${id}" style="font-size:10.5px; padding:3px 4px; border-radius:8px; border:1px solid var(--line); background:var(--card)">${["creative","ops","partner","admin"].map(r=>`<option value="${r}" ${p.role===r?"selected":""}>${ROLE_LABEL[r]}</option>`).join("")}</select>` : ""}
+        ${pending ? `<button type="button" class="btn btn-mustard" data-approve-user="${id}" style="padding:4px 9px; font-size:10.5px; flex-shrink:0">Onayla</button>` : ""}
+        ${profile.is_realadmin ? `<button type="button" class="cat-del" data-del-user="${id}" title="Kalıcı sil" style="opacity:1">✕</button>` : ""}
+      </div>`;
+  }).join("") || `<div class="inbox-empty">Başka üye yok</div>`;
+}
+
+function renderMetrics() {
+  const list = scopedTasks();
+  $("#metricTotal").textContent = list.length;
+  $("#metricDone").textContent = list.filter(t=>t.status==="done").length;
+  const scope = (profile.is_admin && view === "all") ? "tüm ekip" : "";
+  $("#subtitleChip").textContent = scope || (list.length + " görev");
+}
+
+function renderCategories() {
+  $("#catCount").textContent = categories.length;
+  $("#catList").innerHTML = categories.map(c => `
+    <div class="cat-row">
+      <span class="cat-dot" style="background:${c.color}"></span>
+      <span class="cat-name">${c.owner_id ? "🔒 " : ""}${esc(c.name)}</span>
+      ${profile.is_admin ? `<button class="cat-del" data-del-cat="${c.id}" title="Sil">✕</button>` : ""}
+    </div>`).join("") || `<div class="inbox-empty">Henüz kategori yok</div>`;
+}
+
+function renderQuickaddOptions() {
+  const catSel = $("#qaCategory");
+  catSel.innerHTML = `<option value="">Kategori yok</option>` + categories.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
+  if (profile.is_admin) {
+    const aSel = $("#qaAssignee");
+    aSel.innerHTML = Object.keys(profiles).map(id => `<option value="${id}" ${id===me.id?"selected":""}>${esc(profiles[id].name)}</option>`).join("");
+    $("#qaExtraAssignees").innerHTML = Object.keys(profiles).map(id => `<option value="${id}">${esc(profiles[id].name)}</option>`).join("");
+  }
+}
+
+function renderBoard() {
+  const list = visibleTasks();
+  $("#board").innerHTML = COLUMNS.map(col => {
+    let colTasks = list.filter(t => t.status === col.id);
+    colTasks.sort((a,b) => (PRIORITY_ORDER[a.priority]??2) - (PRIORITY_ORDER[b.priority]??2) || new Date(a.created_at)-new Date(b.created_at));
+    return `
+      <div class="column ${col.cls}" data-col="${col.id}">
+        <div class="col-head"><span class="col-dot"></span><span class="col-title">${col.title}</span><span class="col-count">${colTasks.length}</span></div>
+        <div class="cards" data-drop="${col.id}">
+          ${colTasks.map(cardHTML).join("") || `<div class="drop-empty">Buraya sürükle</div>`}
+        </div>
+      </div>`;
+  }).join("");
+  wireBoardDnD();
+}
+
+function cardHTML(t) {
+  const leader = profiles[t.user_id];
+  const done = t.status === "done";
+  const d = dueMeta(t.due, done);
+  const cat = categories.find(c => c.id === t.category_id);
+  const pri = t.priority || "normal";
+
+  const catTag = cat ? `<span class="tag" style="background:${cat.color}; color:#fff">${esc(cat.name)}</span>` : "";
+  const priTag = `<span class="pri-badge" style="background:${PRIORITY_COLOR[pri]}"><span class="pri-dot"></span>${PRIORITY_LABEL[pri]}</span>`;
+
+  const extraIds = extraAssignees(t.id);
+  const extraAvatars = extraIds.map(id => {
+    const p = profiles[id];
+    if (!p) return "";
+    return `<span class="mini-avatar" title="${esc(p.name)}" style="background:${colorFor(id)}; margin-left:-8px; border-color:var(--card-2)">${esc(initials(p.name))}</span>`;
+  }).join("");
+
+  const assignee = leader
+    ? `<div class="assignee"><span class="mini-avatar" style="background:${colorFor(t.user_id)}">${esc(initials(leader.name))}</span>${extraAvatars}<span class="a-name">${esc(leader.name)}${extraIds.length ? " +"+extraIds.length : ""}</span></div>`
+    : `<div class="assignee"><span class="a-name">—</span></div>`;
+
+  const due = d.show
+    ? `<span class="due ${d.cls||''}">${esc(d.label)}</span>` : "";
+
+  const isMineAdmin = profile.is_admin && t.user_id === me.id;
+  const timeBadge = (isMineAdmin && t.start_time)
+    ? `<span class="due" style="background:var(--cobalt-soft); border-color:var(--cobalt)">🕐 ${esc(t.start_time)}${t.end_time ? "–"+esc(t.end_time) : ""}</span>` : "";
+  const linkBadge = (isMineAdmin && t.link)
+    ? `<a class="due" href="${esc(t.link)}" target="_blank" rel="noopener" style="background:var(--mustard-soft); border-color:var(--mustard)">🔗 Link</a>` : "";
+
+  const canDelete = profile.is_admin || (t.user_id === me.id && (t.assigned_by === me.id || !t.assigned_by));
+
+  return `
+    <div class="card ${done?"done":""}" draggable="true" data-id="${t.id}">
+      ${canDelete ? `<button class="card-del" data-del-task="${t.id}" title="Sil">✕</button>` : ""}
+      <div class="card-top">
+        <button class="check" data-toggle="${t.id}">✓</button>
+        <div class="card-title">${esc(t.title)}</div>
+      </div>
+      ${t.descr ? `<div class="card-desc">${esc(t.descr)}</div>` : ""}
+      <div class="card-tags">${catTag}${priTag}</div>
+      <div class="card-foot">${assignee}<div class="card-badges-right">${due}${timeBadge}${linkBadge}</div></div>
+    </div>`;
+}
+
+function renderInbox() {
+  $("#inboxCount").textContent = inboxNotes.length;
+  $("#inboxList").innerHTML = inboxNotes.map(n => `
+    <div class="inbox-note" draggable="true" data-note-id="${n.id}">
+      ${esc(n.text)}
+      <button class="note-del" data-del-note="${n.id}">✕</button>
+    </div>`).join("") || `<div class="inbox-empty">Henüz not yok</div>`;
+  wireInboxDnD();
+}
+
+/* ---------- Zaman Çizelgesi (admin, bugüne ait kendi görevleri) ---------- */
+function renderTimeline() {
+  const items = tasks
+    .filter(t => t.user_id === me.id && t.due === todayStr())
+    .sort((a,b) => (a.start_time || "99:99").localeCompare(b.start_time || "99:99"));
+  $("#timeline").innerHTML = items.length ? items.map(t => `
+    <div class="tl-row">
+      <div class="tl-time">${t.start_time ? esc(t.start_time) + (t.end_time ? "–"+esc(t.end_time) : "") : "Bugün"}</div>
+      <div class="tl-bar">${esc(t.title)} ${t.link ? `<a href="${esc(t.link)}" target="_blank" rel="noopener">🔗</a>` : ""}</div>
+    </div>`).join("") : `<div class="tl-empty">Bugün için görev yok. Görev eklerken tarih olarak bugünü ve isterse saat aralığını seç.</div>`;
+}
+
+/* ============================================================
+   DRAG & DROP — Görev Panosu
+   ============================================================ */
+let dragTaskId = null;
+function wireBoardDnD() {
+  $$(".card").forEach(card => {
+    card.addEventListener("dragstart", e => {
+      dragTaskId = card.dataset.id; card.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", "task:"+dragTaskId);
+    });
+    card.addEventListener("dragend", () => { card.classList.remove("dragging"); dragTaskId = null; $$(".column").forEach(c=>c.classList.remove("drag-over")); });
+  });
+  $$(".cards[data-drop]").forEach(zone => {
+    const col = zone.closest(".column");
+    zone.addEventListener("dragover", e => { e.preventDefault(); col.classList.add("drag-over"); });
+    zone.addEventListener("dragleave", e => { if (!zone.contains(e.relatedTarget)) col.classList.remove("drag-over"); });
+    zone.addEventListener("drop", async e => {
+      e.preventDefault(); col.classList.remove("drag-over");
+      const raw = e.dataTransfer.getData("text/plain");
+      const newStatus = zone.dataset.drop;
+      if (raw.startsWith("note:")) {
+        const noteId = raw.slice(5);
+        await convertNoteToTask(noteId, newStatus);
+        return;
+      }
+      const id = raw.startsWith("task:") ? raw.slice(5) : dragTaskId;
+      const task = tasks.find(t => t.id === id);
+      if (!task || task.status === newStatus) return;
+      task.status = newStatus; render();
+      const { error } = await sb.from("tasks").update({ status:newStatus }).eq("id", id);
+      if (error) { toast("Hata: " + error.message); reloadAndRender(); return; }
+      if (newStatus === "done") toast("Görev tamamlandı 🎉");
+    });
+  });
+}
+
+let dragNoteId = null;
+function wireInboxDnD() {
+  $$(".inbox-note").forEach(n => {
+    n.addEventListener("dragstart", e => {
+      dragNoteId = n.dataset.noteId; n.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", "note:"+dragNoteId);
+    });
+    n.addEventListener("dragend", () => { n.classList.remove("dragging"); dragNoteId = null; });
+  });
+}
+
+async function convertNoteToTask(noteId, status) {
+  const note = inboxNotes.find(n => n.id === noteId);
+  if (!note) return;
+  const { error: e1 } = await sb.from("tasks").insert({ user_id: me.id, title: note.text, status, priority: "normal" });
+  if (e1) { toast("Hata: " + e1.message); return; }
+  const { error: e2 } = await sb.from("inbox_notes").delete().eq("id", noteId);
+  if (e2) { toast("Hata: " + e2.message); }
+  toast("Not göreve dönüştürüldü ✅");
+  reloadAndRender();
+}
+
+/* ============================================================
+   EYLEMLER
+   ============================================================ */
+async function toggleTask(id) {
+  const t = tasks.find(t => t.id === id); if (!t) return;
+  const ns = t.status === "done" ? "todo" : "done";
+  t.status = ns; render();
+  const { error } = await sb.from("tasks").update({ status:ns }).eq("id", id);
+  if (error) { toast("Hata: " + error.message); reloadAndRender(); return; }
+  if (ns === "done") toast("Görev tamamlandı 🎉");
+}
+async function deleteTask(id) {
+  if (!confirm("Bu görev silinsin mi?")) return;
+  const { error } = await sb.from("tasks").delete().eq("id", id);
+  if (error) { toast("Silinemedi: " + error.message); return; }
+  toast("Görev silindi"); reloadAndRender();
+}
+async function deleteCategory(id) {
+  if (!confirm("Bu kategori silinsin mi? Görevlerdeki ataması kaldırılır.")) return;
+  const { error } = await sb.from("categories").delete().eq("id", id);
+  if (error) { toast("Silinemedi: " + error.message); return; }
+  toast("Kategori silindi"); reloadAndRender();
+}
+
+async function approveUser(id) {
+  const { error } = await sb.from("profiles").update({ is_approved: true }).eq("id", id);
+  if (error) { toast("Hata: " + error.message); return; }
+  toast("Onaylandı ✅"); reloadAndRender();
+}
+
+async function changeRole(id, role) {
+  if (!profile.is_realadmin) return;
+  const { error } = await sb.from("profiles").update({ role }).eq("id", id);
+  if (error) { toast("Rol değiştirilemedi: " + error.message); return; }
+  toast("Rol güncellendi: " + (ROLE_LABEL[role]||role)); reloadAndRender();
+}
+document.addEventListener("change", e => {
+  const r = e.target.closest("[data-role-user]"); if (r) changeRole(r.dataset.roleUser, r.value);
+});
+async function deleteUser(id) {
+  const p = profiles[id];
+  if (!confirm(`${p?.name || "Bu kullanıcı"} kalıcı olarak silinsin mi? Tüm görevleri, yorumları ve verileri de silinecek. Bu işlem geri alınamaz.`)) return;
+  const { data, error } = await sb.functions.invoke("admin-delete-user", { body: { targetUserId: id } });
+  if (error) { toast("Silinemedi: " + (error.message || "bilinmeyen hata")); return; }
+  if (data && data.ok === false) { toast("Silinemedi: " + data.error); return; }
+  toast("Kullanıcı silindi"); reloadAndRender();
+}
+async function deleteNote(id) {
+  const { error } = await sb.from("inbox_notes").delete().eq("id", id);
+  if (error) { toast("Hata: " + error.message); return; }
+  reloadAndRender();
+}
+
+/* ============================================================
+   GÖREV DÜZENLEME + YORUMLAR
+   ============================================================ */
+function canEditTask(t) {
+  return profile.is_admin || t.user_id === me.id;
+}
+
+async function openTaskEdit(taskId) {
+  const t = tasks.find(x => x.id === taskId);
+  if (!t || !canEditTask(t)) return;
+  editingTaskId = taskId;
+
+  $("#teTitle").value = t.title || "";
+  $("#teDesc").value = t.descr || "";
+  $("#teCategory").innerHTML = `<option value="">Kategori yok</option>` + categories.map(c =>
+    `<option value="${c.id}" ${c.id===t.category_id?"selected":""}>${esc(c.name)}</option>`).join("");
+  $("#tePriority").value = t.priority || "normal";
+  $("#teDue").value = t.due || "";
+
+  const assigneeWrap = $("#teAssigneeWrap");
+  if (profile.is_admin) {
+    assigneeWrap.style.display = "";
+    $("#teAssignee").innerHTML = Object.keys(profiles).map(id =>
+      `<option value="${id}" ${id===t.user_id?"selected":""}>${esc(profiles[id].name)}</option>`).join("");
+    $("#teExtraWrap").style.display = "";
+    const currentExtras = extraAssignees(t.id);
+    $("#teExtraAssignees").innerHTML = Object.keys(profiles).filter(id => id !== t.user_id).map(id =>
+      `<option value="${id}" ${currentExtras.includes(id)?"selected":""}>${esc(profiles[id].name)}</option>`).join("");
+  } else {
+    assigneeWrap.style.display = "none";
+    $("#teExtraWrap").style.display = "none";
+  }
+
+  const isMineAdmin = profile.is_admin && t.user_id === me.id;
+  $("#tePersonalWrap").style.display = isMineAdmin ? "flex" : "none";
+  $("#teLinkWrap").style.display = isMineAdmin ? "" : "none";
+  $("#teStart").value = t.start_time || "";
+  $("#teEnd").value = t.end_time || "";
+  $("#teLink").value = t.link || "";
+
+  $("#teComments").innerHTML = `<div class="comment-empty">Yükleniyor...</div>`;
+  openM($("#taskEditOverlay"));
+  await loadComments(taskId);
+}
+
+async function loadComments(taskId) {
+  const { data, error } = await sb.from("task_comments").select("*").eq("task_id", taskId).order("created_at", { ascending:true });
+  if (error) { $("#teComments").innerHTML = `<div class="comment-empty">Yorumlar yüklenemedi</div>`; return; }
+  renderComments(data || []);
+}
+
+function renderComments(comments) {
+  $("#teComments").innerHTML = comments.length ? comments.map(c => {
+    const p = profiles[c.user_id];
+    const name = p ? p.name : "Bilinmeyen";
+    const time = new Date(c.created_at).toLocaleString("tr-TR", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" });
+    return `
+      <div class="comment-item">
+        <div class="c-head">
+          <span class="c-avatar" style="background:${colorFor(c.user_id)}">${esc(initials(name))}</span>
+          <span class="c-name">${esc(name)}</span>
+          <span class="c-time">${esc(time)}</span>
+        </div>
+        <div class="c-text">${esc(c.text)}</div>
+      </div>`;
+  }).join("") : `<div class="comment-empty">Henüz yorum yok</div>`;
+}
+
+$("#teCancelBtn").addEventListener("click", () => { closeM($("#taskEditOverlay")); editingTaskId = null; });
+$("#teCloseBtn").addEventListener("click", () => { closeM($("#taskEditOverlay")); editingTaskId = null; });
+
+$("#taskEditForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  if (!editingTaskId) return;
+  const t = tasks.find(x => x.id === editingTaskId);
+  if (!t) return;
+  const payload = {
+    title: $("#teTitle").value.trim(),
+    descr: $("#teDesc").value.trim(),
+    category_id: $("#teCategory").value || null,
+    priority: $("#tePriority").value,
+    due: $("#teDue").value || null,
+  };
+  if (!payload.title) { toast("Başlık gerekli"); return; }
+  let newPrimary = t.user_id;
+  if (profile.is_admin) {
+    newPrimary = $("#teAssignee").value || t.user_id;
+    payload.user_id = newPrimary;
+  }
+  if (profile.is_admin && t.user_id === me.id) {
+    payload.start_time = $("#teStart").value || null;
+    payload.end_time = $("#teEnd").value || null;
+    payload.link = $("#teLink").value.trim() || null;
+  }
+  const { error } = await sb.from("tasks").update(payload).eq("id", editingTaskId);
+  if (error) { toast("Kaydedilemedi: " + error.message); return; }
+
+  if (profile.is_admin) {
+    const before = extraAssignees(editingTaskId);
+    const after = [...$("#teExtraAssignees").selectedOptions].map(o => o.value).filter(id => id !== newPrimary);
+    const toAdd = after.filter(id => !before.includes(id));
+    const toRemove = before.filter(id => !after.includes(id));
+    if (toRemove.length) {
+      await sb.from("task_assignees").delete().eq("task_id", editingTaskId).in("user_id", toRemove);
+    }
+    if (toAdd.length) {
+      await sb.from("task_assignees").insert(toAdd.map(id => ({ task_id: editingTaskId, user_id: id })));
+    }
+  }
+
+  closeM($("#taskEditOverlay")); editingTaskId = null;
+  toast("Görev güncellendi"); reloadAndRender();
+});
+
+$("#teCommentBtn").addEventListener("click", async () => {
+  const text = $("#teCommentInput").value.trim();
+  if (!text || !editingTaskId) return;
+  const { error } = await sb.from("task_comments").insert({ task_id: editingTaskId, user_id: me.id, text });
+  if (error) { toast("Hata: " + error.message); return; }
+  $("#teCommentInput").value = "";
+  await loadComments(editingTaskId);
+});
+$("#teCommentInput").addEventListener("keydown", e => { if (e.key === "Enter") $("#teCommentBtn").click(); });
+
+/* ============================================================
+   GOOGLE SHEETS EXPORT
+   ============================================================ */
+async function exportToSheets() {
+  if (SHEETS_WEBAPP_URL.includes("YOUR-DEPLOY-ID")) { toast("Önce SHEETS_WEBAPP_URL'yi ayarla"); return; }
+  const list = visibleTasks();
+  if (!list.length) { toast("Aktarılacak görev yok"); return; }
+  const rows = list.map(t => {
+    const p = profiles[t.user_id] || {};
+    const cat = categories.find(c => c.id === t.category_id);
+    const extraNames = extraAssignees(t.id).map(id => profiles[id]?.name).filter(Boolean).join(", ");
+    return [ t.title, t.descr||"", p.name||"", extraNames, p.role||"", STATUS_LABEL[t.status]||t.status, PRIORITY_LABEL[t.priority]||"", cat?.name||"", t.due||"", new Date(t.created_at).toLocaleString("tr-TR") ];
+  });
+  const btn = $("#exportBtn"); btn.disabled = true; toast("Sheets'e aktarılıyor...");
+  try {
+    const res = await fetch(SHEETS_WEBAPP_URL, {
+      method:"POST", headers:{ "Content-Type":"text/plain;charset=utf-8" },
+      body: JSON.stringify({ rows, mode:"replace", sheet:"Görevler" }),
+    });
+    const out = await res.json();
+    toast(out.ok ? `✅ ${out.count} görev Sheets'e aktarıldı` : "Hata: " + (out.error||"bilinmiyor"));
+  } catch (err) { toast("Aktarım başarısız: " + err.message); }
+  finally { btn.disabled = false; }
+}
+
+/* ============================================================
+   OLAY BAĞLAMA
+   ============================================================ */
+$("#tabLogin").addEventListener("click", () => switchAuth("login"));
+$("#tabSignup").addEventListener("click", () => switchAuth("signup"));
+function switchAuth(which) {
+  const login = which === "login";
+  $("#tabLogin").classList.toggle("active", login);
+  $("#tabSignup").classList.toggle("active", !login);
+  $("#loginForm").style.display  = login ? "" : "none";
+  $("#signupForm").style.display = login ? "none" : "";
+  $("#authMsg").className = "auth-msg";
+}
+function authMsg(text, ok=false) { const m = $("#authMsg"); m.textContent = text; m.className = "auth-msg " + (ok?"ok":"err"); }
+
+$("#loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const email = $("#loginEmail").value.trim(), password = $("#loginPass").value;
+  if (!email || !password) return authMsg("E-posta ve şifre gerekli.");
+  $("#loginBtn").disabled = true;
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  $("#loginBtn").disabled = false;
+  if (error) authMsg("Giriş başarısız: " + error.message);
+});
+
+$("#signupForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const name = $("#suName").value.trim(), role = $("#suTeam").value;
+  const email = $("#suEmail").value.trim(), password = $("#suPass").value;
+  if (!name || !email || password.length < 6) return authMsg("Ad, e-posta ve en az 6 karakter şifre gerekli.");
+  $("#suBtn").disabled = true;
+  const { data, error } = await sb.auth.signUp({ email, password, options:{ data:{ name, role } } });
+  $("#suBtn").disabled = false;
+  if (error) return authMsg("Kayıt başarısız: " + error.message);
+  if (!data.session) authMsg("Kayıt alındı ✅ E-postana gelen onay linkine tıkla, sonra giriş yap.", true);
+});
+
+$("#logoutBtn").addEventListener("click", async () => { await sb.auth.signOut(); });
+$("#pendingLogoutBtn").addEventListener("click", async () => { await sb.auth.signOut(); });
+
+/* Push bildirimleri */
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+$("#notifyBtn").addEventListener("click", async () => {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    toast("Tarayıcın bildirim desteklemiyor"); return;
+  }
+  try {
+    const reg = await navigator.serviceWorker.register("service-worker.js");
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted") { toast("Bildirim izni verilmedi"); return; }
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+    const s = sub.toJSON();
+    const { error } = await sb.from("push_subscriptions").upsert({
+      user_id: me.id, endpoint: s.endpoint, p256dh: s.keys.p256dh, auth: s.keys.auth,
+    }, { onConflict: "endpoint" });
+    if (error) { toast("Kayıt hatası: " + error.message); return; }
+    toast("Bildirimler açıldı 🔔");
+  } catch (err) {
+    toast("Hata: " + err.message);
+  }
+});
+
+$("#viewToggle").addEventListener("click", e => {
+  const b = e.target.closest("[data-view]"); if (!b) return;
+  view = b.dataset.view;
+  $$("#viewToggle button").forEach(x => x.classList.toggle("active", x === b));
+  render();
+});
+
+$("#priorityFilters").addEventListener("click", e => {
+  const b = e.target.closest(".pf-btn"); if (!b) return;
+  priorityFilter = b.dataset.pri;
+  $$(".pf-btn").forEach(x => x.classList.toggle("active", x === b));
+  renderBoard();
+});
+
+$("#searchInput").addEventListener("input", e => { searchQuery = e.target.value.trim().toLowerCase(); renderBoard(); });
+
+/* Hızlı görev ekleme */
+$("#qaAddBtn").addEventListener("click", async () => {
+  const title = $("#qaTitle").value.trim();
+  if (!title) { toast("Başlık gerekli"); return; }
+  const catId = $("#qaCategory").value || null;
+  const priority = $("#qaPriority").value;
+  const due = $("#qaDue").value || null;
+  const assignId = profile.is_admin ? ($("#qaAssignee").value || me.id) : me.id;
+  const payload = { user_id: assignId, title, category_id: catId, priority, status:"todo", due };
+  if (profile.is_admin) {
+    payload.start_time = $("#qaStart").value || null;
+    payload.end_time = $("#qaEnd").value || null;
+    payload.link = $("#qaLink").value.trim() || null;
+  }
+  const { data: newTask, error } = await sb.from("tasks").insert(payload).select().single();
+  if (error) { toast("Eklenemedi: " + error.message); return; }
+  if (profile.is_admin) {
+    const extraIds = [...$("#qaExtraAssignees").selectedOptions].map(o => o.value).filter(id => id !== assignId);
+    if (extraIds.length) {
+      await sb.from("task_assignees").insert(extraIds.map(id => ({ task_id: newTask.id, user_id: id })));
+    }
+    $("#qaExtraAssignees").selectedIndex = -1;
+  }
+  $("#qaTitle").value = ""; $("#qaDue").value = todayStr();
+  if (profile.is_admin) { $("#qaStart").value = ""; $("#qaEnd").value = ""; $("#qaLink").value = ""; }
+  toast("Görev eklendi"); reloadAndRender();
+});
+$("#qaTitle").addEventListener("keydown", e => { if (e.key === "Enter") $("#qaAddBtn").click(); });
+
+/* Kategori modal */
+function renderSwatches() {
+  $("#colorSwatches").innerHTML = SWATCHES.map(c => `<div class="swatch ${c===selectedSwatch?'sel':''}" style="background:${c}" data-swatch="${c}"></div>`).join("");
+}
+$("#addCatBtn").addEventListener("click", () => {
+  $("#catForm").reset(); selectedSwatch = SWATCHES[0]; renderSwatches();
+  openM($("#catOverlay")); setTimeout(()=>$("#catName").focus(),100);
+});
+$("#catCancelBtn").addEventListener("click", () => closeM($("#catOverlay")));
+$("#catCloseXBtn").addEventListener("click", () => closeM($("#catOverlay")));
+$("#colorSwatches").addEventListener("click", e => {
+  const sw = e.target.closest(".swatch"); if (!sw) return;
+  selectedSwatch = sw.dataset.swatch; renderSwatches();
+});
+$("#catForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const name = $("#catName").value.trim();
+  if (!name) return;
+  const isPersonal = $("#catPersonal").checked;
+  const { error } = await sb.from("categories").insert({ name, color: selectedSwatch, sort_order: categories.length + 1, owner_id: isPersonal ? me.id : null });
+  if (error) { toast("Eklenemedi: " + error.message); return; }
+  closeM($("#catOverlay")); toast(isPersonal ? "Özel kategori eklendi 🔒" : "Kategori eklendi"); reloadAndRender();
+});
+
+/* Fikir Havuzu */
+$("#inboxAddBtn").addEventListener("click", async () => {
+  const text = $("#inboxInput").value.trim();
+  if (!text) return;
+  const { error } = await sb.from("inbox_notes").insert({ user_id: me.id, text });
+  if (error) { toast("Hata: " + error.message); return; }
+  $("#inboxInput").value = "";
+  reloadAndRender();
+});
+
+/* Sidebar (mobil) */
+function toggleSidebar() { document.body.classList.toggle("sidebar-open"); }
+$("#hamburger").addEventListener("click", toggleSidebar);
+
+/* Export */
+$("#exportBtn").addEventListener("click", exportToSheets);
+
+/* Delege tıklamalar */
+document.addEventListener("click", e => {
+  const tog = e.target.closest("[data-toggle]"); if (tog) return toggleTask(tog.dataset.toggle);
+  const del = e.target.closest("[data-del-task]"); if (del) return deleteTask(del.dataset.delTask);
+  const delCat = e.target.closest("[data-del-cat]"); if (delCat) return deleteCategory(delCat.dataset.delCat);
+  const delNote = e.target.closest("[data-del-note]"); if (delNote) return deleteNote(delNote.dataset.delNote);
+  const approve = e.target.closest("[data-approve-user]"); if (approve) return approveUser(approve.dataset.approveUser);
+  const delUser = e.target.closest("[data-del-user]"); if (delUser) return deleteUser(delUser.dataset.delUser);
+  if (e.target.closest("a")) return;
+  const card = e.target.closest(".card"); if (card) return openTaskEdit(card.dataset.id);
+});
+$$(".overlay").forEach(ov => ov.addEventListener("click", e => { if (e.target === ov) closeM(ov); }));
+
+/* Shift+Space hızlı yakalama */
+function closeCaptureOverlay() {
+  $("#captureOverlay").classList.remove("on");
+  if (!$$(".overlay.open").length) document.body.classList.remove("modal-lock");
+}
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { $$(".overlay.open").forEach(closeM); closeCaptureOverlay(); }
+  if (e.shiftKey && e.code === "Space" && document.activeElement.tagName !== "TEXTAREA" && document.activeElement.tagName !== "INPUT") {
+    e.preventDefault();
+    $("#captureOverlay").classList.add("on");
+    document.body.classList.add("modal-lock");
+    setTimeout(() => $("#captureInput").focus(), 50);
+  }
+});
+$("#captureOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) closeCaptureOverlay(); });
+$("#captureInput").addEventListener("keydown", async e => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    const text = $("#captureInput").value.trim();
+    if (!text) return;
+    const { error } = await sb.from("inbox_notes").insert({ user_id: me.id, text });
+    if (error) { toast("Hata: " + error.message); return; }
+    $("#captureInput").value = "";
+    closeCaptureOverlay();
+    toast("Fikir Havuzuna eklendi 💡");
+    reloadAndRender();
+  }
+});
+
+boot();
+</script>
+</body>
+</html>
