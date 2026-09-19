@@ -1493,6 +1493,7 @@ function renderGun(){
       <div class="flabel">Yapılmasını istediğim iş / ihtiyaç</div>
       <textarea id="g_wish" rows="2" placeholder="İsteğe bağlı">${esc(v("wish"))}</textarea>
       <button class="btn" id="gunSave">${r.id?"Güncelle":"Kaydet"}</button>
+      ${r.admin_edits?`<div class="note" style="background:var(--mustard-s);border-radius:8px;padding:6px 9px">🛠 Bu kaydı yönetici girdi · ${r.admin_edits} kez${r.admin_by_name?" · "+esc(r.admin_by_name):""}${r.admin_at?" · "+new Date(r.admin_at).toLocaleString("tr-TR"):""}</div>`:""}
       ${r.updated_at?`<div class="note">Son kayıt: ${new Date(r.updated_at).toLocaleString("tr-TR")}</div>`:""}
     </div>
     <div class="sect"><h3>👥 ${trDate(day)} · kim doldurdu</h3><div class="who">${filled}</div></div>
@@ -1513,6 +1514,8 @@ function renderGun(){
   bindDayNav(el,"gunDay",renderGun); bindKTasks(el, renderGun);
   const ka=$("kTaskAdd"); if(ka) ka.onclick=()=>openKTaskModal(ini, renderGun);
   const gs=$("gunIni"); if(gs) gs.onchange=e=>{ S.gunIni=e.target.value; renderGun(); };
+  const stampCol = ()=>DEMO || S.kdaily.some(x=>"admin_edits" in x);
+  const adminEntry = ()=>kreAdmin() && (day!==trToday() || ini!==myIni());
   const otLive=()=>{ const c=otCalc({day, in_time:$("g_in_time").value, out_time:$("g_out_time").value, leave_min:numOrNull($("g_leave_min").value)});
     $("g_otlive").innerHTML = c.kind==="eksik" ? `<span style="color:var(--mut)">saatleri gir</span>` : c.kind==="hata" ? "⚠ saatleri kontrol et" : `<span class="${otCls(c.min)}">${otTxt(c.min)}</span>${c.kind==="pazar"?" <small>pazar ×1,5</small>":""}`; };
   ["g_in_time","g_out_time","g_leave_min"].forEach(k=>$(k).addEventListener("input",otLive)); otLive();
@@ -1524,6 +1527,7 @@ function renderGun(){
     ["leave_min","new_video","new_image","var_video","var_image"].forEach(k=>row[k]=numOrNull($("g_"+k).value));
     row.note=$("g_note").value.trim()||null; row.wish=$("g_wish").value.trim()||null;
     { const c=otCalc(row); row.ot_min=(c.kind==="normal"||c.kind==="pazar")?c.min:null; }
+    if(stampCol() && adminEntry()){ row.admin_edits=(r.admin_edits||0)+1; row.admin_by=S.profile?.id||null; row.admin_by_name=S.profile?.name||null; row.admin_at=nowIso(); }
     $("gunSave").disabled=true;
     try{
       if(DEMO){ const i=S.kdaily.findIndex(x=>x.initial===ini&&x.day===day); if(i>=0) S.kdaily[i]={...S.kdaily[i],...row}; else S.kdaily.unshift({id:uid(),...row}); }
