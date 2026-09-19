@@ -851,6 +851,9 @@ function renderMesai(){
 
 // "teslim edilmeyen arama · bakmadı" sütunu SQL çalıştırıldıysa vardır (yoksa alan gizli, kayıt bozulmaz)
 const undelCol = ()=>DEMO || S.daily.some(r=>"undel_nolook" in r);
+// yönetici başkasının ya da kapanmış günün kaydını doldurursa iz bırakılır
+const stampCol = ()=>DEMO || S.daily.some(r=>"admin_edits" in r);
+const adminEntry = (memberId, day)=>isAdmin() && (day!==trToday() || memberId!==S.me?.id);
 /* ================= GÜNÜM ================= */
 function gunMember(){
   if(isAdmin()){ return memById(S.gunMember) || S.me || actives()[0] || null; }
@@ -892,6 +895,7 @@ function renderGun(){
       <div class="flabel">Yapılmasını istediğim iş / öneri</div>
       <textarea id="g_wish" rows="2" placeholder="İsteğe bağlı">${esc(v("wish"))}</textarea>
       <button class="btn" id="gunSave">${r.id?"Güncelle":"Kaydet"}</button>
+      ${r.admin_edits?`<div class="note" style="background:var(--mustard-s);border-radius:8px;padding:6px 9px">🛠 Bu kaydı yönetici girdi · ${r.admin_edits} kez${r.admin_by_name?" · "+esc(r.admin_by_name):""}${r.admin_at?" · "+new Date(r.admin_at).toLocaleString("tr-TR"):""}</div>`:""}
       ${r.updated_at?`<div class="note">Son kayıt: ${new Date(r.updated_at).toLocaleString("tr-TR")}</div>`:""}
     </div>
     <div class="sect"><h3>👥 ${trDate(day)} · kim doldurdu</h3><div class="who">${filled}</div></div>
@@ -912,6 +916,7 @@ function renderGun(){
     const row = { member_id:m.id, day, in_time:$("g_in_time").value||null, out_time:$("g_out_time").value||null, updated_at:nowIso() };
     ["leave_min","cargo","call_total","call_send","call_nolook","wp_msg","wp_order","ig_msg","ig_order","mail_msg","mail_order"].forEach(k=>row[k]=numOrNull($("g_"+k).value));
     if(undelCol()) row.undel_nolook=numOrNull($("g_undel_nolook").value);
+    if(stampCol() && adminEntry(m.id, day)){ row.admin_edits=(r.admin_edits||0)+1; row.admin_by=S.profile?.id||null; row.admin_by_name=S.profile?.name||null; row.admin_at=nowIso(); }
     row.note=$("g_note").value.trim()||null; row.wish=$("g_wish").value.trim()||null;
     { const c=otCalc(row); row.ot_min=(c.kind==="normal"||c.kind==="pazar")?c.min:null; }
     $("gunSave").disabled=true;

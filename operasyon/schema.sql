@@ -773,3 +773,34 @@ create policy "ks_update" on public.kre_scores for update
 select (select value->'unrated' from public.kre_settings where key = 'roles') as puanlanamaz,
        (select m.name from public.ops_assignments a join public.ops_members m on m.id = a.member_id where a.role_key = 'stok') as stok_sorumlusu,
        (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'ops_daily' and column_name = 'undel_nolook') as yeni_alan;
+
+-- ============================================================
+-- v2.3
+-- 1) Günlük kayıtlara "yönetici girdi" izi (kaç kez, kim, ne zaman)
+--    Yönetici başkasının ya da kapanmış bir günün kaydını doldurduğunda panel otomatik yazar.
+-- 2) Anıl · 18.09.2026 çıkış 18:10 (yönetici girişi olarak işaretli)
+-- ============================================================
+alter table public.ops_daily add column if not exists admin_edits   integer default 0;
+alter table public.ops_daily add column if not exists admin_by      uuid references auth.users on delete set null;
+alter table public.ops_daily add column if not exists admin_by_name text;
+alter table public.ops_daily add column if not exists admin_at      timestamptz;
+
+alter table public.kre_daily add column if not exists admin_edits   integer default 0;
+alter table public.kre_daily add column if not exists admin_by      uuid references auth.users on delete set null;
+alter table public.kre_daily add column if not exists admin_by_name text;
+alter table public.kre_daily add column if not exists admin_at      timestamptz;
+
+-- Anıl'ın dünkü çıkışı
+insert into public.ops_daily (member_id, day, out_time, admin_edits, admin_at, updated_at)
+select id, date '2026-09-18', '18:10', 1, now(), now()
+from public.ops_members where name ilike 'an_l%' limit 1
+on conflict (member_id, day) do update
+  set out_time    = excluded.out_time,
+      admin_edits = coalesce(public.ops_daily.admin_edits, 0) + 1,
+      admin_at    = now(),
+      updated_at  = now();
+
+-- kontrol
+select m.name, d.day, d.in_time, d.out_time, d.admin_edits
+from public.ops_daily d join public.ops_members m on m.id = d.member_id
+where d.day = date '2026-09-18' order by m.name;
