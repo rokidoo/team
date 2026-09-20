@@ -537,3 +537,31 @@ on conflict (member_id, day) do update
 select m.name, d.day, d.in_time, d.out_time, d.admin_edits
 from public.ops_daily d join public.ops_members m on m.id = d.member_id
 where d.day = date '2026-09-18' order by m.name;
+
+-- ============================================================
+-- v2.4 Puan notu zorunlu (en az 30 karakter)
+-- Ekip üyeleri puan verirken not yazmak zorunda; yönetici/ortak muaf
+-- (eski aktarımlar ve yönetici düzeltmeleri bozulmasın diye).
+-- Puan silme zaten yöneticiye açık (mevcut politika).
+-- ============================================================
+create or replace function public.score_note_min()
+returns trigger language plpgsql security definer
+set search_path = public
+as $$
+begin
+  if coalesce(public.my_role(), '') in ('admin','partner') then return new; end if;
+  if new.score is not null and coalesce(length(btrim(new.comment)), 0) < 30 then
+    raise exception 'Puan notu en az 30 karakter olmalı (şu an %). Kişinin gün içindeki durumunu yaz.', coalesce(length(btrim(new.comment)), 0);
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists ops_scores_note_min on public.ops_scores;
+create trigger ops_scores_note_min before insert or update on public.ops_scores
+  for each row execute function public.score_note_min();
+
+drop trigger if exists kre_scores_note_min on public.kre_scores;
+create trigger kre_scores_note_min before insert or update on public.kre_scores
+  for each row execute function public.score_note_min();
+
+select 'puan notu kurali hazir' as durum;
