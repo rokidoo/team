@@ -391,6 +391,9 @@
 .fbw .fb-d{display:inline-flex;gap:3px;align-items:center;font-family:var(--fm,monospace);font-weight:800;font-size:.72rem;text-transform:none;letter-spacing:0;color:var(--ink,#121212)}
 .fbw .fb-d i{font-style:normal} .fbw .fb-d .up{color:#15803D} .fbw .fb-d .dn{color:#C2410C} .fbw .fb-d .eq{color:var(--mut,#8A867E)}
 .fbw .kpi small .fb-d{margin-right:4px}
+.fbw .fb-cal{display:inline-flex;align-items:center;gap:6px}
+.fbw .fb-cal input{border:2px solid var(--ink,#121212);border-radius:99px;padding:6px 10px;font-weight:700;font-size:.75rem;background:var(--card,#fff);margin:0;width:auto}
+.fbw .fb-today{border:2px solid var(--ink,#121212);border-radius:99px;background:var(--card,#fff);font-weight:800;font-size:.72rem;padding:6px 10px;cursor:pointer}
 .fbw .fb-search{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 .fbw .fb-search input{flex:1 1 240px;border:2px solid var(--ink,#121212);border-radius:99px;padding:8px 14px;font-weight:700;font-size:.8rem;background:var(--card,#fff);margin:0}
 .fbw .fb-sum{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-family:var(--fh,sans-serif);font-size:.92rem;list-style:none}
@@ -1843,7 +1846,7 @@ const FB = (()=>{
       .map(o=>({w:Object.entries(o.forms).sort((a,b)=>b[1]-a[1])[0][0], raters:o.raters.size, n:o.n}));
     return res;
   }
-  const st={team:null, per:"ay", ref:null, who:""};
+  const st={team:null, per:"hafta", ref:null, who:""};   // varsayılan: bu hafta
   function render(el, cfg){
     if(!st.team || !cfg.teams.find(t=>t.k===st.team)) st.team=cfg.teams[0].k;
     st.ref=st.ref||today();
@@ -1875,6 +1878,7 @@ const FB = (()=>{
         ${cfg.teams.length>1?`<div class="filters">${cfg.teams.map(t=>`<button class="fchip ${st.team===t.k?"on":""}" data-fbt="${t.k}">${esc(t.l)}</button>`).join("")}</div>`:""}
         <div class="filters">${[["gun","Gün"],["hafta","Hafta"],["ay","Ay"]].map(([k,l])=>`<button class="fchip ${st.per===k?"on":""}" data-fbp="${k}">${l}</button>`).join("")}</div>
         <span class="fb-nav"><button class="nb" data-fbs="-1">‹</button><b>${esc(title(st.per,rg))}</b><button class="nb" data-fbs="1">›</button></span>
+        <span class="fb-cal"><input type="date" data-fbcal value="${esc(st.ref)}" title="Takvimden tarih seç"><button class="fb-today" data-fbnow>bugün</button></span>
         <select class="fb-sel" data-fbw-sel><option value="">Herkes</option>${people.map(([id,n])=>`<option value="${esc(id)}" ${id===st.who?"selected":""}>${esc(n)}</option>`).join("")}</select>
       </div>
       <div class="kpis">
@@ -1917,6 +1921,8 @@ const FB = (()=>{
     el.querySelectorAll("[data-fbt]").forEach(x=>x.onclick=()=>{ st.team=x.dataset.fbt; st.who=""; re(); });
     el.querySelectorAll("[data-fbp]").forEach(x=>x.onclick=()=>{ st.per=x.dataset.fbp; re(); });
     el.querySelectorAll("[data-fbs]").forEach(x=>x.onclick=()=>{ st.ref=shiftRef(st.per,st.ref,+x.dataset.fbs); re(); });
+    const cal=el.querySelector("[data-fbcal]"); if(cal) cal.onchange=e=>{ if(e.target.value){ st.ref=e.target.value; re(); } };
+    const now=el.querySelector("[data-fbnow]"); if(now) now.onclick=()=>{ st.ref=today(); re(); };
     el.querySelectorAll("[data-fbw]").forEach(x=>x.onclick=()=>{ st.who=x.dataset.fbw; re(); el.scrollIntoView({block:"start"}); });
     el.querySelector("[data-fbw-sel]").onchange=e=>{ st.who=e.target.value; re(); };
     const qi=el.querySelector("[data-fbq]");
