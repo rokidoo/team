@@ -382,6 +382,8 @@
 .otrule{border:var(--b2,2px solid #121212);border-radius:12px;padding:10px 14px;margin:0 0 14px;background:var(--card,#fff);font-size:.82rem}
 .otrule summary{cursor:pointer;font-weight:800}.otrule ul{margin:8px 0 0;padding-left:18px;line-height:1.55}
 .otlive{border:var(--b2,2px solid #121212);border-radius:10px;padding:9px 10px;font-weight:800;min-height:40px;background:var(--bg,#F4F2EC)}
+  .pcnt{font-size:.7rem;font-weight:800;color:var(--mut);margin-top:4px}
+  .pcnt.bad{color:#C2410C}
 </style>
 </head>
 <body>
@@ -558,6 +560,7 @@ const numOrNull = v=>{ const s=String(v??"").trim(); if(s==="") return null; con
 const sum = (arr,f)=>arr.reduce((a,x)=>a+(+(f?f(x):x)||0),0);
 const avg = arr=>arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : null;
 const chip = (label,soft)=>`<span class="chip" style="background:${soft}">${esc(label)}</span>`;
+const NOTE_MIN = 30;   // puan notu en az bu kadar karakter
 const isAdmin = ()=>S.profile?.role==="admin" || S.profile?.role==="partner";   // ortaklar operasyonda tam yetkili
 const canOps  = ()=>S.profile && ["ops","admin","partner"].includes(S.profile.role);
 const memById = id=>S.members.find(m=>m.id===id);
@@ -946,7 +949,8 @@ function renderPuan(){
       <div class="card" style="margin-bottom:12px">
         <div class="mcard">${av(x,"big")}<div><div class="nm">${esc(x.name)}</div><div class="tk">${esc(x.tasks||"")}</div></div></div>
         <div class="scrow" data-ratee="${x.id}">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="scbtn ${s.score===n?"on":""}" data-n="${n}">${n}</button>`).join("")}</div>
-        <input type="text" id="pc_${x.id}" placeholder="Kısa not (isteğe bağlı)" value="${esc(s.comment||"")}" style="margin-bottom:0">
+        <textarea id="pc_${x.id}" rows="2" placeholder="Bugün nasıl çalıştı? Ne yaptı, ne aksadı? En az ${NOTE_MIN} karakter." style="margin-bottom:0">${esc(s.comment||"")}</textarea>
+        <div class="pcnt" id="pn_${x.id}"></div>
       </div>`; }).join("")}
     <button class="btn" id="puanSave">Puanları Kaydet</button>
     </div>
@@ -954,6 +958,11 @@ function renderPuan(){
   `;
   bindDayNav(el,"puanDay",renderPuan);
   const picked = {}; others.forEach(x=>{ const s=mine(x.id); if(s.score!=null) picked[x.id]=s.score; });
+  const noteOf = id=>$("pc_"+id).value.trim();
+  const noteCnt = id=>{ const n=noteOf(id).length, el2=$("pn_"+id);
+    el2.textContent = n>=NOTE_MIN ? `${n} karakter ✓` : `${n}/${NOTE_MIN} — en az ${NOTE_MIN} karakter yaz`;
+    el2.className = "pcnt"+(n>=NOTE_MIN?"":" bad"); };
+  others.forEach(x=>{ const inp=$("pc_"+x.id); if(!inp) return; inp.addEventListener("input",()=>noteCnt(x.id)); noteCnt(x.id); });
   el.querySelectorAll(".scrow").forEach(row=>row.querySelectorAll(".scbtn").forEach(b=>b.onclick=()=>{
     row.querySelectorAll(".scbtn").forEach(z=>z.classList.remove("on")); b.classList.add("on"); picked[row.dataset.ratee]=+b.dataset.n;
   }));
@@ -961,8 +970,11 @@ function renderPuan(){
   $("puanSave").onclick = async ()=>{
     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
     if(dayLocked(day)){ toast(LOCK_MSG); return; }
-    const rows = others.filter(x=>picked[x.id]!=null).map(x=>({day, rater_id:S.me.id, ratee_id:x.id, score:picked[x.id], comment:$("pc_"+x.id).value.trim()||null, updated_at:nowIso()}));
-    if(!rows.length){ toast("Önce puan seç."); return; }
+    const sel = others.filter(x=>picked[x.id]!=null);
+    if(!sel.length){ toast("Önce puan seç."); return; }
+    const eksik = sel.filter(x=>noteOf(x.id).length<NOTE_MIN);
+    if(eksik.length){ const x=eksik[0]; toast(`${x.name} için not en az ${NOTE_MIN} karakter olmalı (şu an ${noteOf(x.id).length}).`); $("pc_"+x.id).focus(); noteCnt(x.id); return; }
+    const rows = sel.map(x=>({day, rater_id:S.me.id, ratee_id:x.id, score:picked[x.id], comment:noteOf(x.id), updated_at:nowIso()}));
     $("puanSave").disabled=true;
     try{
       if(DEMO){ rows.forEach(r=>{ const i=S.scores.findIndex(s=>s.day===r.day&&s.rater_id===r.rater_id&&s.ratee_id===r.ratee_id); if(i>=0) S.scores[i]={...S.scores[i],...r}; else S.scores.unshift({id:uid(),...r}); }); }
