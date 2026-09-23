@@ -612,6 +612,7 @@
         Hesabın oluşturuldu ✅ Panele erişebilmen için yöneticinin seni onaylaması gerekiyor.
         Onaylandığında bu sayfayı yenileyip tekrar giriş yap.
       </p>
+      <a class="btn btn-primary full" id="pendingPanelBtn" style="display:none;text-decoration:none;margin-bottom:10px"></a>
       <button class="btn btn-ghost full" id="pendingLogoutBtn">Çıkış Yap</button>
     </div>
   </div>
@@ -1731,8 +1732,18 @@ async function enterApp(user) {
   }
   if (!profile.is_admin && !profile.is_approved) {
     $("#app").classList.remove("on");
-    $("#pendingTitle").textContent = "Onay Bekleniyor";
-    $("#pendingText").textContent = "Hesabın oluşturuldu ✅ Panele erişebilmen için yöneticinin seni onaylaması gerekiyor. Onaylandığında bu sayfayı yenileyip tekrar giriş yap.";
+    // kreatif / operasyon ekibi yanlışlıkla yönetime düştüyse: kendi paneline yönlendir
+    const own = profile.role === "creative" ? PANELS.kreatif : profile.role === "ops" ? PANELS.operasyon : null;
+    const pb = $("#pendingPanelBtn");
+    if (own) {
+      $("#pendingTitle").textContent = "Yanlış panel";
+      $("#pendingText").textContent = "Burası yönetim paneli. Senin çalışma panelin aşağıda — aynı e-posta ve şifreyle giriş yaparsın.";
+      pb.href = own.href; pb.textContent = own.l.replace(/paneli$/, "paneline") + " git →"; pb.style.display = "";
+    } else {
+      $("#pendingTitle").textContent = "Onay Bekleniyor";
+      $("#pendingText").textContent = "Hesabın oluşturuldu ✅ Panele erişebilmen için yöneticinin seni onaylaması gerekiyor. Onaylandığında bu sayfayı yenileyip tekrar giriş yap.";
+      pb.style.display = "none";
+    }
     $("#pendingWrap").style.display = "grid";
     return;
   }
