@@ -384,6 +384,12 @@
 .otlive{border:var(--b2,2px solid #121212);border-radius:10px;padding:9px 10px;font-weight:800;min-height:40px;background:var(--bg,#F4F2EC)}
   .pcnt{font-size:.7rem;font-weight:800;color:var(--mut);margin-top:4px}
   .pcnt.bad{color:#C2410C}
+  .card.wc{margin-bottom:16px}
+  .card.wc.on{background:var(--mustard-s);outline:3px solid var(--ink);outline-offset:-3px}
+  .wc-h{font-family:var(--fh);font-weight:800;font-size:1rem;margin-bottom:4px}
+  .wc-big{font-weight:800;font-size:.95rem;margin:6px 0 8px}
+  .wc-list{margin-top:8px} .wc-list summary{cursor:pointer;font-weight:800;font-size:.8rem}
+  .wc-list table{margin-top:8px;width:100%} .wc-list th,.wc-list td{text-align:left!important} .wc-list tr.wc-me td{background:var(--green-s);font-weight:800}
 </style>
 </head>
 <body>
@@ -627,6 +633,7 @@ async function upsert(table, rows, onConflict, ignoreDup=false){
 
 async function loadAll(){
   if(DEMO) return;
+  await WC.load();
   const since = addDays(today(), -400);
   try{
     const [members, products, daily, scores, checks, duty, team, voice, stock] = await Promise.all([
@@ -857,6 +864,83 @@ const undelCol = ()=>DEMO || S.daily.some(r=>"undel_nolook" in r);
 // yönetici başkasının ya da kapanmış günün kaydını doldurursa iz bırakılır
 const stampCol = ()=>DEMO || S.daily.some(r=>"admin_edits" in r);
 const adminEntry = (memberId, day)=>isAdmin() && (day!==trToday() || memberId!==S.me?.id);
+/* ================= TUVALET TEMİZLİĞİ SIRASI (operasyon + kreatif ortak) =================
+   Her cumartesi tek kişi; sıra shared_settings.wc_rotation = {start:"YYYY-MM-DD" (cumartesi), names:[...]}.
+   İsim, kişinin tam adındaki bir kelimeyle eşleşir ("Kemal" → Mustafa Kemal, "İbrahim" → Halil İbrahim). */
+const WC = (()=>{
+  const DEF = {start:"2026-09-26", names:["Rabia","İmkan","Kemal","Besra","İbrahim","Sait","Anıl","Sinan","Elif"]};
+  let cfg=null, err=null;
+  const low = s=>String(s||"").toLocaleLowerCase("tr").replace(/[.,;:]+$/,"").trim();
+  const p2 = n=>String(n).padStart(2,"0");
+  const isoD = d=>`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+  const addD = (s,n)=>{ const d=new Date(s+"T00:00:00"); d.setDate(d.getDate()+n); return isoD(d); };
+  const dayTr = s=>new Date(s+"T00:00:00").toLocaleDateString("tr-TR",{day:"numeric",month:"long",weekday:"long"});
+  async function load(){
+    if(DEMO){ cfg=cfg||{...DEF}; return; }
+    const {data,error}=await sb.from("shared_settings").select("value").eq("key","wc_rotation").maybeSingle();
+    if(error){ err=error.message; cfg=null; return; }
+    err=null; cfg=data?.value||null;
+  }
+  const ok = ()=>cfg && Array.isArray(cfg.names) && cfg.names.length && cfg.start;
+  function who(sat){                                      // o cumartesinin sorumlusu
+    if(!ok()) return null;
+    const w=Math.round((new Date(sat+"T00:00:00")-new Date(cfg.start+"T00:00:00"))/(7*864e5));
+    if(w<0) return null;
+    return cfg.names[w % cfg.names.length];
+  }
+  const nextSat = from=>{ const d=new Date(from+"T00:00:00"); const k=(6-d.getDay()+7)%7; return addD(from,k); };   // bugün cumartesiyse bugün
+  function matches(entry, names){
+    const e=low(entry); if(!e) return false;
+    return names.filter(Boolean).some(n=>{ const f=low(n); return f===e || f.split(/\s+/).includes(e); });
+  }
+  function myNext(names, from){
+    if(!ok()) return null;
+    let s=nextSat(from);
+    for(let i=0;i<cfg.names.length+1;i++){ if(s>=cfg.start && matches(who(s),names)) return s; s=addD(s,7); }
+    return null;
+  }
+  // Günüm kartı: names = kişinin olası adları (üye adı, profil adı), day = ekranda seçili gün
+  function card(names, day, canEdit){
+    if(!ok()) return canEdit ? `<div class="card wc"><div class="wc-h">🚽 Tuvalet temizliği sırası</div><div class="mini">${err?"Sıra tablosu okunamadı — Supabase'de tuvalet sırası SQL'ini çalıştır.":"Henüz sıra girilmemiş."}</div><button class="btn ghost sm" data-wcedit>✏️ Sırayı düzenle</button></div>` : "";
+    const sat = new Date(day+"T00:00:00").getDay()===6;
+    const mine = sat && matches(who(day),names);
+    const nx = myNext(names, mine?addD(day,1):day);
+    const list=[]; let s=nextSat(day<cfg.start?cfg.start:day);
+    for(let i=0;i<cfg.names.length;i++){ list.push(s); s=addD(s,7); }
+    return `<div class="card wc ${mine?"on":""}">
+      <div class="wc-h">🚽 Tuvalet temizliği${mine?` · <b>bugün sende</b>`:""}</div>
+      ${mine?`<div class="wc-big">Bugün (${esc(dayTr(day))}) tuvalet temizliği senin görevin — tek başına yapılacak.</div>`:""}
+      <div class="mini">${nx?`Sıradaki günün: <b>${esc(dayTr(nx))}</b>`:"Sırada adın yok."}${sat&&!mine&&who(day)?` · Bugün: <b>${esc(who(day))}</b>`:""}</div>
+      <details class="wc-list"><summary>Sıra listesi (her cumartesi tek kişi)</summary>
+        <table class="compact"><tr><th>Cumartesi</th><th>Sorumlu</th></tr>
+        ${list.map(x=>`<tr class="${matches(who(x),names)?"wc-me":""}"><td>${esc(dayTr(x))}</td><td>${esc(who(x)||"—")}</td></tr>`).join("")}</table>
+        ${canEdit?`<button class="btn ghost sm" data-wcedit style="margin-top:8px">✏️ Sırayı düzenle</button>`:""}
+      </details>
+    </div>`;
+  }
+  function bind(root, rerender){
+    root.querySelectorAll("[data-wcedit]").forEach(b=>b.onclick=()=>{
+      const c=ok()?cfg:DEF;
+      modal(`<h3>🚽 Tuvalet temizliği sırası</h3><div class="sub">Her cumartesi bir kişi, yukarıdan aşağı sırayla. Liste bitince başa döner. İki ekipte de aynı sıra görünür.</div>
+        <div class="flabel">İlk cumartesi (listenin ilk kişisi bu gün)</div><input type="date" id="wc_start" value="${esc(c.start)}">
+        <div class="flabel">İsimler (her satıra bir kişi, sırayla)</div><textarea id="wc_names" rows="10">${esc(c.names.join("\n"))}</textarea>
+        <button class="btn" id="wc_save">Kaydet</button>`);
+      $("wc_save").onclick=async ()=>{
+        if(typeof VIEW==="function" && VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
+        const start=$("wc_start").value, names=$("wc_names").value.split(/\n/).map(x=>x.replace(/[.,;:]+$/,"").trim()).filter(Boolean);
+        if(!start || new Date(start+"T00:00:00").getDay()!==6){ toast("İlk gün bir cumartesi olmalı."); return; }
+        if(names.length<1){ toast("En az bir isim yaz."); return; }
+        const value={start, names};
+        try{
+          if(!DEMO){ const {error}=await sb.from("shared_settings").upsert({key:"wc_rotation", value, updated_at:new Date().toISOString()},{onConflict:"key"}); if(error) throw error; }
+          cfg=value; err=null; closeModal(); toast("Tuvalet sırası kaydedildi ✓"); rerender();
+        }catch(e){ toast("Kaydedilemedi: "+(e?.message||e)); }
+      };
+    });
+  }
+  return {load, card, bind, who, matches, myNext};
+})();
+
 /* ================= GÜNÜM ================= */
 function gunMember(){
   if(isAdmin()){ return memById(S.gunMember) || S.me || actives()[0] || null; }
@@ -876,6 +960,7 @@ function renderGun(){
     <div class="sub">Akşam çıkmadan 2 dakikada doldur. Boş alan = 0 sayılmaz, "girilmedi" sayılır.</div>
     ${dayNav("gunDay", day, memSel)}
     ${taskList(m, day)}
+    ${WC.card([m.name, m.id===S.me?.id?S.profile?.name:null], day, isAdmin())}
     ${lockNote(day)}
     <div class="card ${dayLocked(day)?"locked":""}" id="gunForm" style="margin-bottom:16px">
       <div class="sect"><h3>⏰ Saatler</h3>
@@ -907,7 +992,7 @@ function renderGun(){
       ${last7.map(x=>`<tr><td>${trShort(x.day)}</td><td class="${mins(x.in_time)>LATE_MIN?"late":""}">${esc(x.in_time||"—")}</td><td>${esc(x.out_time||"—")}</td><td>${x.cargo??"—"}</td><td>${x.call_total??"—"}</td><td>${x.call_nolook??"—"}</td><td>${msgOf(x)}</td><td>${ordOf(x)}</td><td>${(()=>{ const c=otCalc(x); return c.kind==="normal"||c.kind==="pazar"?`<span class="${otCls(c.min)}">${otTxt(c.min)}</span>`:"—"; })()}</td></tr>`).join("")}
     </table></div></div>`:""}
   `;
-  bindDayNav(el,"day",renderGun); bindTaskList(el, renderGun);
+  bindDayNav(el,"day",renderGun); bindTaskList(el, renderGun); WC.bind(el, renderGun);
   if(isAdmin()){ $("gunMember").onchange=e=>{ S.gunMember=e.target.value; renderGun(); }; $("gunTask").onclick=()=>openTaskModal(m.id, renderGun); }
   const otLive=()=>{ const c=otCalc({day, in_time:$("g_in_time").value, out_time:$("g_out_time").value, leave_min:numOrNull($("g_leave_min").value)});
     $("g_otlive").innerHTML = c.kind==="eksik" ? `<span style="color:var(--mut)">saatleri gir</span>` : c.kind==="hata" ? "⚠ saatleri kontrol et" : `<span class="${otCls(c.min)}">${otTxt(c.min)}</span>${c.kind==="pazar"?" <small>pazar ×1,5</small>":""}`; };
@@ -1916,7 +2001,7 @@ function openClaimModal(){
 async function boot(){
   initDays();
   if(DEMO){
-    demoData();
+    demoData(); await WC.load();
     const setRole=r=>{ if(r==="admin"){ S.profile={id:"u_admin",name:"Demo Yönetici",role:"admin"}; S.me=null; } else if(r==="partner"){ S.profile={id:"u_partner",name:"Demo Ortak",role:"partner"}; S.me=null; } else { S.profile={id:"u_"+r,name:memById("m_"+r).name,role:"ops"}; S.me=memById("m_"+r); } };
     setRole("admin");
     $("demoBar").classList.remove("hidden");

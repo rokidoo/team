@@ -832,3 +832,141 @@ create trigger kre_scores_note_min before insert or update on public.kre_scores
   for each row execute function public.score_note_min();
 
 select 'puan notu kurali hazir' as durum;
+
+-- ============================================================
+-- v2.5 Kreatifte puanlanmayacaklar listesine REMAKS eklenir.
+-- Liste: Çağdaş, Erdem, Remaks (mevcut liste korunur, üzerine eklenir).
+-- Bu kişilere/hesaplara kimse puan veremez; kendileri puan verebilir.
+-- ============================================================
+update public.kre_settings
+set value = value || jsonb_build_object('unrated', (
+      select coalesce(jsonb_agg(distinct x), '[]'::jsonb) from (
+        select jsonb_array_elements_text(coalesce(value->'unrated', '[]'::jsonb)) as x
+          from public.kre_settings where key = 'roles'
+        union
+        select initial from public.team_members
+         where name ilike '_a_da_%' or name ilike 'erdem%' or name ilike 'remaks%'
+      ) s)),
+    updated_at = now()
+where key = 'roles';
+
+-- kontrol: puanlanamayanlar (harf + ad)
+select t.initial, t.name
+from public.team_members t
+where (select value->'unrated' from public.kre_settings where key='roles') ? t.initial
+order by t.name;
+
+
+-- ============================================================
+-- v2.6 (tek seferde çalıştır)
+-- 1) Kreatifte REMAKS de puanlanamaz (Çağdaş + Erdem'e eklenir)
+-- 2) Anıl kreatife geçti: operasyonda pasif, hesabı kreatif ekibine taşınır
+--    (operasyondaki geçmiş günlük/puan kayıtları AYNEN kalır)
+-- 3) Temizlik listesi 21.09–19.10 arası Anıl'sız, dengeli şekilde yenilenir
+--    (17–19 Eylül aynen kalır)
+-- ============================================================
+
+-- 1) puanlanamayanlar
+update public.kre_settings
+set value = value || jsonb_build_object('unrated', (
+      select coalesce(jsonb_agg(distinct x), '[]'::jsonb) from (
+        select jsonb_array_elements_text(coalesce(value->'unrated', '[]'::jsonb)) as x
+          from public.kre_settings where key = 'roles'
+        union
+        select initial from public.team_members
+         where name ilike '_a_da_%' or name ilike 'erdem%' or name ilike 'remaks%'
+      ) s)),
+    updated_at = now()
+where key = 'roles';
+
+-- 2) Anıl: operasyonda pasif + hesabı kreatif ekibine
+update public.ops_members set active = false where name ilike 'an_l%';
+
+update public.profiles p
+set role = 'creative',
+    initial = coalesce((select t.initial from public.team_members t where t.name ilike 'an_l%' limit 1), p.initial)
+where p.name ilike 'an_l%' and p.role = 'ops';
+
+-- 3) yeni temizlik listesi
+do $$
+declare missing text;
+begin
+  create temp table _r(day date, a text, b text) on commit drop;
+  insert into _r values
+    ('2026-09-21','Halil','Rabia'),
+    ('2026-09-22','Besra','Melek'),
+    ('2026-09-23','Mustafa','Halil'),
+    ('2026-09-24','Rabia','Cengiz'),
+    ('2026-09-25','Sait','Besra'),
+    ('2026-09-26','Melek','Halil'),
+    ('2026-09-28','Mustafa','Rabia'),
+    ('2026-09-29','Cengiz','Sait'),
+    ('2026-09-30','Besra','Mustafa'),
+    ('2026-10-01','Rabia','Melek'),
+    ('2026-10-02','Halil','Cengiz'),
+    ('2026-10-03','Besra','Rabia'),
+    ('2026-10-05','Sait','Mustafa'),
+    ('2026-10-06','Melek','Cengiz'),
+    ('2026-10-07','Halil','Sait'),
+    ('2026-10-08','Mustafa','Cengiz'),
+    ('2026-10-09','Besra','Halil'),
+    ('2026-10-10','Mustafa','Melek'),
+    ('2026-10-12','Rabia','Sait'),
+    ('2026-10-13','Cengiz','Besra'),
+    ('2026-10-14','Halil','Rabia'),
+    ('2026-10-15','Sait','Melek'),
+    ('2026-10-16','Mustafa','Besra'),
+    ('2026-10-17','Cengiz','Halil'),
+    ('2026-10-19','Rabia','Sait');
+
+  create temp table _p on commit drop as
+  select n.nm, coalesce(
+      (select case when count(*)=1 then min(id::text) end from public.ops_members where lower(name)=lower(n.nm)),
+      (select case when count(*)=1 then min(id::text) end from public.ops_members where split_part(lower(name),' ',1)=lower(n.nm))
+    )::uuid as id
+  from (select a as nm from _r union select b from _r) n;
+
+  select string_agg(nm, ', ') into missing from _p where id is null;
+  if missing is not null then
+    raise exception 'Operasyon ekibinde bulunamayan isim: %', missing;
+  end if;
+
+  delete from public.ops_duty where day between date '2026-09-21' and date '2026-10-19';
+  insert into public.ops_duty(day, a_id, b_id, updated_at)
+  select r.day, pa.id, pb.id, now() from _r r join _p pa on pa.nm=r.a join _p pb on pb.nm=r.b;
+end $$;
+
+-- kontrol: 17 Eylül–19 Ekim arası kişi başı temizlik görevi
+select m.name as kisi, count(*) as gorev
+from public.ops_duty d
+join public.ops_members m on m.id in (d.a_id, d.b_id)
+where d.day between date '2026-09-17' and date '2026-10-19'
+group by m.name order by gorev desc, kisi;
+
+-- ============================================================
+-- v2.7 TUVALET TEMİZLİĞİ SIRASI (operasyon + kreatif ortak)
+-- Her cumartesi tek kişi, listedeki sırayla. İlk cumartesi: 26 Eylül 2026.
+-- Aktif hesabı olan herkes okur; sırayı yönetici + ortaklar değiştirir.
+-- ============================================================
+create table if not exists public.shared_settings (
+  key        text primary key,
+  value      jsonb not null,
+  updated_at timestamptz default now()
+);
+alter table public.shared_settings enable row level security;
+drop policy if exists "ss_select" on public.shared_settings;
+drop policy if exists "ss_write"  on public.shared_settings;
+create policy "ss_select" on public.shared_settings for select using (public.my_role() is not null);
+create policy "ss_write"  on public.shared_settings for all
+  using      (coalesce(public.my_role() in ('admin','partner'), false))
+  with check (coalesce(public.my_role() in ('admin','partner'), false));
+
+insert into public.shared_settings(key, value) values
+  ('wc_rotation', '{"start":"2026-09-26","names":["Rabia","İmkan","Kemal","Besra","İbrahim","Sait","Anıl","Sinan","Elif"]}')
+on conflict (key) do nothing;
+
+-- kontrol: önümüzdeki 9 cumartesi
+select (date '2026-09-26' + 7*g)::date as cumartesi,
+       (value->'names')->>(g % jsonb_array_length(value->'names')) as sorumlu
+from public.shared_settings, generate_series(0,8) g
+where key = 'wc_rotation';
