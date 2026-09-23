@@ -1507,7 +1507,7 @@ function gunIni(){
    Her cumartesi tek kişi; sıra shared_settings.wc_rotation = {start:"YYYY-MM-DD" (cumartesi), names:[...]}.
    İsim, kişinin tam adındaki bir kelimeyle eşleşir ("Kemal" → Mustafa Kemal, "İbrahim" → Halil İbrahim). */
 const WC = (()=>{
-  const DEF = {start:"2026-09-26", names:["Rabia","İmkan","Kemal","Besra","İbrahim","Sait","Anıl","Sinan","Elif"]};
+  const DEF = {start:"2026-09-26", names:["Rabia","İmkan","Mustafa Kemal","Besra","İbrahim","Sait","Anıl","Sinan","Elif"]};
   let cfg=null, err=null;
   const low = s=>String(s||"").toLocaleLowerCase("tr").replace(/[.,;:]+$/,"").trim();
   const p2 = n=>String(n).padStart(2,"0");
