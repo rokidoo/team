@@ -414,6 +414,12 @@
 .fbw .fb-mx td,.fbw .fb-mx th{text-align:center;white-space:nowrap} .fbw .fb-mx td:first-child{text-align:left}
   .pcnt{font-size:.7rem;font-weight:800;color:var(--mut);margin-top:4px}
   .pcnt.bad{color:#C2410C}
+  .card.wc{margin-bottom:16px}
+  .card.wc.on{background:var(--mustard-s);outline:3px solid var(--ink);outline-offset:-3px}
+  .wc-h{font-family:var(--fh);font-weight:800;font-size:1rem;margin-bottom:4px}
+  .wc-big{font-weight:800;font-size:.95rem;margin:6px 0 8px}
+  .wc-list{margin-top:8px} .wc-list summary{cursor:pointer;font-weight:800;font-size:.8rem}
+  .wc-list table{margin-top:8px;width:100%} .wc-list th,.wc-list td{text-align:left!important} .wc-list tr.wc-me td{background:var(--green-s);font-weight:800}
 </style>
 </head>
 <body>
@@ -729,6 +735,7 @@ async function fetchAll(table, build){
 const tryAll = async (table, build)=>{ try{ return await fetchAll(table, build); }catch(e){ return {__err:e.message}; } };
 
 async function loadAll(){
+  await WC.load();
   const [w,c,r,h,t] = await Promise.all([
     tryAll("weeks",      q=>q.order("week",{ascending:false})),
     tryAll("creatives",  q=>q.order("created_at",{ascending:false})),
@@ -1496,6 +1503,83 @@ function gunIni(){
   if(kreAdmin()) return (S.gunIni && OWNERS[S.gunIni]) ? S.gunIni : (myIni()&&OWNERS[myIni()] ? myIni() : KRE_INIS()[0]);
   return (myIni()&&OWNERS[myIni()]) ? myIni() : null;
 }
+/* ================= TUVALET TEMİZLİĞİ SIRASI (operasyon + kreatif ortak) =================
+   Her cumartesi tek kişi; sıra shared_settings.wc_rotation = {start:"YYYY-MM-DD" (cumartesi), names:[...]}.
+   İsim, kişinin tam adındaki bir kelimeyle eşleşir ("Kemal" → Mustafa Kemal, "İbrahim" → Halil İbrahim). */
+const WC = (()=>{
+  const DEF = {start:"2026-09-26", names:["Rabia","İmkan","Kemal","Besra","İbrahim","Sait","Anıl","Sinan","Elif"]};
+  let cfg=null, err=null;
+  const low = s=>String(s||"").toLocaleLowerCase("tr").replace(/[.,;:]+$/,"").trim();
+  const p2 = n=>String(n).padStart(2,"0");
+  const isoD = d=>`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+  const addD = (s,n)=>{ const d=new Date(s+"T00:00:00"); d.setDate(d.getDate()+n); return isoD(d); };
+  const dayTr = s=>new Date(s+"T00:00:00").toLocaleDateString("tr-TR",{day:"numeric",month:"long",weekday:"long"});
+  async function load(){
+    if(DEMO){ cfg=cfg||{...DEF}; return; }
+    const {data,error}=await sb.from("shared_settings").select("value").eq("key","wc_rotation").maybeSingle();
+    if(error){ err=error.message; cfg=null; return; }
+    err=null; cfg=data?.value||null;
+  }
+  const ok = ()=>cfg && Array.isArray(cfg.names) && cfg.names.length && cfg.start;
+  function who(sat){                                      // o cumartesinin sorumlusu
+    if(!ok()) return null;
+    const w=Math.round((new Date(sat+"T00:00:00")-new Date(cfg.start+"T00:00:00"))/(7*864e5));
+    if(w<0) return null;
+    return cfg.names[w % cfg.names.length];
+  }
+  const nextSat = from=>{ const d=new Date(from+"T00:00:00"); const k=(6-d.getDay()+7)%7; return addD(from,k); };   // bugün cumartesiyse bugün
+  function matches(entry, names){
+    const e=low(entry); if(!e) return false;
+    return names.filter(Boolean).some(n=>{ const f=low(n); return f===e || f.split(/\s+/).includes(e); });
+  }
+  function myNext(names, from){
+    if(!ok()) return null;
+    let s=nextSat(from);
+    for(let i=0;i<cfg.names.length+1;i++){ if(s>=cfg.start && matches(who(s),names)) return s; s=addD(s,7); }
+    return null;
+  }
+  // Günüm kartı: names = kişinin olası adları (üye adı, profil adı), day = ekranda seçili gün
+  function card(names, day, canEdit){
+    if(!ok()) return canEdit ? `<div class="card wc"><div class="wc-h">🚽 Tuvalet temizliği sırası</div><div class="mini">${err?"Sıra tablosu okunamadı — Supabase'de tuvalet sırası SQL'ini çalıştır.":"Henüz sıra girilmemiş."}</div><button class="btn ghost sm" data-wcedit>✏️ Sırayı düzenle</button></div>` : "";
+    const sat = new Date(day+"T00:00:00").getDay()===6;
+    const mine = sat && matches(who(day),names);
+    const nx = myNext(names, mine?addD(day,1):day);
+    const list=[]; let s=nextSat(day<cfg.start?cfg.start:day);
+    for(let i=0;i<cfg.names.length;i++){ list.push(s); s=addD(s,7); }
+    return `<div class="card wc ${mine?"on":""}">
+      <div class="wc-h">🚽 Tuvalet temizliği${mine?` · <b>bugün sende</b>`:""}</div>
+      ${mine?`<div class="wc-big">Bugün (${esc(dayTr(day))}) tuvalet temizliği senin görevin — tek başına yapılacak.</div>`:""}
+      <div class="mini">${nx?`Sıradaki günün: <b>${esc(dayTr(nx))}</b>`:"Sırada adın yok."}${sat&&!mine&&who(day)?` · Bugün: <b>${esc(who(day))}</b>`:""}</div>
+      <details class="wc-list"><summary>Sıra listesi (her cumartesi tek kişi)</summary>
+        <table class="compact"><tr><th>Cumartesi</th><th>Sorumlu</th></tr>
+        ${list.map(x=>`<tr class="${matches(who(x),names)?"wc-me":""}"><td>${esc(dayTr(x))}</td><td>${esc(who(x)||"—")}</td></tr>`).join("")}</table>
+        ${canEdit?`<button class="btn ghost sm" data-wcedit style="margin-top:8px">✏️ Sırayı düzenle</button>`:""}
+      </details>
+    </div>`;
+  }
+  function bind(root, rerender){
+    root.querySelectorAll("[data-wcedit]").forEach(b=>b.onclick=()=>{
+      const c=ok()?cfg:DEF;
+      modal(`<h3>🚽 Tuvalet temizliği sırası</h3><div class="sub">Her cumartesi bir kişi, yukarıdan aşağı sırayla. Liste bitince başa döner. İki ekipte de aynı sıra görünür.</div>
+        <div class="flabel">İlk cumartesi (listenin ilk kişisi bu gün)</div><input type="date" id="wc_start" value="${esc(c.start)}">
+        <div class="flabel">İsimler (her satıra bir kişi, sırayla)</div><textarea id="wc_names" rows="10">${esc(c.names.join("\n"))}</textarea>
+        <button class="btn" id="wc_save">Kaydet</button>`);
+      $("wc_save").onclick=async ()=>{
+        if(typeof VIEW==="function" && VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
+        const start=$("wc_start").value, names=$("wc_names").value.split(/\n/).map(x=>x.replace(/[.,;:]+$/,"").trim()).filter(Boolean);
+        if(!start || new Date(start+"T00:00:00").getDay()!==6){ toast("İlk gün bir cumartesi olmalı."); return; }
+        if(names.length<1){ toast("En az bir isim yaz."); return; }
+        const value={start, names};
+        try{
+          if(!DEMO){ const {error}=await sb.from("shared_settings").upsert({key:"wc_rotation", value, updated_at:new Date().toISOString()},{onConflict:"key"}); if(error) throw error; }
+          cfg=value; err=null; closeModal(); toast("Tuvalet sırası kaydedildi ✓"); rerender();
+        }catch(e){ toast("Kaydedilemedi: "+(e?.message||e)); }
+      };
+    });
+  }
+  return {load, card, bind, who, matches, myNext};
+})();
+
 function renderGun(){
   const el=$("tabGun"); if(!el) return;
   S.gunDay=S.gunDay||today(); const day=S.gunDay; const ini=gunIni();
@@ -1514,6 +1598,7 @@ function renderGun(){
     <div class="sub">Akşam çıkmadan 2 dakikada doldur: saatler, bugün ürettiklerin, notun.</div>
     ${dayNav("gunDay", day, sel + (kreAdmin()?`<button class="btn ghost sm" id="kTaskAdd">📌 Görev ata</button>`:""))}
     ${kTaskList(ini, day)}
+    ${WC.card([OWNERS[ini]?.name, ini===myIni()?S.profile?.name:null], day, kreAdmin())}
     ${lockNote(day)}
     <div class="card ${dayLocked(day)?"locked":""}" id="gunForm" style="margin-bottom:16px">
       <div class="sect"><h3>⏰ Saatler</h3><div class="fgrid">
@@ -1547,7 +1632,7 @@ function renderGun(){
     </div>`:""}
     ${kreAdmin()?gunSummary(day):""}
   `;
-  bindDayNav(el,"gunDay",renderGun); bindKTasks(el, renderGun);
+  bindDayNav(el,"gunDay",renderGun); bindKTasks(el, renderGun); WC.bind(el, renderGun);
   const ka=$("kTaskAdd"); if(ka) ka.onclick=()=>openKTaskModal(ini, renderGun);
   const gs=$("gunIni"); if(gs) gs.onchange=e=>{ S.gunIni=e.target.value; renderGun(); };
   const stampCol = ()=>DEMO || S.kdaily.some(x=>"admin_edits" in x);
@@ -2773,7 +2858,7 @@ async function showApp(){
 
 async function boot(){
   if(DEMO){
-    demoData();
+    demoData(); await WC.load();
     S.profile={name:"Demo Yönetici", role:"admin", initial:"Y"};
     $("demoBar").classList.remove("hidden");
     $("demoRole").onchange = e=>{

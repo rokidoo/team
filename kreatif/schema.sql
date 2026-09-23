@@ -565,3 +565,54 @@ create trigger kre_scores_note_min before insert or update on public.kre_scores
   for each row execute function public.score_note_min();
 
 select 'puan notu kurali hazir' as durum;
+
+-- ============================================================
+-- v2.5 Kreatifte puanlanmayacaklar listesine REMAKS eklenir.
+-- Liste: Çağdaş, Erdem, Remaks (mevcut liste korunur, üzerine eklenir).
+-- Bu kişilere/hesaplara kimse puan veremez; kendileri puan verebilir.
+-- ============================================================
+update public.kre_settings
+set value = value || jsonb_build_object('unrated', (
+      select coalesce(jsonb_agg(distinct x), '[]'::jsonb) from (
+        select jsonb_array_elements_text(coalesce(value->'unrated', '[]'::jsonb)) as x
+          from public.kre_settings where key = 'roles'
+        union
+        select initial from public.team_members
+         where name ilike '_a_da_%' or name ilike 'erdem%' or name ilike 'remaks%'
+      ) s)),
+    updated_at = now()
+where key = 'roles';
+
+-- kontrol: puanlanamayanlar (harf + ad)
+select t.initial, t.name
+from public.team_members t
+where (select value->'unrated' from public.kre_settings where key='roles') ? t.initial
+order by t.name;
+
+-- ============================================================
+-- v2.7 TUVALET TEMİZLİĞİ SIRASI (operasyon + kreatif ortak)
+-- Her cumartesi tek kişi, listedeki sırayla. İlk cumartesi: 26 Eylül 2026.
+-- Aktif hesabı olan herkes okur; sırayı yönetici + ortaklar değiştirir.
+-- ============================================================
+create table if not exists public.shared_settings (
+  key        text primary key,
+  value      jsonb not null,
+  updated_at timestamptz default now()
+);
+alter table public.shared_settings enable row level security;
+drop policy if exists "ss_select" on public.shared_settings;
+drop policy if exists "ss_write"  on public.shared_settings;
+create policy "ss_select" on public.shared_settings for select using (public.my_role() is not null);
+create policy "ss_write"  on public.shared_settings for all
+  using      (coalesce(public.my_role() in ('admin','partner'), false))
+  with check (coalesce(public.my_role() in ('admin','partner'), false));
+
+insert into public.shared_settings(key, value) values
+  ('wc_rotation', '{"start":"2026-09-26","names":["Rabia","İmkan","Kemal","Besra","İbrahim","Sait","Anıl","Sinan","Elif"]}')
+on conflict (key) do nothing;
+
+-- kontrol: önümüzdeki 9 cumartesi
+select (date '2026-09-26' + 7*g)::date as cumartesi,
+       (value->'names')->>(g % jsonb_array_length(value->'names')) as sorumlu
+from public.shared_settings, generate_series(0,8) g
+where key = 'wc_rotation';
