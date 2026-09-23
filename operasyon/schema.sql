@@ -962,7 +962,7 @@ create policy "ss_write"  on public.shared_settings for all
   with check (coalesce(public.my_role() in ('admin','partner'), false));
 
 insert into public.shared_settings(key, value) values
-  ('wc_rotation', '{"start":"2026-09-26","names":["Rabia","İmkan","Kemal","Besra","İbrahim","Sait","Anıl","Sinan","Elif"]}')
+  ('wc_rotation', '{"start":"2026-09-26","names":["Rabia","İmkan","Mustafa Kemal","Besra","İbrahim","Sait","Anıl","Sinan","Elif"]}')
 on conflict (key) do nothing;
 
 -- kontrol: önümüzdeki 9 cumartesi
