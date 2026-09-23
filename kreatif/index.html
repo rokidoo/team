@@ -94,7 +94,7 @@
   .weekpick{
     background:var(--card); border:var(--b2); color:var(--ink); border-radius:12px;
     padding:9px 12px; font-size:.82rem; font-weight:700; font-family:var(--fb);
-    max-width:170px; box-shadow:var(--sh-sm); cursor:pointer;
+    max-width:230px; box-shadow:var(--sh-sm); cursor:pointer;
   }
   .avatar{
     width:38px;height:38px;border-radius:50%;background:var(--mustard);
@@ -592,6 +592,23 @@ const nf2 = new Intl.NumberFormat("tr-TR",{maximumFractionDigits:2});
 const tl  = v => v==null ? "—" : "₺"+nf.format(Math.round(v));
 const pct = v => v==null ? "—" : nf1.format(v*100)+"%";
 const trDate = d => new Date(d+"T00:00:00").toLocaleDateString("tr-TR",{day:"numeric",month:"long"});
+// haftanın bitişi: notun başındaki "14-23 Eylul" / "26 Agustos - 1 Eylul" aralığından; yoksa bir sonraki haftanın başlangıcından bir gün önce
+const WK_AY = {ocak:1,subat:2,mart:3,nisan:4,mayis:5,haziran:6,temmuz:7,agustos:8,eylul:9,ekim:10,kasim:11,aralik:12};
+const ayNo = t=>WK_AY[String(t||"").toLocaleLowerCase("tr").replace(/ş/g,"s").replace(/ı/g,"i").replace(/ğ/g,"g").replace(/ü/g,"u").replace(/ö/g,"o").replace(/ç/g,"c")];
+function weekEnd(w){
+  const st=w.week, [y,m]=st.split("-").map(Number);
+  const r=String(w.note||"").match(/^\s*(\d{1,2})(?:\s+([A-Za-zÇĞİÖŞÜçğıöşü]+))?\s*-\s*(\d{1,2})\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)/);
+  if(r && ayNo(r[4])){ const em=ayNo(r[4]); const ey=em<m?y+1:y; const e=`${ey}-${String(em).padStart(2,"0")}-${String(r[3]).padStart(2,"0")}`; if(e>=st) return e; }
+  const nx=[...S.weeks].map(x=>x.week).filter(x=>x>st).sort()[0];
+  const d=new Date((nx||st)+"T00:00:00"); d.setDate(d.getDate()+(nx?-1:6));
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function weekLabel(wk){
+  const w=typeof wk==="string"?(S.weeks.find(x=>x.week===wk)||{week:wk}):wk; const a=w.week, b=weekEnd(w);
+  if(a===b) return trDate(a);
+  const da=new Date(a+"T00:00:00"), db=new Date(b+"T00:00:00");
+  return da.getMonth()===db.getMonth() ? `${da.getDate()} – ${trDate(b)}` : `${trDate(a)} – ${trDate(b)}`;
+}
 const chip = (label,soft)=>`<span class="chip" style="background:${soft}">${esc(label)}</span>`;
 const ownBadge = o => { const w = OWNERS[o]||{name:o,s:"#ECEAE4"}; return `<span class="own" style="background:${w.s}" title="${esc(w.name)}">${esc(o)}</span>`; };
 
@@ -902,7 +919,7 @@ function renderBoard(){
   }).join("");
   el.innerHTML = `
     <h2>Haftalık Board</h2>
-    <div class="sub">${S.week?trDate(S.week)+" haftası":"Henüz veri yok"}${wk?.note?` · ${esc(wk.note)}`:""}${isAdmin()?" · kartları sütunlar arası sürükleyebilirsin":""}</div>
+    <div class="sub">${S.week?weekLabel(S.week)+" dönemi":"Henüz veri yok"}${wk?.note?` · ${esc(wk.note)}`:""}${isAdmin()?" · kartları sütunlar arası sürükleyebilirsin":""}</div>
     ${boardFilterChips()}
     <div class="board">${cols}</div>
   `;
@@ -1151,7 +1168,7 @@ function renderTeam(){
   const tot = rows.reduce((a,r)=>({t:a.t+r.teslim, e:a.e+r.evald, w:a.w+r.win}),{t:0,e:0,w:0});
   $("tabTeam").innerHTML = `
     <h2>Ekip Skoru</h2>
-    <div class="sub">${weekly?(S.week?trDate(S.week)+" haftasında ilk kez teslim edilenler":"Hafta seçilmedi"):"Tüm haftaların toplamı — bir kreatif herhangi bir haftada winner olduysa sayılır"} · görsel ve video birlikte sayılır, kırılımı her kartta görürsün · küçük örneklemde oran "ön sinyal"dir</div>
+    <div class="sub">${weekly?(S.week?weekLabel(S.week)+" döneminde ilk kez teslim edilenler":"Hafta seçilmedi"):"Tüm haftaların toplamı — bir kreatif herhangi bir haftada winner olduysa sayılır"} · görsel ve video birlikte sayılır, kırılımı her kartta görürsün · küçük örneklemde oran "ön sinyal"dir</div>
     <div class="filters">${tvchips}</div>
     <div class="filters">${tfchips}</div>
     <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
@@ -1371,7 +1388,7 @@ function renderFinance(){
   }).join("");
   $("tabFinance").innerHTML = `
     <h2>Finansal Özet</h2>
-    <div class="sub">${S.week?trDate(S.week)+" haftası":""} · yalnızca yönetici ve ortak görür</div>
+    <div class="sub">${S.week?weekLabel(S.week)+" dönemi":""} · yalnızca yönetici ve ortak görür</div>
     <div class="kpis">
       <div class="kpi"><b>${tl(tot.spend)}</b><span>Harcama</span></div>
       <div class="kpi"><b>${tl(tot.revenue)}</b><span>Ciro</span></div>
@@ -1417,7 +1434,7 @@ function renderNav(){
 
 function renderWeeks(){
   $("weekPick").innerHTML = S.weeks.length
-    ? S.weeks.map(w=>`<option value="${w.week}" ${w.week===S.week?"selected":""}>${trDate(w.week)}</option>`).join("")
+    ? S.weeks.map(w=>`<option value="${w.week}" ${w.week===S.week?"selected":""}>${weekLabel(w)}</option>`).join("")
     : `<option>Hafta yok</option>`;
 }
 
