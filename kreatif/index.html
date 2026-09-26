@@ -423,6 +423,91 @@
   .wc-list{margin-top:8px} .wc-list summary{cursor:pointer;font-weight:800;font-size:.8rem}
   .wc-list table{margin-top:8px;width:100%} .wc-list th,.wc-list td{text-align:left!important} .wc-list tr.wc-me td{background:var(--green-s);font-weight:800}
 </style>
+<!--MOB-->
+<style id="mobCss">
+/* ===== MOBİL UYUM · tüm paneller ortak ===== */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+html,body{overflow-x:clip}
+.mob-sheet{position:fixed;inset:0;z-index:120;background:rgba(18,18,18,.45);display:flex;align-items:flex-end}
+.mob-sheet .in{background:var(--card,#FFFDF9);border-top:3px solid var(--ink,#121212);border-radius:22px 22px 0 0;width:100%;max-height:78vh;overflow:auto;padding:12px 14px calc(18px + env(safe-area-inset-bottom))}
+.mob-sheet .hd{display:flex;align-items:center;justify-content:space-between;font-family:var(--fh,sans-serif);font-weight:700;font-size:1rem;margin:2px 2px 12px}
+.mob-sheet .hd button{border:2px solid var(--ink,#121212);background:var(--card,#fff);border-radius:10px;width:38px;height:38px;font-size:1rem;font-weight:800;cursor:pointer}
+.mob-sheet .gr{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mob-sheet .gr button,.mob-sheet .gr a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:74px;padding:8px 4px;border:2px solid var(--ink,#121212);border-radius:14px;background:var(--card,#fff);color:var(--ink,#121212);font-family:var(--fb,sans-serif);font-weight:800;font-size:.76rem;text-align:center;text-decoration:none;cursor:pointer;line-height:1.2}
+.mob-sheet .gr .on{background:var(--mustard,#FFC53D);box-shadow:3px 3px 0 var(--ink,#121212)}
+.mob-sheet .gr .ic{font-size:1.35rem;line-height:1}
+.mob-sheet .sep{grid-column:1/-1;font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--mut,#8A867E);margin:8px 2px 0}
+.tabs2 .ic,#mainTabs .ic{margin-right:5px}
+
+@media (max-width:959px){
+  /* iPhone odaklanınca yakınlaştırmasın: form alanları en az 16px */
+  input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:16px!important}
+  textarea.json{font-size:13px!important}
+
+  /* alt menü: en fazla 5 buton, gerisi "Daha" menüsünde */
+  nav.bottom{overflow:hidden;gap:2px;padding-left:4px;padding-right:4px}
+  nav.bottom button{min-width:0!important;flex:1 1 0;font-size:.66rem;padding:6px 1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  nav.bottom button .ic{font-size:1.3rem}
+  .mob-hid{display:none!important}
+
+  /* küçük yazılar ve dokunma alanları */
+  th{font-size:.72rem}
+  .flabel,.pill{font-size:.72rem}
+  .pill{max-width:100%;white-space:normal}
+
+  .editbtn{min-width:34px!important;height:34px!important}
+  .dayrow .nb{width:42px;height:42px;flex-shrink:0}
+  .dayrow > select:first-child{flex:1 1 100%}
+  .dayrow input[type=date]{flex:1 0 150px;min-width:0}
+  .ccard.mini .code,.ccard.mini .m{font-size:.72rem}
+  .ccard.mini .meta{font-size:.7rem}
+  .ccard.mini .chip{font-size:.64rem}
+  .ccard.mini .own{width:24px;height:24px;font-size:.66rem}
+  .bcol .bhead .cnt,.pboard .bhead .cnt{font-size:.7rem}
+  .disc .h{font-size:.66rem}
+
+  /* ızgaralar ekrandan taşmasın (uzun kod/sayı içerikler) */
+  .cards{grid-template-columns:minmax(0,1fr)}
+  .kpi,.card,.ccard{min-width:0}
+  .kpi b,.kpi .v{overflow-wrap:anywhere}
+
+  /* tablolar parmakla rahat kaysın */
+  .tw,.tblw,.tscroll,[class*="scroll"]{-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+  td,th{padding-top:9px;padding-bottom:9px}
+
+  /* üst başlık tek satır */
+  header{gap:8px;padding-left:12px;padding-right:12px}
+  header .mlogo{white-space:nowrap;font-size:1rem}
+  header:has(.weekpick:not(.hidden)){flex-wrap:wrap;row-gap:8px}
+  header .weekpick{order:9;flex:1 1 100%;max-width:none!important;padding:8px 10px}
+  .fbw .fb-nav .nb{min-width:36px;min-height:36px;border-radius:10px}
+  .fbw .fb-link,.fbw .fb-del{padding:8px 4px;min-height:32px}
+
+  /* sabit alt menü varken toast ve kaydet çubuğu menünün üstünde kalsın */
+  .toast{bottom:calc(96px + env(safe-area-inset-bottom))!important}
+
+  /* erdem-kus / reklam: sekmeler alt menü olur */
+  .wrap{padding-bottom:calc(110px + env(safe-area-inset-bottom))!important}
+  .wrap>.top{flex-wrap:nowrap!important;gap:8px!important;margin-bottom:10px!important}
+  .top .ttl{font-size:1.2rem!important;white-space:nowrap}
+  .top .who{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .top .out{flex-shrink:0}
+  .plinks{flex-wrap:nowrap!important;overflow-x:auto;scrollbar-width:none;margin:0 -16px 14px!important;padding:2px 16px 6px}
+  .plinks::-webkit-scrollbar{display:none}
+  .plinks a{flex-shrink:0;white-space:nowrap}
+  .tabs2{position:fixed;left:0;right:0;bottom:0;z-index:50;margin:0!important;background:var(--card);border-top:var(--b);display:flex;flex-wrap:nowrap!important;gap:2px!important;padding:8px 4px calc(8px + env(safe-area-inset-bottom))}
+  .tabs2 button{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;border:2px solid transparent!important;border-radius:12px!important;background:none!important;color:var(--mut)!important;padding:6px 1px!important;font-size:.66rem!important;box-shadow:none!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tabs2 button .ic{font-size:1.3rem;line-height:1;margin:0}
+  .tabs2 button .lb{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  .tabs2 button.on{background:var(--mustard)!important;color:var(--ink)!important;border-color:var(--ink)!important;box-shadow:var(--sh-sm)!important}
+  .savebar{bottom:calc(84px + env(safe-area-inset-bottom))!important}
+}
+@media (max-width:699px){ .kpis{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (max-width:380px){
+  nav.bottom button,.tabs2 button{font-size:.6rem!important}
+}
+</style>
+<!--/MOB-->
 </head>
 <body>
 
@@ -2993,5 +3078,82 @@ $("btnCollapse").onclick = ()=>{
 
 boot();
 </script>
+<!--MOBJS-->
+<script id="mobJs">
+/* ===== MOBİL: alt menü en fazla 5 buton (4 sekme + "Daha"), sekme etiketleri ikon + yazı ===== */
+(()=>{
+  const mq = matchMedia("(max-width:959px)"), MAX = 5;
+  const EMO = /^\s*((?:\p{Extended_Pictographic}|\p{Regional_Indicator})(?:️|‍\p{Extended_Pictographic})*)\s*/u;
+  const obs = new MutationObserver(run);
+  const watch = () => obs.observe(document.body, {childList:true, subtree:true, attributes:true, attributeFilter:["class"]});
+
+  // "📝 Günlük" → <span class="ic">📝</span><span class="lb">Günlük</span>
+  function split(b){
+    if(b.dataset.mobSplit || b.querySelector(".ic")) return;
+    const t = b.textContent, m = t.match(EMO);
+    if(!m) return;
+    b.dataset.mobSplit = 1;
+    const lb = b.dataset.s || t.slice(m[0].length);
+    b.innerHTML = `<span class="ic">${m[1]}</span><span class="lb"></span>`;
+    b.querySelector(".lb").textContent = lb;
+    if(b.dataset.s) b.title = t.slice(m[0].length);
+  }
+  function label(b){ return (b.querySelector(".lb")?.textContent || b.textContent.replace(EMO,"")).trim(); }
+  function icon(b){ return b.querySelector(".ic")?.textContent || (b.textContent.match(EMO)||[])[1] || "•"; }
+
+  function closeSheet(){ document.querySelector(".mob-sheet")?.remove(); }
+  function openSheet(nav, items){
+    closeSheet();
+    const d = document.createElement("div"); d.className = "mob-sheet";
+    d.innerHTML = `<div class="in"><div class="hd"><span>Diğer sekmeler</span><button type="button" aria-label="Kapat">✕</button></div><div class="gr"></div></div>`;
+    const gr = d.querySelector(".gr");
+    let sep = false;
+    items.forEach(b=>{
+      const ext = !b.dataset.tab && !b.dataset.t && !b.dataset.main;   // başka panele geçiş
+      if(ext && !sep){ sep = true; gr.insertAdjacentHTML("beforeend", `<div class="sep">Diğer paneller</div>`); }
+      const x = document.createElement("button"); x.type = "button";
+      if(b.classList.contains("on") || b.classList.contains("active")) x.className = "on";
+      x.innerHTML = `<span class="ic"></span><span></span>`;
+      x.firstChild.textContent = icon(b); x.lastChild.textContent = label(b);
+      x.onclick = ()=>{ closeSheet(); b.click(); };
+      gr.appendChild(x);
+    });
+    d.onclick = e=>{ if(e.target === d || e.target.closest(".hd button")) closeSheet(); };
+    document.body.appendChild(d);
+  }
+
+  function fix(nav){
+    const btns = [...nav.children].filter(b=>/^(BUTTON|A)$/.test(b.tagName) && !b.dataset.mobMore);
+    // değişiklik yoksa dokunma (sayfa başka yerde güncellenince buton yeniden oluşmasın, dokunuş kaçmasın)
+    const sig = mq.matches + "|" + btns.length + "|" + btns.map(b=>b.className.replace(/\s*mob-hid/,"")+b.textContent).join(",");
+    if(nav.__mobSig === sig && (!mq.matches || btns.length <= MAX || nav.querySelector(":scope > [data-mob-more]"))) return;
+    nav.__mobSig = sig;
+    nav.querySelectorAll(":scope > [data-mob-more]").forEach(x=>x.remove());
+    btns.forEach(b=>{ b.classList.remove("mob-hid"); if(nav.classList.contains("tabs2") || nav.id==="mainTabs") split(b); });
+    if(!mq.matches || btns.length <= MAX) return;
+    const keep = MAX - 1;
+    const onIx = btns.findIndex(b=>b.classList.contains("on") || b.classList.contains("active"));
+    btns.forEach((b,i)=>{ if(i >= keep) b.classList.add("mob-hid"); });
+    const more = document.createElement("button");
+    more.type = "button"; more.dataset.mobMore = 1;
+    const act = onIx >= keep ? btns[onIx] : null;
+    more.innerHTML = `<span class="ic"></span><span class="lb"></span>`;
+    more.firstChild.textContent = act ? icon(act) : "☰";
+    more.lastChild.textContent = act ? label(act) : "Daha";
+    if(act) more.classList.add(nav.id==="mainTabs" ? "active" : "on");
+    more.onclick = e=>{ e.stopPropagation(); openSheet(nav, btns.slice(keep)); };
+    nav.appendChild(more);
+  }
+  function run(){
+    obs.disconnect();
+    try{ document.querySelectorAll("nav.bottom, .tabs2, #mainTabs").forEach(fix); }
+    finally{ watch(); }
+  }
+  mq.addEventListener ? mq.addEventListener("change", run) : mq.addListener(run);
+  addEventListener("keydown", e=>{ if(e.key === "Escape") closeSheet(); });
+  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", run); else run();
+})();
+</script>
+<!--/MOBJS-->
 </body>
 </html>
