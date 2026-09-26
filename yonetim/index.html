@@ -1016,10 +1016,15 @@ const sum=(arr,f)=>arr.reduce((a,x)=>a+(+(f?f(x):x)||0),0);
 const avg=arr=>arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:null;
 // Ortağın (Erdem) verdiği puan, kişinin aldığı ortalamayı %w etkiler: ekip ort. × (1−w) + ortak ort. × w.
 // Ayar shared_settings.score_weights'te ve yalnız yönetici (admin) okuyabilir; okunamazsa düz ortalama. t: "o" operasyon | "k" kreatif
+// Operasyon: Erdem'in puanı sıralamada toplamın %rank'ı (10), "Ekip puanı" ağırlığından (50) ayrılır → ekip 40 + Erdem 10;
+// aldığı ortalamada oranı e = rank / puan ağırlığı. Kreatif listesi boş (etkilenmez).
 const isWR=(t,r)=>!!S.sw&&(S.sw[t==="o"?"ops":"kre"]||[]).includes(r);
+const swRank=()=>!S.sw?0:S.sw.rank!=null?+S.sw.rank||0:Math.round((+S.sw.w||0)*100);
+const swPuanW=()=>+(S.o.rankW?.puan ?? 40)||0;
+const swEff=()=>{ const P=swPuanW(); return P>0?Math.min(1,swRank()/P):0; };
 function recvAvgT(t,rows){ const v=rows.filter(s=>s.score!=null); if(!v.length) return null; const rk=s=>t==="o"?s.rater_id:s.rater;
   const p=v.filter(s=>isWR(t,rk(s))).map(s=>s.score), o=v.filter(s=>!isWR(t,rk(s))).map(s=>s.score);
-  if(!p.length||!o.length) return avg(v.map(s=>s.score)); const w=+S.sw.w||0; return avg(o)*(1-w)+avg(p)*w; }
+  if(!p.length||!o.length) return avg(v.map(s=>s.score)); const w=swEff(); return avg(o)*(1-w)+avg(p)*w; }
 const nowIso=()=>new Date().toISOString();
 const uid=()=>"d"+Math.random().toString(36).slice(2,10);
 const inRange=(d,[a,b])=>d>=a&&d<=b;
@@ -1082,7 +1087,7 @@ async function loadAll(){
   Object.assign(S.o,{members:(members||[]).filter(m=>m.kind!=="puanci"&&m.kind!=="ortak"),daily:odaily||[],scores:oscores||[],team:oteam||[],checks:ochecks||[],tasks:[],voice:ovoice||[],stock:ostock||[],products:oprod||[],assign:oassign||[]});
   // analiz dosyaları (tablo yoksa sessizce: Verimlilik sekmesi uyarı gösterir)
   { const {data,error}=await sb.from("analyses").select("*"); S.analyses=data||[]; S.anErr=error?error.message:null; }
-  S.sw=null; if(isAdmin()) try{ const {data:sw}=await sb.from("shared_settings").select("value").eq("key","score_weights").maybeSingle(); S.sw=sw?.value||null; }catch(e){}
+  S.sw=null; if(isAdmin()) try{ const [{data:sw},{data:rw}]=await Promise.all([sb.from("shared_settings").select("value").eq("key","score_weights").maybeSingle(), sb.from("ops_settings").select("value").eq("key","rank_weights").maybeSingle()]); S.sw=sw?.value||null; S.o.rankW=rw?.value||null; }catch(e){}
   // ortağın operasyon için "günün yorumu" (erdem-kus → pv_log.ops_note); sadece yönetici okur
   S.oDayNotes={}; if(isAdmin()) try{
     const [{data:pp},{data:nl}]=await Promise.all([sb.from("shared_settings").select("value").eq("key","private_pages").maybeSingle(), sb.from("pv_log").select("owner_id,day,ops_note").not("ops_note","is",null).gte("day",since)]);
@@ -1621,7 +1626,7 @@ const FB = (()=>{
         </div>`; }).join("")}</div>`:`<div class="empty">Bu dönemde puan yok. Dönemi “Ay” yap ya da ‹ ile geri git.</div>`}
       <h3 class="fb-sect">🧮 Kim kime · dönem ortalaması</h3>
       ${raters.length?`<div class="tblwrap"><table class="compact fb-mx"><tr><th>Veren ↓ · Alan →</th>${ratees.map(([,n])=>`<th>${esc(n)}</th>`).join("")}</tr>
-        ${raters.map(([r,rn])=>`<tr><td><b>${esc(rn)}</b>${isWr(T,r)?` <span class="fb-wt" title="Verdiği puan alınan ortalamayı %${Math.round(T.wv*100)} etkiler · bunu sadece sen görürsün">%${Math.round(T.wv*100)} etki</span>`:""}</td>${ratees.map(([e])=>`<td>${cell(r,e)}</td>`).join("")}</tr>`).join("")}</table></div><div class="mini">▼ = ${LOW} ve altı.${raters.some(([r])=>isWr(T,r))?` Kişi kartlarındaki ortalamada ortağın puanı %${Math.round(T.wv*100)} ağırlıkla sayılır — bunu sadece sen görürsün.`:""}</div>`:`<div class="empty">Puan yok</div>`}
+        ${raters.map(([r,rn])=>`<tr><td><b>${esc(rn)}</b>${isWr(T,r)?` <span class="fb-wt" title="${esc(T.wtip||"Verdiği puan alınan ortalamayı %"+Math.round(T.wv*100)+" etkiler")} · bunu sadece sen görürsün">${esc(T.wlbl||"%"+Math.round(T.wv*100)+" etki")}</span>`:""}</td>${ratees.map(([e])=>`<td>${cell(r,e)}</td>`).join("")}</tr>`).join("")}</table></div><div class="mini">▼ = ${LOW} ve altı.${raters.some(([r])=>isWr(T,r))?` ${esc(T.wnote||"Kişi kartlarındaki ortalamada ortağın puanı %"+Math.round(T.wv*100)+" ağırlıkla sayılır.")} Bunu sadece sen görürsün.`:""}</div>`:`<div class="empty">Puan yok</div>`}
       <h3 class="fb-sect">💬 Yazılanlar${st.who?` · ${esc(people.find(p=>p[0]===st.who)?.[1]||"")} (hakkında + yazdıkları)`:""}</h3>
       <div class="fb-search"><input type="search" data-fbq placeholder="Yazılanlarda ara: kelime ya da isim" value="${esc(st.q||"")}">${st.q?`<span class="mini">${feed.length} kayıt bulundu</span>`:`<span class="mini">Günlere tıklayınca açılır · en üstteki gün açık</span>`}</div>
       ${dayList.length?dayList.map(([d,xs],di)=>{
@@ -1660,9 +1665,9 @@ function renderGeri(){
   const el=$("tabGeri");
   if(!isAdmin()){ el.innerHTML=`<div class="empty">Bu bölüm yalnızca yöneticiye açık.</div>`; return; }
   FB.render(el,{teams:[
-    {k:"o", l:"🏭 Operasyon", wr:r=>!!S.sw&&(S.sw.ops||[]).includes(r), wv:+S.sw?.w||0, dayNotes:()=>S.oDayNotes||{}, rows:()=>S.o.scores.map(s=>({id:s.id, day:s.day, rater:s.rater_id, ratee:s.ratee_id, rn:oName(s.rater_id), en:oName(s.ratee_id), score:s.score, comment:s.comment||""})),
+    {k:"o", l:"🏭 Operasyon", wr:r=>isWR("o",r), wv:swEff(), wlbl:`sıralamada %${swRank()}`, wtip:`Erdem'in puanı sıralamada %${swRank()} ağırlıkta (ekip %${Math.max(0,swPuanW()-swRank())} + Erdem %${swRank()})`, wnote:`Kişi kartlarındaki ortalamada Erdem'in puanı sıralamadaki oranıyla sayılır (ekip %${Math.max(0,swPuanW()-swRank())} : Erdem %${swRank()}).`, dayNotes:()=>S.oDayNotes||{}, rows:()=>S.o.scores.map(s=>({id:s.id, day:s.day, rater:s.rater_id, ratee:s.ratee_id, rn:oName(s.rater_id), en:oName(s.ratee_id), score:s.score, comment:s.comment||""})),
       del:async ids=>{ const {error}=await sb.from("ops_scores").delete().in("id",ids); if(error) throw error; S.o.scores=S.o.scores.filter(x=>!ids.includes(x.id)); }},
-    {k:"k", l:"🎬 Kreatif",   wr:r=>!!S.sw&&(S.sw.kre||[]).includes(r), wv:+S.sw?.w||0, rows:()=>S.k.scores.map(s=>({id:s.id, day:s.day, rater:s.rater, ratee:s.ratee, rn:kName(s.rater), en:kName(s.ratee), score:s.score, comment:s.comment||""})),
+    {k:"k", l:"🎬 Kreatif",   wr:r=>isWR("k",r), wv:swEff(), rows:()=>S.k.scores.map(s=>({id:s.id, day:s.day, rater:s.rater, ratee:s.ratee, rn:kName(s.rater), en:kName(s.ratee), score:s.score, comment:s.comment||""})),
       del:async ids=>{ const {error}=await sb.from("kre_scores").delete().in("id",ids); if(error) throw error; S.k.scores=S.k.scores.filter(x=>!ids.includes(x.id)); }},
   ]});
 }
