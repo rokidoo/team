@@ -650,6 +650,7 @@ function renderHafta(){
     return `<div class="card" style="margin-bottom:12px"><div class="sect" style="margin-bottom:6px"><h3 style="margin:0">${esc(trDateW(d))}${d===trToday()?" · bugün":""}</h3></div>
       ${log?.in_time||log?.out_time?`<div class="note" style="margin:0 0 8px">🟢 ${esc(log.in_time||"—")} · 🔴 ${esc(log.out_time||"—")}</div>`:""}
       ${B.length?B.map(blockHtml).join(""):`<div class="note" style="margin:0">Plan yok</div>`}
+      ${log?.ops_note?`<div class="flabel" style="margin-top:10px">🗒 Günün yorumu · operasyon</div><div class="nt" style="white-space:pre-wrap;font-size:.85rem">${esc(log.ops_note)}</div>`:""}
       ${log?.did?`<div class="flabel" style="margin-top:10px">Yaptığım işler</div><div class="nt" style="white-space:pre-wrap;font-size:.85rem">${esc(log.did)}</div>`:""}
       <button class="btn ghost sm" data-open="${d}" style="width:auto;margin-top:8px">Güne git →</button></div>`; };
   el.innerHTML=`<div class="dayrow"><button class="nb" data-w="-1">‹</button><span class="dl">${esc(trShort(m))} – ${esc(trShort(addDays(m,6)))}</span><button class="nb" data-w="1">›</button></div>
@@ -699,6 +700,11 @@ async function loadPuanDay(day){
 // kişi anahtarı: "o:<ops_members.id>" | "k:<harf>"
 const savedOf = (key,day)=>{ const [t,id]=key.split(/:(.*)/s); return t==="o" ? S.P.os.find(s=>s.day===day&&s.ratee_id===id) : S.P.ks.find(s=>s.day===day&&s.ratee===id); };
 const draftOf = (key,day)=>{ const k=day+"|"+key; if(!S.P.draft[k]){ const s=savedOf(key,day); S.P.draft[k]={score:s?.score??null, comment:s?.comment||""}; } return S.P.draft[k]; };
+// günün yorumu (operasyon): pv_log.ops_note — sadece Erdem + yönetici görür
+const savedNote = day=>(S.logs.find(x=>x.day===day)?.ops_note)||"";
+const noteDraft = day=>{ const k=day+"|note"; if(S.P.draft[k]==null) S.P.draft[k]=savedNote(day); return S.P.draft[k]; };
+const noteChanged = day=>{ const k=day+"|note"; return S.P.draft[k]!=null && S.P.draft[k].trim()!==savedNote(day).trim(); };
+const pendCount = day=>pendingPuan(day).length+(noteChanged(day)?1:0);
 async function renderPuan(){
   const el=$("body");
   if(!S.P){ el.innerHTML=`<div class="empty">Ekip listesi yükleniyor…</div>`; try{ await loadPuan(); }catch(e){ el.innerHTML=`<div class="empty">Ekip listesi okunamadı.<br><small>${esc(e.message||e)}</small></div>`; return; } }
@@ -716,13 +722,16 @@ async function renderPuan(){
     </div>`; };
   const opsHtml = S.P.opsRater ? (S.P.ops.length?S.P.ops.map(m=>person("o:"+m.id,m.name,m.kind==="puanci"?"⭐ Puan + stok":"🏭 Operasyon")).join(""):`<div class="note">Aktif ekip üyesi yok.</div>`)
     : `<div class="note">Operasyon puanı için Supabase'de <b>v2.8</b> SQL'i çalıştırılmalı.</div>`;
-  const changed=pendingPuan(day).length;
+  const changed=pendCount(day); const nd=noteDraft(day);
   el.innerHTML=`
     <div class="dayrow"><button class="nb" data-pd="-1">‹</button><input type="date" id="pDay" value="${day}" max="${t}"><button class="nb" data-pd="1" ${day>=t?"disabled":""}>›</button><span class="dl">${esc(trDateW(day))}</span>${day!==t?`<button class="btn ghost sm" id="pToday" style="width:auto;margin:0">Bugün</button>`:""}</div>
     <div class="note" style="margin:0 0 14px">${own?`Operasyon ekibini 1–10 arası puanla ve kısa bir not yaz. Puanlar yalnızca yönetime görünür; ekipten kimse kimin ne verdiğini görmez. Aynı puana tekrar basarsan seçim kalkar.`
       :`<b>Yönetici görünümü:</b> Erdem'in bu gün verdiği puanlar. Aldığı puan ortalamasına %10 ağırlıkla katılır — bu bilgi sadece sende görünür.`}</div>
     <div class="sect"><h3>🏭 Operasyon ekibi</h3>${opsHtml}</div>
-    ${own?`<div class="savebar ${changed?"stick":""}"><button class="btn" id="pSave" ${changed?"":"disabled"}>${changed?`Puanları kaydet (${changed})`:"Değişiklik yok"}</button></div>`:""}`;
+    ${own||nd?`<div class="card" style="margin-bottom:6px"><div class="flabel">🗒 Günün yorumu · operasyon</div>
+      <textarea id="pNote" rows="4" placeholder="Bugün operasyonda genel olarak ne gördün? Ekip nasıldı, ne iyi gitti, ne aksadı…" ${own?"":"disabled"}>${esc(nd)}</textarea>
+      ${own?`<div class="note" style="margin:4px 0 0">İsteğe bağlı. Puan vermesen de tek başına kaydedebilirsin.</div>`:""}</div>`:""}
+    ${own?`<div class="savebar ${changed?"stick":""}"><button class="btn" id="pSave" ${changed?"":"disabled"}>${changed?`Kaydet (${changed})`:"Değişiklik yok"}</button></div>`:""}`;
   const go=d=>{ S.pday=d; renderPuan(); };
   el.querySelectorAll("[data-pd]").forEach(b=>b.onclick=()=>{ const d=addDays(day,+b.dataset.pd); if(d<=t) go(d); });
   const pk=$("pDay"); if(pk) pk.onchange=e=>{ const v=e.target.value; if(v) go(v>t?t:v); };
@@ -731,8 +740,9 @@ async function renderPuan(){
   el.querySelectorAll(".ps").forEach(box=>{ const key=box.dataset.key, d=draftOf(key,day);
     box.querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>{ const v=+b.dataset.n; d.score = d.score===v ? null : v; renderPuan(); });
     const ta=box.querySelector("[data-c]"); if(ta) ta.oninput=()=>{ d.comment=ta.value; const n=ta.value.trim().length; const c=box.querySelector(".pcnt"); if(c){ c.textContent=`${n}/${NOTE_MIN}`; c.classList.toggle("bad", d.score!=null&&n<NOTE_MIN); }
-      const sb2=$("pSave"), k=pendingPuan(day).length; if(sb2){ sb2.disabled=!k; sb2.textContent=k?`Puanları kaydet (${k})`:"Değişiklik yok"; sb2.parentElement.classList.toggle("stick",!!k); } };
+      const sb2=$("pSave"), k=pendCount(day); if(sb2){ sb2.disabled=!k; sb2.textContent=k?`Kaydet (${k})`:"Değişiklik yok"; sb2.parentElement.classList.toggle("stick",!!k); } };
   });
+  const pn=$("pNote"); if(pn) pn.oninput=()=>{ S.P.draft[day+"|note"]=pn.value; const sb2=$("pSave"), k=pendCount(day); if(sb2){ sb2.disabled=!k; sb2.textContent=k?`Kaydet (${k})`:"Değişiklik yok"; sb2.parentElement.classList.toggle("stick",!!k); } };
   $("pSave").onclick=()=>savePuan(day);
 }
 function pendingPuan(day){
@@ -741,7 +751,7 @@ function pendingPuan(day){
     return (d.score??null)!==(sv?.score??null) || (d.comment||"").trim()!==(sv?.comment||"").trim(); });
 }
 async function savePuan(day){
-  const keys=pendingPuan(day); if(!keys.length) return;
+  const keys=pendingPuan(day), noteCh=noteChanged(day); if(!keys.length&&!noteCh) return;
   const nameOf=key=>{ const [t,id]=key.split(/:(.*)/s); return t==="o"?S.P.ops.find(m=>m.id===id)?.name:S.P.kre.find(k=>k.initial===id)?.name; };
   for(const key of keys){ const d=S.P.draft[day+"|"+key]; const n=(d.comment||"").trim().length;
     if(d.score==null && n && !savedOf(key,day)){ toast(`${nameOf(key)}: önce puan seç.`); return; }
@@ -766,8 +776,15 @@ async function savePuan(day){
     }
     S.P.os=S.P.os.filter(x=>!oDel.includes(x.id)); S.P.ks=S.P.ks.filter(x=>!kDel.includes(x.id));
     keys.forEach(key=>delete S.P.draft[day+"|"+key]);
-    toast(`${oUp.length+kUp.length} puan kaydedildi ✓${oDel.length+kDel.length?` · ${oDel.length+kDel.length} kaldırıldı`:""}`); renderPuan();
-  }catch(e){ toast("Kaydedilemedi: "+(e?.message||e)); btn.disabled=false; btn.textContent=`Puanları kaydet (${keys.length})`; }
+    if(noteCh){
+      const row={ owner_id:S.owner, day, ops_note:S.P.draft[day+"|note"].trim()||null, updated_at:now, updated_by_name:S.profile?.name||null };
+      let data=row;
+      if(!DEMO){ const r=await sb.from("pv_log").upsert(row,{onConflict:"owner_id,day"}).select().single(); if(r.error) throw r.error; data=r.data; }
+      const cur=S.logs.find(x=>x.day===day)||{}; S.logs=S.logs.filter(x=>x.day!==day).concat({...cur,...data}); delete S.P.draft[day+"|note"];
+    }
+    const nP=oUp.length+kUp.length, nD=oDel.length+kDel.length;
+    toast([nP?`${nP} puan kaydedildi`:"", nD?`${nD} puan kaldırıldı`:"", noteCh?"günün yorumu kaydedildi":""].filter(Boolean).join(" · ")+" ✓"); renderPuan();
+  }catch(e){ toast(/ops_note/.test(e?.message||"")?"Günün yorumu için v2.8 SQL'i çalıştırılmalı.":"Kaydedilemedi: "+(e?.message||e)); btn.disabled=false; btn.textContent=`Kaydet (${pendCount(day)})`; }
 }
 
 /* ---------- plan bloğu ekle / düzenle ---------- */
