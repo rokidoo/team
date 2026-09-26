@@ -874,7 +874,7 @@ function authView(v){ ["Login","Forgot","Reset"].forEach(k=>$("auth"+k).classLis
 function showAuth(msg,err){ $("vAuth").classList.remove("hidden"); $("vApp").classList.add("hidden"); const m=$("authMsg"); m.textContent=msg||""; m.className="authmsg"+(err?" err":""); }
 function showReset(){ showAuth("",false); authView("reset"); }
 function renderLinks(){
-  $("plinks").innerHTML=[["/yonetim/","📋 Yönetim"],["/kreatif/","🎬 Kreatif"],["/operasyon/","🏭 Operasyon"]].map(([h,l])=>`<a href="${h}">${l} →</a>`).join("");
+  $("plinks").innerHTML=[["/yonetim/","📋 Yönetim"],["/kreatif/","🎬 Kreatif"],["/operasyon/","🏭 Operasyon"],["/reklam/","📣 Reklam"]].map(([h,l])=>`<a href="${h}">${l} →</a>`).join("");
 }
 function deny(text){
   $("vAuth").classList.add("hidden"); $("vApp").classList.remove("hidden");
