@@ -451,6 +451,14 @@
   @media (max-width:640px){ .io{grid-template-columns:1fr} .cats{grid-template-columns:1fr} .kp{grid-template-columns:1fr 1fr} .bars .br{grid-template-columns:110px 1fr 70px} }
 </style>
 <!--MOB-->
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Remaks">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="application-name" content="Remaks">
 <style id="mobCss">
 /* ===== MOBİL UYUM · tüm paneller ortak ===== */
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
@@ -1005,6 +1013,8 @@ boot();
 <script id="mobJs">
 /* ===== MOBİL: alt menü en fazla 5 buton (4 sekme + "Daha"), sekme etiketleri ikon + yazı ===== */
 (()=>{
+  // uygulama (ana ekran) açılınca en son kullanılan panele dönsün
+  try{ const m = location.pathname.match(/^\/(yonetim|operasyon|kreatif|reklam|erdem-kus)\//); if(m) localStorage.setItem("remaks_last", "/"+m[1]+"/"); }catch(e){}
   const mq = matchMedia("(max-width:959px)"), MAX = 5;
   const EMO = /^\s*((?:\p{Extended_Pictographic}|\p{Regional_Indicator})(?:️|‍\p{Extended_Pictographic})*)\s*/u;
   const obs = new MutationObserver(run);
