@@ -669,30 +669,22 @@ function renderIsler(){
 }
 
 /* ---------- ⭐ Puan ver ----------
-   Erdem operasyon + kreatif ekibindeki herkese puan verir. Yönetici, Uğur abi (puanci), Çağdaş/Remaks
-   (kre_settings.roles.unrated) ve kendisi listede yok. Operasyonda puan "ortak-erdem" kaydı adına,
-   kreatifte Erdem'in harfiyle yazılır; yönetici bu sekmeyi sadece görüntüler. */
+   Erdem sadece operasyon ekibine puan verir: ekip üyeleri + Uğur abi (puanci; ona yalnız Erdem puan verebilir).
+   Kreatif yok. Puanlar "ortak-erdem" kaydı adına yazılır; yönetici bu sekmeyi sadece görüntüler. */
 const OPS_RATER_KEY = "ortak-erdem";
 const NOTE_MIN = 30;
 async function loadPuan(){
   if(DEMO){
     S.P={ opsRater:"m_erdem", ini:"E", loaded:new Set(), draft:{},
-      ops:[{id:"m_sait",name:"Sait"},{id:"m_rabia",name:"Rabia"},{id:"m_melek",name:"Melek"}],
-      kre:[{initial:"İ",name:"İmkan"},{initial:"M",name:"Mustafa Kemal"},{initial:"A",name:"Anıl"}],
+      ops:[{id:"m_sait",name:"Sait"},{id:"m_rabia",name:"Rabia"},{id:"m_melek",name:"Melek"},{id:"m_ugur",name:"Uğur abi",kind:"puanci"}], kre:[],
       os:[{id:"s1",day:trToday(),rater_id:"m_erdem",ratee_id:"m_sait",score:8,comment:"Kargo çıkışlarını zamanında bitirdi, depoyu da topladı."}], ks:[] };
     return;
   }
-  const [om, tm, ks, prof] = await Promise.all([
-    fetchAll("ops_members", q=>q.order("sort")),
-    fetchAll("team_members", q=>q.order("sort")),
-    sb.from("kre_settings").select("value").eq("key","roles").maybeSingle(),
-    sb.from("profiles").select("initial,name").eq("id",S.owner).maybeSingle(),
-  ]);
-  const unrated=new Set(ks.data?.value?.unrated||[]); const ini=prof.data?.initial||null;
-  S.P={ opsRater:om.find(m=>m.key===OPS_RATER_KEY)?.id||null, ini, loaded:new Set(), draft:{},
-    ops:om.filter(m=>m.active && (m.kind||"ekip")==="ekip"),
-    kre:tm.filter(t=>t.initial!==ini && !unrated.has(t.initial)),
-    os:[], ks:[] };
+  const om = await fetchAll("ops_members", q=>q.order("sort"));
+  const kindOrd = k=>k==="puanci"?1:0;   // ekip önce, Uğur abi sonda
+  S.P={ opsRater:om.find(m=>m.key===OPS_RATER_KEY)?.id||null, ini:null, loaded:new Set(), draft:{},
+    ops:om.filter(m=>m.active && ["ekip","puanci"].includes(m.kind||"ekip")).sort((a,b)=>kindOrd(a.kind||"ekip")-kindOrd(b.kind||"ekip")||(a.sort||0)-(b.sort||0)),
+    kre:[], os:[], ks:[] };
 }
 async function loadPuanDay(day){
   if(!DEMO){
@@ -722,17 +714,14 @@ async function renderPuan(){
       ${own||d.comment?`<textarea rows="2" data-c placeholder="Bugün nasıldı? Ne iyi gitti, ne eksikti (en az ${NOTE_MIN} karakter)" ${own?"":"disabled"}>${esc(d.comment||"")}</textarea>
       ${own?`<div class="pcnt ${d.score!=null&&n<NOTE_MIN?"bad":""}">${n}/${NOTE_MIN}</div>`:""}`:""}
     </div>`; };
-  const opsHtml = S.P.opsRater ? (S.P.ops.length?S.P.ops.map(m=>person("o:"+m.id,m.name,"🏭 Operasyon")).join(""):`<div class="note">Aktif ekip üyesi yok.</div>`)
+  const opsHtml = S.P.opsRater ? (S.P.ops.length?S.P.ops.map(m=>person("o:"+m.id,m.name,m.kind==="puanci"?"⭐ Puan + stok":"🏭 Operasyon")).join(""):`<div class="note">Aktif ekip üyesi yok.</div>`)
     : `<div class="note">Operasyon puanı için Supabase'de <b>v2.8</b> SQL'i çalıştırılmalı.</div>`;
-  const kreHtml = S.P.ini ? (S.P.kre.length?S.P.kre.map(k=>person("k:"+k.initial,k.name,"🎬 Kreatif")).join(""):`<div class="note">Puanlanacak kişi yok.</div>`)
-    : `<div class="note">Profilinde kreatif harfin yok; kreatif puanı verilemez.</div>`;
   const changed=pendingPuan(day).length;
   el.innerHTML=`
     <div class="dayrow"><button class="nb" data-pd="-1">‹</button><input type="date" id="pDay" value="${day}" max="${t}"><button class="nb" data-pd="1" ${day>=t?"disabled":""}>›</button><span class="dl">${esc(trDateW(day))}</span>${day!==t?`<button class="btn ghost sm" id="pToday" style="width:auto;margin:0">Bugün</button>`:""}</div>
-    <div class="note" style="margin:0 0 14px">${own?`Ekip arkadaşlarını 1–10 arası puanla ve kısa bir not yaz. Puanlar yalnızca yönetime görünür; ekipten kimse kimin ne verdiğini görmez. Aynı puana tekrar basarsan seçim kalkar.`
+    <div class="note" style="margin:0 0 14px">${own?`Operasyon ekibini 1–10 arası puanla ve kısa bir not yaz. Puanlar yalnızca yönetime görünür; ekipten kimse kimin ne verdiğini görmez. Aynı puana tekrar basarsan seçim kalkar.`
       :`<b>Yönetici görünümü:</b> Erdem'in bu gün verdiği puanlar. Aldığı puan ortalamasına %10 ağırlıkla katılır — bu bilgi sadece sende görünür.`}</div>
     <div class="sect"><h3>🏭 Operasyon ekibi</h3>${opsHtml}</div>
-    <div class="sect"><h3>🎬 Kreatif ekibi</h3>${kreHtml}</div>
     ${own?`<div class="savebar ${changed?"stick":""}"><button class="btn" id="pSave" ${changed?"":"disabled"}>${changed?`Puanları kaydet (${changed})`:"Değişiklik yok"}</button></div>`:""}`;
   const go=d=>{ S.pday=d; renderPuan(); };
   el.querySelectorAll("[data-pd]").forEach(b=>b.onclick=()=>{ const d=addDays(day,+b.dataset.pd); if(d<=t) go(d); });
