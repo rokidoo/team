@@ -567,12 +567,21 @@ const sum = (arr,f)=>arr.reduce((a,x)=>a+(+(f?f(x):x)||0),0);
 const avg = arr=>arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : null;
 const chip = (label,soft)=>`<span class="chip" style="background:${soft}">${esc(label)}</span>`;
 const NOTE_MIN = 30;   // puan notu en az bu kadar karakter
+// Ortağın (Erdem) verdiği puan, kişinin aldığı ortalamayı %w etkiler: ekip ort. × (1−w) + ortak ort. × w.
+// Ayar shared_settings.score_weights'te ve yalnız yönetici (admin) okuyabilir; okunamazsa düz ortalama.
+const isWRater = id=>!!S.sw && (S.sw.ops||[]).includes(id);
+function recvAvg(rows){ const v=rows.filter(s=>s.score!=null); if(!v.length) return null;
+  const p=v.filter(s=>isWRater(s.rater_id)).map(s=>s.score), o=v.filter(s=>!isWRater(s.rater_id)).map(s=>s.score);
+  if(!p.length||!o.length) return avg(v.map(s=>s.score)); const w=+S.sw.w||0; return avg(o)*(1-w)+avg(p)*w; }
+const wPct = ()=>Math.round((+S.sw?.w||0)*100);
+const wBadge = id=>isWRater(id)?` <span class="pill" title="Verdiği puan alınan ortalamayı %${wPct()} etkiler · bunu sadece sen görürsün">%${wPct()} etki</span>`:"";
 const isAdmin = ()=>S.profile?.role==="admin" || S.profile?.role==="partner";   // ortaklar operasyonda tam yetkili
 const canOps  = ()=>S.profile && ["ops","admin","partner"].includes(S.profile.role);
 const memById = id=>S.members.find(m=>m.id===id);
 const memName = id=>memById(id)?.name || "—";
 // kind: "ekip" (normal üye) | "puanci" (sadece puan verir + stok; günlüğü, nöbeti, sıralaması yok, ona puan verilmez)
-const isPuanciM = m=>m?.kind==="puanci";
+// "ortak" = ortağın (Erdem) puan verdiği kayıt: pasif, listelerde yok, ona puan verilmez
+const isPuanciM = m=>m?.kind==="puanci" || m?.kind==="ortak";
 const allActive = ()=>S.members.filter(m=>m.active).sort((a,b)=>(a.sort||0)-(b.sort||0));
 const actives = ()=>allActive().filter(m=>!isPuanciM(m));
 const isPuanci = ()=>!isAdmin() && isPuanciM(S.me);
@@ -634,6 +643,9 @@ async function upsert(table, rows, onConflict, ignoreDup=false){
 async function loadAll(){
   if(DEMO) return;
   await WC.load();
+  // kişisel sayfalar (shared_settings.private_pages = {"erdem-kus": <sahip id>}): sahibi ve yönetici görür
+  try{ const {data:pp}=await sb.from("shared_settings").select("value").eq("key","private_pages").maybeSingle();
+    S.myPages=Object.entries(pp?.value||{}).filter(([,v])=>v===S.profile?.id||S.profile?.role==="admin").map(([k,v])=>({k,own:v===S.profile?.id})); }catch(e){ S.myPages=[]; }
   const since = addDays(today(), -400);
   try{
     const [members, products, daily, scores, checks, duty, team, voice, stock] = await Promise.all([
@@ -648,6 +660,7 @@ async function loadAll(){
       fetchAll("ops_stock",     q=>q.gte("day",since).order("day")),
     ]);
     Object.assign(S,{members,products,daily,scores,checks,duty,team,voice,stock, dbOk:true, dbErr:""});
+    S.sw=null; if(S.profile?.role==="admin") try{ const {data:sw}=await sb.from("shared_settings").select("value").eq("key","score_weights").maybeSingle(); S.sw=sw?.value||null; }catch(e){}
     if(isAdmin()) await loadRates();
     try{ const [{data:aw},{data:st}]=await Promise.all([sb.from("ops_awards").select("*"), sb.from("ops_settings").select("*").eq("key","rank_weights").maybeSingle()]); S.awards=aw||[]; S.weights=st?.value||null; }catch(e){}
     try{ const {data:dx}=await sb.from("ops_settings").select("*").eq("key","duty_exempt").maybeSingle(); S.dutyExempt=Array.isArray(dx?.value)?dx.value:[]; }catch(e){}
@@ -661,6 +674,13 @@ async function loadAll(){
 }
 
 /* ================= NAV ================= */
+const pageLbl = p=>p.own ? "Planım" : p.k.split("-")[0].replace(/^./,c=>c.toLocaleUpperCase("tr"))+" planı";
+function addPageLinks(){
+  (S.myPages||[]).forEach(p=>{
+    $("nav").insertAdjacentHTML("beforeend", `<button onclick="location.href='/${p.k}/'"><span class="ic">🗓</span>${esc(pageLbl(p))}</button>`);
+    $("sideNav").insertAdjacentHTML("beforeend", `<a class="navbtn" href="/${p.k}/" style="text-decoration:none;border-style:dashed;border-color:var(--mut)"><span class="ic">🗓</span><span class="lbl">${esc(pageLbl(p))}</span></a>`);
+  });
+}
 function renderNav(){
   if(isPuanci()){ // puan + stok yetkilisi: sadece bu iki sekme
     const t=[["puan","⭐","Puan"],["stok","📊","Stok"]];
@@ -682,6 +702,7 @@ function renderNav(){
     $("nav").insertAdjacentHTML("beforeend", `<button onclick="location.href='/kreatif/'"><span class="ic">🎬</span>Kreatif</button><button onclick="location.href='/yonetim/'"><span class="ic">📋</span>Yönetim</button>`);
     $("sideNav").insertAdjacentHTML("beforeend", `<a class="navbtn" href="/kreatif/" style="text-decoration:none;margin-top:10px;border-style:dashed;border-color:var(--mut)"><span class="ic">🎬</span><span class="lbl">Kreatif paneline geç</span></a><a class="navbtn" href="/yonetim/" style="text-decoration:none;border-style:dashed;border-color:var(--mut)"><span class="ic">📋</span><span class="lbl">Yönetim paneli</span></a>`);
   }
+  addPageLinks();
   document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab; renderAll(); window.scrollTo(0,0);});
 }
 const TABS = {gun:"Gun", puan:"Puan", mesai:"Mesai", kontrol:"Kontrol", denetim:"Denetim", kargo:"Kargo", ses:"Ses", stok:"Stok", birinci:"Birinci", ekip:"Ekip", pano:"Pano", import:"Import"};
@@ -1677,10 +1698,10 @@ function rankLocal(from,to){ // DEMO: sunucudaki ops_ranking ile aynı formül
   const rows=actives().map(m=>{
     const D=S.daily.filter(x=>x.member_id===m.id&&inRange(x.day,[from,to]));
     const ins=D.map(x=>mins(x.in_time)).filter(x=>x!=null);
-    const sc=S.scores.filter(s=>s.ratee_id===m.id&&inRange(s.day,[from,to])&&s.score!=null).map(s=>s.score);
+    const scR=S.scores.filter(s=>s.ratee_id===m.id&&inRange(s.day,[from,to])&&s.score!=null), sc=scR.map(s=>s.score);
     const ticks=S.checks.filter(c=>c.done_by===m.id&&inRange(c.day,[from,to])).length;
     const vol=sum(D,x=>(x.call_total||0)+msgOf(x)+(x.cargo||0));
-    return {member_id:m.id,name:m.name,puan:(avg(sc)||0)*10,n_puan:sc.length,disiplin:Math.min(100,D.length/Math.max(wdays,1)*100),devam:ins.length?ins.filter(x=>x<=LATE_MIN).length/ins.length*100:0,ticks,volpd:D.length?vol/D.length:0};
+    return {member_id:m.id,name:m.name,puan:(recvAvg(scR)||0)*10,n_puan:sc.length,disiplin:Math.min(100,D.length/Math.max(wdays,1)*100),devam:ins.length?ins.filter(x=>x<=LATE_MIN).length/ins.length*100:0,ticks,volpd:D.length?vol/D.length:0};
   });
   const mt=Math.max(1,...rows.map(r=>r.ticks)), mv=Math.max(1,...rows.map(r=>r.volpd));
   rows.forEach(r=>{ r.kontrol=r.ticks/mt*100; r.hacim=r.volpd/mv*100; r.total=(r.puan*w.puan+r.disiplin*w.disiplin+r.devam*w.devam+r.kontrol*w.kontrol+r.hacim*w.hacim)/100; });
@@ -1810,8 +1831,8 @@ function renderPano(){
   // kişi tablosu
   const people=S.members.filter(m=>!isPuanciM(m)&&(m.active||D.some(x=>x.member_id===m.id))).sort((x,y)=>(x.sort||0)-(y.sort||0));
   const prow=m=>{ const r=D.filter(x=>x.member_id===m.id); const ins=r.map(x=>mins(x.in_time)).filter(x=>x!=null);
-    const recv=SC.filter(s=>s.ratee_id===m.id).map(s=>s.score), given=SC.filter(s=>s.rater_id===m.id).map(s=>s.score);
-    return `<tr><td>${esc(m.name)}</td><td>${r.length}</td><td>${nf.format(sum(r,x=>x.call_total))}</td><td>${nf.format(sum(r,x=>x.call_nolook))}</td><td>${nf.format(sum(r,msgOf))}</td><td>${nf.format(sum(r,ordOf))}</td><td>${nf.format(sum(r,x=>x.cargo))}</td><td>${hhmm(avg(ins))}</td><td class="${ins.filter(x=>x>LATE_MIN).length?"late":""}">${ins.filter(x=>x>LATE_MIN).length}</td><td>${otTxt(sum(r,x=>otCalc(x).min))}</td><td>${durTxt(sum(r,x=>x.leave_min))}</td><td><b>${recv.length?nf1.format(avg(recv)):"—"}</b> <small>(${recv.length})</small></td><td>${given.length?nf1.format(avg(given)):"—"}</td></tr>`; };
+    const recvR=SC.filter(s=>s.ratee_id===m.id), recv=recvR.map(s=>s.score), given=SC.filter(s=>s.rater_id===m.id).map(s=>s.score);
+    return `<tr><td>${esc(m.name)}</td><td>${r.length}</td><td>${nf.format(sum(r,x=>x.call_total))}</td><td>${nf.format(sum(r,x=>x.call_nolook))}</td><td>${nf.format(sum(r,msgOf))}</td><td>${nf.format(sum(r,ordOf))}</td><td>${nf.format(sum(r,x=>x.cargo))}</td><td>${hhmm(avg(ins))}</td><td class="${ins.filter(x=>x>LATE_MIN).length?"late":""}">${ins.filter(x=>x>LATE_MIN).length}</td><td>${otTxt(sum(r,x=>otCalc(x).min))}</td><td>${durTxt(sum(r,x=>x.leave_min))}</td><td><b>${recv.length?nf1.format(recvAvg(recvR)):"—"}</b> <small>(${recv.length})</small></td><td>${given.length?nf1.format(avg(given)):"—"}</td></tr>`; };
 
   // doldurma disiplini (son 14 iş günü)
   const d14=[]; for(let i=0;d14.length<14;i++){ const d=addDays(today(),-i); if(dow(d)!==0) d14.unshift(d); }
@@ -1857,14 +1878,14 @@ function renderPano(){
     <div class="sect"><h3>👤 Kişi bazlı · ${esc(title)}</h3><div class="tblwrap"><table class="compact">
       <tr><th>Kişi</th><th>Gün</th><th>Arama</th><th>Bakmadı</th><th>Mesaj</th><th>Sipariş</th><th>Kargo</th><th>Ort. giriş</th><th>Geç</th><th>Mesai</th><th>İzin</th><th>Aldığı puan</th><th>Verdiği</th></tr>
       ${people.map(prow).join("")}
-    </table></div><div class="note">Geç = 09:10'dan sonra giriş. Aldığı puan = ekip arkadaşlarının verdiği ortalama (parantez: puan sayısı).</div></div>
+    </table></div><div class="note">Geç = 09:10'dan sonra giriş. Aldığı puan = ekip arkadaşlarının verdiği ortalama (parantez: puan sayısı).${S.sw?` Ortağın verdiği puan %${wPct()} ağırlıkla katılır — bunu sadece sen görürsün.`:""}</div></div>
 
     <div class="sect"><h3>🗓 Doldurma disiplini · son 14 iş günü</h3><div class="card">${disc}</div></div>
 
     <div class="sect"><h3>⭐ Ekip puanları · veren → alan</h3>
       ${raters.length?`<div class="tblwrap"><table class="compact"><tr><th>Veren ↓ / Alan →</th>${ratees.map(e=>`<th>${esc(initials(e.name))}</th>`).join("")}<th>Verdiği ort.</th></tr>
-      ${raters.map(r=>`<tr><td>${esc(r.name)}</td>${ratees.map(e=>`<td>${r.id===e.id?"·":cell(r,e)}</td>`).join("")}<td><b>${nf1.format(avg(SC.filter(s=>s.rater_id===r.id).map(s=>s.score)))}</b></td></tr>`).join("")}
-      <tr><td><b>Aldığı ort.</b></td>${ratees.map(e=>{ const v=SC.filter(s=>s.ratee_id===e.id).map(s=>s.score); return `<td><b>${v.length?nf1.format(avg(v)):"—"}</b></td>`; }).join("")}<td></td></tr>
+      ${raters.map(r=>`<tr><td>${esc(r.name)}${wBadge(r.id)}</td>${ratees.map(e=>`<td>${r.id===e.id?"·":cell(r,e)}</td>`).join("")}<td><b>${nf1.format(avg(SC.filter(s=>s.rater_id===r.id).map(s=>s.score)))}</b></td></tr>`).join("")}
+      <tr><td><b>Aldığı ort.</b></td>${ratees.map(e=>{ const v=SC.filter(s=>s.ratee_id===e.id); return `<td><b>${v.length?nf1.format(recvAvg(v)):"—"}</b></td>`; }).join("")}<td></td></tr>
       </table></div>`:`<div class="empty">Bu dönemde puan yok</div>`}
       ${comments.length?`<div class="card" style="margin-top:14px;padding:6px 14px">${comments.map(s=>`<div class="crow"><span class="pill">${trShort(s.day)}</span><b>${esc(initials(memName(s.rater_id)))} → ${esc(memName(s.ratee_id))}</b>${s.score!=null?`<span class="pill" style="background:${s.score>=9?"var(--green-s)":s.score>=7?"var(--mustard-s)":"var(--red-s)"}">${s.score}</span>`:`<span class="pill" style="background:var(--gray-s)">gelmedi</span>`}<span class="ct">${esc(s.comment)}</span></div>`).join("")}</div>`:""}
     </div>
