@@ -1843,7 +1843,8 @@ function renderPano(){
 
   // puan matrisi
   const raters=[...new Set(SC.map(s=>s.rater_id))].map(memById).filter(Boolean).sort((x,y)=>(x.sort||0)-(y.sort||0));
-  const ratees=actives();
+  // Uğur abi (puanci) sıralamada yok; ona yalnız ortak (Erdem) puan verir — puan aldıysa tabloda sütun olarak görünür
+  const ratees=[...actives(), ...allActive().filter(m=>m.kind==="puanci"&&SC.some(s=>s.ratee_id===m.id))];
   const cell=(r,e)=>{ const v=SC.filter(s=>s.rater_id===r.id&&s.ratee_id===e.id).map(s=>s.score); return v.length?nf1.format(avg(v)):"—"; };
   const comments=S.scores.filter(s=>inRange(s.day,range)&&s.comment).sort((x,y)=>y.day<x.day?-1:1).slice(0,40);
 
