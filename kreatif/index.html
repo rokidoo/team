@@ -385,6 +385,7 @@
 .fbw .fb-link{margin-top:8px;background:none;border:none;padding:0;font-weight:800;font-size:.74rem;color:var(--cobalt,#2F5DFF);cursor:pointer;text-decoration:underline}
 .fbw .fb-chip{display:inline-block;font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:99px;border:1.5px solid var(--ink,#121212);margin:2px 2px 2px 0;white-space:nowrap}
 .fbw .fb-chip.neg{background:var(--orange-s,#FFE9D1)} .fbw .fb-chip.pos{background:var(--green-s,#DFF6E7)}
+.fbw .fb-wt{display:inline-block;font-size:.62rem;font-weight:800;padding:1px 7px;border-radius:99px;background:var(--mustard-s,#FFF3C4);border:1px solid var(--ink,#121212);margin-left:4px;vertical-align:middle}
 .fbw .fb-mut{color:var(--mut,#8A867E);margin-right:6px}
 .fbw .fb-sc{display:inline-block;min-width:30px;text-align:center;font-family:var(--fm,monospace);font-weight:800;font-size:.74rem;padding:2px 6px;border-radius:8px;border:1.5px solid var(--ink,#121212);background:var(--card,#fff)}
 .fbw .fb-sc.low{background:var(--orange-s,#FFE9D1)} .fbw .fb-sc.hi{background:var(--green-s,#DFF6E7)} .fbw .fb-sc.na{color:var(--mut,#8A867E);border-color:var(--mut,#8A867E)}
@@ -736,6 +737,9 @@ const tryAll = async (table, build)=>{ try{ return await fetchAll(table, build);
 
 async function loadAll(){
   await WC.load();
+  // kişisel sayfalar (shared_settings.private_pages = {"erdem-kus": <sahip id>}): sahibi ve yönetici görür
+  try{ const {data:pp}=await sb.from("shared_settings").select("value").eq("key","private_pages").maybeSingle();
+    S.myPages=Object.entries(pp?.value||{}).filter(([,v])=>v===S.profile?.id||S.profile?.role==="admin").map(([k,v])=>({k,own:v===S.profile?.id})); }catch(e){ S.myPages=[]; }
   const [w,c,r,h,t] = await Promise.all([
     tryAll("weeks",      q=>q.order("week",{ascending:false})),
     tryAll("creatives",  q=>q.order("created_at",{ascending:false})),
@@ -765,6 +769,7 @@ async function loadAll(){
   else { S.kreTables=true; S.kdaily=kd; S.kscores=ks; S.kreq=kr; }
   if(canFin()) await loadRates();
   try{ const {data:st}=await sb.from("kre_settings").select("*").eq("key","roles").maybeSingle(); if(st?.value) S.kreRoles={...S.kreRoles,...st.value}; }catch(e){}
+  S.sw=null; if(isAdmin()) try{ const {data:sw}=await sb.from("shared_settings").select("value").eq("key","score_weights").maybeSingle(); S.sw=sw?.value||null; }catch(e){}
   if(canFin()){ const {data:pr}=await sb.from("profiles").select("id,name,initial,role").order("name"); S.profiles=pr||[]; }
   const [tk,ta]=await Promise.all([tryAll("tasks", q=>q.order("created_at",{ascending:false})), tryAll("task_assignees")]);
   S.ktasks=Array.isArray(tk)?tk:[]; S.kassign=Array.isArray(ta)?ta:[];
@@ -1422,6 +1427,13 @@ function renderImport(){
   $("btnImport").onclick = doImport;
 }
 
+const pageLbl = p=>p.own ? "Planım" : p.k.split("-")[0].replace(/^./,c=>c.toLocaleUpperCase("tr"))+" planı";
+function addPageLinks(){
+  (S.myPages||[]).forEach(p=>{
+    $("nav").insertAdjacentHTML("beforeend", `<button onclick="location.href='/${p.k}/'"><span class="ic">🗓</span>${esc(pageLbl(p))}</button>`);
+    $("sideNav").insertAdjacentHTML("beforeend", `<a class="navbtn" href="/${p.k}/" style="text-decoration:none;border-style:dashed;border-color:var(--mut)"><span class="ic">🗓</span><span class="lbl">${esc(pageLbl(p))}</span></a>`);
+  });
+}
 function renderNav(){
   const tabs = [
     ["board","📊","Board"],["gun","📝","Günüm"],["puan","⭐","Puan"],["mesai","⏱","Mesai"],["gallery","🖼","Galeri"],["hooks","🪝","Hooklar"],["prod","🛠","Üretim"],["links","🔗","Linkler"],["team","👥","Ekip"],
@@ -1436,6 +1448,7 @@ function renderNav(){
     $("nav").insertAdjacentHTML("beforeend", `<button onclick="location.href='/operasyon/'"><span class="ic">🏭</span>Operasyon</button><button onclick="location.href='/yonetim/'"><span class="ic">📋</span>Yönetim</button>`);
     $("sideNav").insertAdjacentHTML("beforeend", `<a class="navbtn" href="/operasyon/" style="text-decoration:none;margin-top:10px;border-style:dashed;border-color:var(--mut)"><span class="ic">🏭</span><span class="lbl">Operasyon paneline geç</span></a><a class="navbtn" href="/yonetim/" style="text-decoration:none;border-style:dashed;border-color:var(--mut)"><span class="ic">📋</span><span class="lbl">Yönetim paneli</span></a>`);
   }
+  addPageLinks();
   document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab; renderAll();});
 }
 
@@ -1482,6 +1495,12 @@ const durTxt = m=> !m? "—" : m>=60? `${Math.floor(m/60)} sa${m%60? " "+(m%60)+
 const numOrNull = v=>{ const s=String(v??"").trim(); if(s==="") return null; const n=parseInt(s.replace(/[^\d-]/g,""),10); return isNaN(n)?null:n; };
 const sum = (arr,f)=>arr.reduce((a,x)=>a+(+(f?f(x):x)||0),0);
 const avg = arr=>arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : null;
+// Ortağın (Erdem) verdiği puan, kişinin aldığı ortalamayı %w etkiler: ekip ort. × (1−w) + ortak ort. × w.
+// Ayar shared_settings.score_weights'te ve yalnız yönetici (admin) okuyabilir; okunamazsa düz ortalama.
+const isWRaterK = r=>!!S.sw && (S.sw.kre||[]).includes(r);
+function recvAvgK(rows){ const v=rows.filter(s=>s.score!=null); if(!v.length) return null;
+  const p=v.filter(s=>isWRaterK(s.rater)).map(s=>s.score), o=v.filter(s=>!isWRaterK(s.rater)).map(s=>s.score);
+  if(!p.length||!o.length) return avg(v.map(s=>s.score)); const w=+S.sw.w||0; return avg(o)*(1-w)+avg(p)*w; }
 const nowIso = ()=>new Date().toISOString();
 const uid = ()=>"d"+Math.random().toString(36).slice(2,10);
 const inRange = (d,[a,b])=>d>=a && d<=b;
@@ -1731,15 +1750,15 @@ function gunSummary(day){
   const p=S.gunPeriod||"hafta";
   const range = p==="hafta" ? [monday(day), addDays(monday(day),6)] : p==="ay" ? [day.slice(0,8)+"01", monthEnd(day.slice(0,8)+"01")] : ["2000-01-01","2999-12-31"];
   const D=S.kdaily.filter(x=>inRange(x.day,range)); const SC=S.kscores.filter(x=>inRange(x.day,range)&&x.score!=null);
-  const row=k=>{ const r=D.filter(x=>x.initial===k); const ins=r.map(x=>mins(x.in_time)).filter(x=>x!=null); const recv=SC.filter(s=>s.ratee===k).map(s=>s.score);
-    return `<tr><td>${esc(OWNERS[k].name)}</td><td>${r.length}</td><td>${sum(r,x=>x.new_video)}</td><td>${sum(r,x=>x.new_image)}</td><td>${sum(r,x=>x.var_video)}</td><td>${sum(r,x=>x.var_image)}</td><td><b>${sum(r,prodOf)}</b></td><td>${hhmm(avg(ins))}</td><td class="${ins.filter(x=>x>LATE_MIN).length?"late":""}">${ins.filter(x=>x>LATE_MIN).length}</td><td>${otTxt(sum(r,x=>otCalc(x).min))}</td><td>${durTxt(sum(r,x=>x.leave_min))}</td><td><b>${recv.length?nf1.format(avg(recv)):"—"}</b> <small>(${recv.length})</small></td></tr>`; };
+  const row=k=>{ const r=D.filter(x=>x.initial===k); const ins=r.map(x=>mins(x.in_time)).filter(x=>x!=null); const recvR=SC.filter(s=>s.ratee===k), recv=recvR.map(s=>s.score);
+    return `<tr><td>${esc(OWNERS[k].name)}</td><td>${r.length}</td><td>${sum(r,x=>x.new_video)}</td><td>${sum(r,x=>x.new_image)}</td><td>${sum(r,x=>x.var_video)}</td><td>${sum(r,x=>x.var_image)}</td><td><b>${sum(r,prodOf)}</b></td><td>${hhmm(avg(ins))}</td><td class="${ins.filter(x=>x>LATE_MIN).length?"late":""}">${ins.filter(x=>x>LATE_MIN).length}</td><td>${otTxt(sum(r,x=>otCalc(x).min))}</td><td>${durTxt(sum(r,x=>x.leave_min))}</td><td><b>${recv.length?nf1.format(recvAvgK(recvR)):"—"}</b> <small>(${recv.length})</small></td></tr>`; };
   const d14=[]; for(let i=0;d14.length<14;i++){ const d=addDays(today(),-i); if(dow(d)!==0) d14.unshift(d); }
   const comments=S.kscores.filter(s=>inRange(s.day,range)&&s.comment).sort((a,b)=>b.day<a.day?-1:1).slice(0,25);
   const title = p==="hafta"?`${trDate(range[0])} – ${trDate(range[1])}`: p==="ay"?trMonth(range[0]):"Tüm zamanlar";
   return `<div class="sect" style="margin-top:26px"><h3>📈 Ekip özeti · ${esc(title)} <span class="pill">sadece yönetici/ortak</span></h3>
     <div class="filters">${[["hafta","Hafta"],["ay","Ay"],["tumu","Tümü"]].map(([k,l])=>`<button class="fchip ${p===k?"on":""}" data-gp="${k}">${l}</button>`).join("")}</div>
     <div class="tblwrap"><table class="compact"><tr><th>Kişi</th><th>Gün</th><th>Sıfır V</th><th>Sıfır G</th><th>Var V</th><th>Var G</th><th>Toplam</th><th>Ort. giriş</th><th>Geç</th><th>Mesai</th><th>İzin</th><th>Aldığı puan</th></tr>${KRE_INIS().map(row).join("")}</table></div>
-    <div class="note">Geç = 09:10'dan sonra giriş. Aldığı puan = ekip arkadaşlarının gizli puan ortalaması.</div>
+    <div class="note">Geç = 09:10'dan sonra giriş. Aldığı puan = ekip arkadaşlarının gizli puan ortalaması.${S.sw?` Ortağın verdiği puan %${Math.round((+S.sw.w||0)*100)} ağırlıkla katılır — bunu sadece sen görürsün.`:""}</div>
     <div class="card" style="margin-top:12px"><div class="flabel">Doldurma disiplini · son 14 iş günü</div><div class="disc" style="--n:${d14.length}"><div class="r"><div></div>${d14.map(d=>`<div class="h">${d.slice(8)}</div>`).join("")}</div>${KRE_INIS().map(k=>`<div class="r"><div>${esc(OWNERS[k].name)}</div>${d14.map(d=>`<div class="c ${kdOf(k,d)?"ok":(d===today()?"na":"")}"></div>`).join("")}</div>`).join("")}</div></div>
     ${comments.length?`<div class="card" style="margin-top:12px;padding:6px 14px">${comments.map(s=>`<div class="crow"><span class="pill">${trShort(s.day)}</span><b>${esc(s.rater)} → ${esc(OWNERS[s.ratee]?.name||s.ratee)}</b>${s.score!=null?`<span class="pill" style="background:${s.score>=9?"var(--green-s)":s.score>=7?"var(--mustard-s)":"var(--red-s)"}">${s.score}</span>`:""}<span class="ct">${esc(s.comment)}</span></div>`).join("")}</div>`:""}
   </div>`;
@@ -1924,9 +1943,14 @@ const FB = (()=>{
   const sc=v=>v==null?`<span class="fb-sc na">—</span>`:`<span class="fb-sc ${v<=LOW?"low":v>=9?"hi":""}">${v<=LOW?"▼ ":""}${nf1.format(v)}</span>`;
   const delta=(c,p)=>c==null||p==null?"":`<span class="fb-d"><i class="${Math.abs(c-p)<0.05?"eq":c>p?"up":"dn"}">${Math.abs(c-p)<0.05?"＝":c>p?"▲":"▼"}</i>${(c>=p?"+":"−")+nf1.format(Math.abs(c-p))}</span>`;
   const scores=xs=>xs.filter(x=>x.score!=null).map(x=>x.score);
+  // alınan ortalama: T.wr(rater) olan (ortak) puanlar T.wv oranında etkiler; ayar yoksa düz ortalama
+  const isWr=(T,r)=>!!(T&&T.wr&&T.wr(r));
+  function wavg(X,T){ const v=X.filter(x=>x.score!=null); if(!v.length) return null;
+    const p=v.filter(x=>isWr(T,x.rater)).map(x=>x.score), o=v.filter(x=>!isWr(T,x.rater)).map(x=>x.score);
+    if(!p.length||!o.length) return avg(v.map(x=>x.score)); return avg(o)*(1-T.wv)+avg(p)*T.wv; }
   // bir kişi için ortak tanı
-  function diagnose(X, stopNames){
-    const v=scores(X); const res={avg:avg(v), n:v.length, min:v.length?Math.min(...v):null, max:v.length?Math.max(...v):null, flags:[], good:[]};
+  function diagnose(X, stopNames, T){
+    const v=scores(X); const res={avg:wavg(X,T), n:v.length, min:v.length?Math.min(...v):null, max:v.length?Math.max(...v):null, flags:[], good:[]};
     // puan uzlaşısı / aykırı veren
     const byR={}; X.forEach(x=>{ if(x.score!=null) (byR[x.rn] ||= []).push(x.score); });
     const rs=Object.entries(byR).map(([r,a])=>({r, a:avg(a), n:a.length}));
@@ -1959,7 +1983,7 @@ const FB = (()=>{
     if(st.who && !people.find(p=>p[0]===st.who)) st.who="";
     const stopNames=new Set(all.flatMap(x=>[x.rn,x.en]).flatMap(n=>norm(n).split(/\s+/)).filter(Boolean));
     const cards=people.map(([id,name])=>{ const X=R.filter(x=>x.ratee===id); if(!X.length) return null;
-      const d=diagnose(X, stopNames); d.prev=avg(scores(P.filter(x=>x.ratee===id))); return {id,name,X,d}; }).filter(Boolean)
+      const d=diagnose(X, stopNames, T); d.prev=wavg(P.filter(x=>x.ratee===id),T); return {id,name,X,d}; }).filter(Boolean)
       .filter(c=>!st.who||c.id===st.who)
       .sort((x,y)=>(y.d.flags.length-x.d.flags.length)||((x.d.avg??99)-(y.d.avg??99)));
     const tA=avg(scores(R)), tP=avg(scores(P));
@@ -2005,7 +2029,7 @@ const FB = (()=>{
         </div>`; }).join("")}</div>`:`<div class="empty">Bu dönemde puan yok. Dönemi “Ay” yap ya da ‹ ile geri git.</div>`}
       <h3 class="fb-sect">🧮 Kim kime · dönem ortalaması</h3>
       ${raters.length?`<div class="tblwrap"><table class="compact fb-mx"><tr><th>Veren ↓ · Alan →</th>${ratees.map(([,n])=>`<th>${esc(n)}</th>`).join("")}</tr>
-        ${raters.map(([r,rn])=>`<tr><td><b>${esc(rn)}</b></td>${ratees.map(([e])=>`<td>${cell(r,e)}</td>`).join("")}</tr>`).join("")}</table></div><div class="mini">▼ = ${LOW} ve altı.</div>`:`<div class="empty">Puan yok</div>`}
+        ${raters.map(([r,rn])=>`<tr><td><b>${esc(rn)}</b>${isWr(T,r)?` <span class="fb-wt" title="Verdiği puan alınan ortalamayı %${Math.round(T.wv*100)} etkiler · bunu sadece sen görürsün">%${Math.round(T.wv*100)} etki</span>`:""}</td>${ratees.map(([e])=>`<td>${cell(r,e)}</td>`).join("")}</tr>`).join("")}</table></div><div class="mini">▼ = ${LOW} ve altı.${raters.some(([r])=>isWr(T,r))?` Kişi kartlarındaki ortalamada ortağın puanı %${Math.round(T.wv*100)} ağırlıkla sayılır — bunu sadece sen görürsün.`:""}</div>`:`<div class="empty">Puan yok</div>`}
       <h3 class="fb-sect">💬 Yazılanlar${st.who?` · ${esc(people.find(p=>p[0]===st.who)?.[1]||"")} (hakkında + yazdıkları)`:""}</h3>
       <div class="fb-search"><input type="search" data-fbq placeholder="Yazılanlarda ara: kelime ya da isim" value="${esc(st.q||"")}">${st.q?`<span class="mini">${feed.length} kayıt bulundu</span>`:`<span class="mini">Günlere tıklayınca açılır · en üstteki gün açık</span>`}</div>
       ${Object.keys(byDay).length?Object.entries(byDay).map(([d,xs],di)=>{
@@ -2044,7 +2068,7 @@ function renderGeri(){
   const el=$("tabGeri"); if(!el) return;
   if(!isAdmin()){ el.innerHTML=""; return; }
   const nm=k=>OWNERS[k]?.name||k;
-  FB.render(el,{teams:[{k:"k", l:"🎬 Kreatif", rows:()=>(S.kscores||[]).map(s=>({id:s.id, day:s.day, rater:s.rater, ratee:s.ratee, rn:nm(s.rater), en:nm(s.ratee), score:s.score, comment:s.comment||""})),
+  FB.render(el,{teams:[{k:"k", l:"🎬 Kreatif", wr:isWRaterK, wv:+S.sw?.w||0, rows:()=>(S.kscores||[]).map(s=>({id:s.id, day:s.day, rater:s.rater, ratee:s.ratee, rn:nm(s.rater), en:nm(s.ratee), score:s.score, comment:s.comment||""})),
     del:async ids=>{ if(!DEMO){ const {error}=await sb.from("kre_scores").delete().in("id",ids); if(error) throw error; } S.kscores=S.kscores.filter(x=>!ids.includes(x.id)); }}]});
 }
 function renderPuan(){
