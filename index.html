@@ -3,8 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="refresh" content="0; url=/yonetim/">
-<title>Remaks · Yönlendiriliyor</title>
+<noscript><meta http-equiv="refresh" content="0; url=/yonetim/"></noscript>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Remaks">
+<meta name="theme-color" content="#F4F2EC">
+<title>Remaks</title>
 <link rel="canonical" href="https://remakspazarlama.com/yonetim/">
 <style>
   body{margin:0;min-height:100dvh;display:grid;place-items:center;background:#F4F2EC;color:#121212;
@@ -20,11 +27,16 @@
 </head>
 <body>
   <div class="box">
-    <h1>Panel taşındı</h1>
-    <p>Görev paneli artık <b>remakspazarlama.com/yonetim</b> adresinde.</p>
+    <h1>Remaks açılıyor…</h1>
+    <p>Açılmazsa aşağıdan paneline geç.</p>
     <a href="/yonetim/">Yönetim paneline git</a>
-    <div class="links"><a href="/kreatif/">Kreatif paneli</a> · <a href="/operasyon/">Operasyon paneli</a></div>
+    <div class="links"><a href="/kreatif/">Kreatif</a> · <a href="/operasyon/">Operasyon</a> · <a href="/reklam/">Reklam</a></div>
   </div>
-  <script>location.replace("/yonetim/");</script>
+  <script>
+  // Remaks uygulaması: en son kullanılan panele git (yoksa yönetim)
+  var go = "/yonetim/";
+  try { var l = localStorage.getItem("remaks_last"); if (/^\/(yonetim|operasyon|kreatif|reklam|erdem-kus)\/$/.test(l || "")) go = l; } catch (e) {}
+  location.replace(go);
+</script>
 </body>
 </html>
