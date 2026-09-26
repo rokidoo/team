@@ -556,7 +556,7 @@ async function fetchAll(table, build){
 }
 async function loadAll(){
   if(DEMO) return;
-  const since=addDays(trToday(),-120);
+  const since=addDays(trToday(),-365);   // yapılmayan işler haftadan haftaya taşındığı için 1 yıl
   const [b,l]=await Promise.all([
     fetchAll("pv_blocks", q=>q.eq("owner_id",S.owner).gte("day",since).order("day").order("start_time")),
     fetchAll("pv_log",    q=>q.eq("owner_id",S.owner).gte("day",since).order("day",{ascending:false})),
@@ -612,13 +612,20 @@ function renderGun(){
     const inH=B.filter(b=>Math.floor((mins(b.start_time)??-1)/60)===h);
     rows+=`<div class="hr ${h===nowH?"now":""}"><div class="hl">${pad(h)}:00</div><div class="hc">${inH.map(blockHtml).join("")}${canEdit()?`<button class="add" data-add="${pad(h)}:00">+ ${pad(h)}:00'a ekle</button>`:""}</div></div>`;
   }
-  // haftalık kutu: bu haftanın planları · yapılmayan = bugüne kadarki günlerde tiklenmemiş olanlar
-  const wm=monday(day), we=addDays(wm,6), tdy=trToday();
-  const WB=S.blocks.filter(b=>b.day>=wm&&b.day<=we).sort((a,b)=>a.day<b.day?-1:a.day>b.day?1:(mins(a.start_time)??0)-(mins(b.start_time)??0));
-  const wDone=WB.filter(b=>b.done), wLeft=WB.filter(b=>!b.done&&b.day<=tdy), wNext=WB.filter(b=>!b.done&&b.day>tdy).length;
+  // haftalık kutu · Yapılanlar: bu hafta tiklenenler (tik tarihi bu hafta; eski haftadan kalıp bu hafta bitenler dahil)
+  // Yapılmayanlar: bu haftaya kadar tiklenmemiş HER iş — önceki haftalardan kalanlar tiklenene kadar her haftaya taşınır
+  const wm=monday(day), we=addDays(wm,6), tdy=trToday(), upTo=we<tdy?we:tdy;
+  const byTime=(a,b)=>a.day<b.day?-1:a.day>b.day?1:(mins(a.start_time)??0)-(mins(b.start_time)??0);
+  const doneDay=b=>b.done_at?new Date(b.done_at).toLocaleDateString("sv-SE",{timeZone:"Europe/Istanbul"}):b.day;
+  const wDone=S.blocks.filter(b=>b.done&&doneDay(b)>=wm&&doneDay(b)<=we).sort(byTime);
+  const wLeft=S.blocks.filter(b=>!b.done&&b.day<=upTo).sort(byTime);
+  const wCarry=wLeft.filter(b=>b.day<wm).length;
+  const wNext=S.blocks.filter(b=>!b.done&&b.day>tdy&&b.day<=we).length;
+  const WB=S.blocks.filter(b=>b.day>=wm&&b.day<=we);
   const wdl=d=>new Date(d+"T00:00:00").toLocaleDateString("tr-TR",{weekday:"short",day:"numeric"});
-  const wi=b=>`<div class="wi ${b.done?"ok":b.day<tdy?"late":""}"><span class="bx" data-done="${b.id}" title="${b.done?"Geri al":"Yapıldı"}">${b.done?"✓":""}</span><span class="wt">${esc(b.title)}</span><span class="wd">${b.day===tdy?"bugün":esc(wdl(b.day))}</span></div>`;
-  const wkBox=`<div class="card wkbox"><div class="wkh"><b>📊 Bu hafta · ${esc(trShort(wm))} – ${esc(trShort(we))}</b><span>✅ ${wDone.length} yapıldı · ⏳ ${wLeft.length} yapılmadı${wNext?` · ${wNext} ileride`:""}</span></div>
+  const wlbl=b=>b.day===tdy?"bugün":b.day<wm?`${trShort(b.day)} · önceki hafta`:wdl(b.day);
+  const wi=b=>`<div class="wi ${b.done?"ok":b.day<tdy?"late":""}"><span class="bx" data-done="${b.id}" title="${b.done?"Geri al":"Yapıldı"}">${b.done?"✓":""}</span><span class="wt">${esc(b.title)}</span><span class="wd">${esc(wlbl(b))}</span></div>`;
+  const wkBox=`<div class="card wkbox"><div class="wkh"><b>📊 ${wm===monday(tdy)?"Bu hafta":"Hafta"} · ${esc(trShort(wm))} – ${esc(trShort(we))}</b><span>✅ ${wDone.length} yapıldı · ⏳ ${wLeft.length} yapılmadı${wCarry?` (${wCarry} önceki haftalardan)`:""}${wNext?` · ${wNext} ileride`:""}</span></div>
     <div class="wkcols"><div><div class="flabel">✅ Yapılanlar</div>${wDone.map(wi).join("")||`<div class="note" style="margin:0">Henüz yok</div>`}</div>
     <div><div class="flabel">⏳ Yapılmayanlar</div>${wLeft.map(wi).join("")||`<div class="note" style="margin:0">${WB.length?"Hepsi tamam 🎉":"Bu hafta plan yok"}</div>`}</div></div></div>`;
   const dur=(mins(log.out_time)!=null&&mins(log.in_time)!=null&&mins(log.out_time)>mins(log.in_time))?mins(log.out_time)-mins(log.in_time):null;
@@ -879,6 +886,8 @@ async function boot(){
     S.blocks=[{id:"b1",owner_id:"u_erdem",day:t,start_time:"09:30",end_time:"10:30",title:"Haftalık reklam toplantısı",note:"",done:true,created_by:"u_erdem"},
               {id:"b2",owner_id:"u_erdem",day:t,start_time:"14:00",end_time:"15:00",title:"Tedarikçi görüşmesi",note:"Kids macun ambalaj teklifi",done:false,created_by:"u_admin",created_by_name:"Yasin"}];
     S.blocks.push({id:"b3",owner_id:"u_erdem",day:addDays(t,-1),start_time:"11:00",end_time:"12:00",title:"Kargo firmasıyla fiyat görüşmesi",done:false,created_by:"u_erdem"},
+                  {id:"b5",owner_id:"u_erdem",day:addDays(t,-9),start_time:"10:00",end_time:"11:00",title:"Ambalaj tedarikçisine dön",done:false,created_by:"u_erdem"},
+                  {id:"b6",owner_id:"u_erdem",day:addDays(t,-10),start_time:"10:00",end_time:"11:00",title:"Geçen haftadan bitti",done:true,done_at:new Date(Date.now()-864e5*10).toISOString(),created_by:"u_erdem"},
                   {id:"b4",owner_id:"u_erdem",day:addDays(t,-1),start_time:"15:00",end_time:"16:00",title:"Stok raporuna bak",done:true,created_by:"u_erdem"});
     S.logs=[]; S.tasks=[{id:"t1",title:"Ekim bütçe planını çıkar",descr:"",due:addDays(t,2)}];
     if(/erdem/.test(location.search)){ S.me={id:"u_erdem"}; S.profile={name:"Erdem Kuş",role:"partner"}; S.isAdmin=false; }
