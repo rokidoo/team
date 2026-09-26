@@ -516,6 +516,56 @@ html,body{overflow-x:clip}
 }
 </style>
 <!--/MOB-->
+<!--DOCS-->
+<style id="docsCss">
+/* ===== Dokümanlar (DM analizi, SSS) ===== */
+.docbar{background:var(--mustard-s);border:var(--b2);border-radius:14px;padding:12px 14px;margin:0 0 16px;font-size:.86rem;line-height:1.45;box-shadow:var(--sh-sm)}
+.docbar-b{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.docbar-b button{border:var(--b2);border-radius:10px;background:var(--card);padding:8px 12px;font-weight:800;font-family:var(--fb);cursor:pointer;font-size:.82rem}
+.docnote{background:var(--mustard-s);border:1.5px solid var(--ink);border-radius:12px;padding:9px 12px;font-size:.82rem;font-weight:700;margin:0 0 12px}
+.doctools{position:sticky;top:64px;z-index:5;background:var(--cream);padding:6px 0 10px;display:flex;gap:10px;align-items:center}
+.doctools input{margin:0;flex:1}
+.doctoc{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
+.doctoc::-webkit-scrollbar{display:none}
+.doctoc button{flex-shrink:0;border:var(--b2);border-radius:99px;background:var(--card);padding:7px 12px;font-weight:800;font-size:.76rem;font-family:var(--fb);cursor:pointer;white-space:nowrap}
+.docv{background:var(--card);border:var(--b);border-radius:var(--r-lg);padding:18px 20px;box-shadow:var(--sh-sm);font-size:.92rem;line-height:1.6;overflow-wrap:anywhere}
+.docv section{scroll-margin-top:80px;margin:0 0 26px;padding-bottom:10px;border-bottom:3px solid var(--ink)}
+.docv section:last-child{border-bottom:none}
+.docv .sh{margin-bottom:10px}.docv .sh .tag{display:inline-block;background:var(--ink);color:var(--card);border-radius:8px;padding:1px 9px;font-weight:800;font-size:.8rem}
+.docv .subt{color:var(--mut);font-weight:600;font-size:.8rem;margin:2px 0 0}
+.docv h1{font-size:1.35rem;margin:8px 0 8px;line-height:1.25}
+.docv h2{font-size:1.12rem;margin:22px 0 8px;padding-top:8px;border-top:2px solid var(--ink)}
+.docv h3{font-size:1rem;margin:18px 0 6px}
+.docv h4{font-size:.92rem;margin:14px 0 6px}
+.docv p{margin:6px 0}
+.docv ul,.docv ol{padding-left:22px;margin:6px 0}
+.docv li{margin:3px 0}
+.docv hr{border:none;border-top:2px dashed var(--cream2);margin:18px 0}
+.docv a{color:var(--cobalt);font-weight:700}
+.docv code{background:var(--cream2);border-radius:5px;padding:1px 5px;font-size:.85em;font-family:var(--fm)}
+.docv pre{background:#1d1d1b;color:#f4f2ec;border-radius:12px;padding:12px 14px;white-space:pre-wrap;position:relative;font-size:.82rem}
+.docv pre code{background:none;color:inherit}
+.docv blockquote{position:relative;margin:8px 0;padding:10px 84px 10px 14px;background:var(--mustard-s);border-left:5px solid var(--mustard);border-radius:0 12px 12px 0}
+.docv blockquote p{margin:3px 0}
+.docv .doctw{overflow-x:auto;margin:8px 0 14px;-webkit-overflow-scrolling:touch}
+.docv table{border-collapse:collapse;min-width:100%;font-size:.8rem}
+.docv th,.docv td{border:1.5px solid var(--ink);padding:6px 8px;text-align:left;vertical-align:top}
+.docv th{background:var(--mustard-s);text-transform:none;letter-spacing:0;font-size:.78rem}
+.docv .k{display:inline-block;font:700 .72rem/1.5 var(--fm);background:var(--cobalt-s);color:var(--cobalt);border:1.5px solid var(--cobalt);border-radius:6px;padding:0 5px;white-space:nowrap}
+.docv .docq{border-bottom:1.5px dashed var(--cream2);padding-bottom:6px}
+.docv .hid{display:none!important}
+.doccp{position:absolute;top:6px;right:6px;border:1.5px solid var(--ink);background:var(--card);color:var(--ink);border-radius:8px;font:800 .72rem var(--fb);padding:4px 9px;cursor:pointer}
+.docread{margin:16px 0;border:var(--b);border-radius:var(--r-lg);background:var(--card);padding:14px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:.88rem;box-shadow:var(--sh-sm)}
+.docread .btn{width:auto;margin:0}
+.docread.ok{background:var(--green-s);font-weight:700}
+.docadm,.docrd{margin-top:14px}
+.docppl{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.docppl span{border:1.5px solid var(--ink);border-radius:99px;padding:3px 10px;font-size:.76rem;font-weight:700;background:var(--card)}
+.docppl .ok{background:var(--green-s)}.docppl .no{background:var(--red-s)}
+.docppl small{color:var(--mut);font-weight:600}
+@media (max-width:959px){ .docv{padding:14px 12px;font-size:.9rem} .doctools{top:56px} .docv blockquote{padding-right:14px;padding-bottom:40px} .doccp{top:auto;bottom:6px} }
+</style>
+<!--/DOCS-->
 </head>
 <body>
 
@@ -602,6 +652,7 @@ html,body{overflow-x:clip}
     <div id="tabTeam" class="hidden"></div>
     <div id="tabFinance" class="hidden"></div>
     <div id="tabImport" class="hidden"></div>
+    <div id="tabAnaliz" class="hidden"></div>
   </main>
 
   <nav class="bottom" id="nav"></nav>
@@ -1530,7 +1581,7 @@ function addPageLinks(){
 }
 function renderNav(){
   const tabs = [
-    ["board","📊","Board"],["gun","📝","Günüm"],["puan","⭐","Puan"],["mesai","⏱","Mesai"],["gallery","🖼","Galeri"],["hooks","🪝","Hooklar"],["prod","🛠","Üretim"],["links","🔗","Linkler"],["team","👥","Ekip"],
+    ["board","📊","Board"],["gun","📝","Günüm"],["puan","⭐","Puan"],["mesai","⏱","Mesai"],["gallery","🖼","Galeri"],["hooks","🪝","Hooklar"],["prod","🛠","Üretim"],["links","🔗","Linkler"],["team","👥","Ekip"],["analiz","📊","DM Analizi"],
   ];
   if(canFin()) tabs.push(["finance","💰","Finans"]);
   if(isAdmin()) tabs.push(["geri","💬","Geri bildirim"],["import","📥","Aktar"]);
@@ -1552,14 +1603,175 @@ function renderWeeks(){
     : `<option>Hafta yok</option>`;
 }
 
+const docKeys = ()=> ["dm-analiz"];
+const docRoles = ()=> ["creative"];
+/*DOCS*/
+/* ================= DOKÜMANLAR: Instagram DM analizi + ekip SSS =================
+   İçerik Supabase'de (docs tablosu), GitHub'da değil. Herkes bir kez "Okudum" der (doc_reads);
+   okunmamış sürüm varsa panelin üstünde uyarı çıkar. Yükleme ve okuma durumu yalnız yönetici/ortak. */
+const DOC_INFO = {
+  "dm-analiz": {tab:"analiz", title:"Instagram DM Analizi", ic:"📊"},
+  "dm-sss":    {tab:"sss",    title:"Instagram DM · Ekip SSS ve hazır cevaplar", ic:"📘"},
+};
+const DOCS = {meta:{}, body:{}, reads:{}, loaded:false, loading:null, readers:{}, q:""};
+const docMe = ()=> (REAL ? REAL.profile : S.profile) || {};
+const docRealAdmin = ()=> docMe().role==="admin";
+const docMgr = ()=> ["admin","partner"].includes(docMe().role);
+const docFmt = t=>{ try{ return new Date(t).toLocaleString("tr-TR",{day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"}); }catch(e){ return ""; } };
+const docNorm = s=>String(s||"").toLocaleLowerCase("tr").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/ı/g,"i");
+
+async function docsLoad(force){
+  if(DOCS.loaded && !force) return;
+  if(DOCS.loading && !force) return DOCS.loading;
+  DOCS.loading = (async ()=>{
+    try{
+      if(DEMO){
+        for(const k of docKeys()){ try{ const r=await fetch(`./_docs/${k}.html`); if(r.ok){ DOCS.body[k]=await r.text(); DOCS.meta[k]={key:k,title:DOC_INFO[k].title,version:1,updated_at:new Date().toISOString(),updated_by_name:"Demo"}; } }catch(e){} }
+      } else {
+        const {data,error} = await sb.from("docs").select("key,title,version,updated_at,updated_by_name").in("key",docKeys());
+        if(error) throw error;
+        DOCS.meta={}; (data||[]).forEach(d=>DOCS.meta[d.key]=d);
+        const me=docMe();
+        if(me.id){ const {data:rd} = await sb.from("doc_reads").select("doc_key,version,read_at").eq("user_id",me.id).in("doc_key",docKeys()); DOCS.reads={}; (rd||[]).forEach(r=>DOCS.reads[r.doc_key]=r); }
+      }
+    }catch(e){ console.warn("docs", e); }
+    DOCS.loaded=true; DOCS.loading=null;
+  })();
+  return DOCS.loading;
+}
+async function docBody(k){
+  if(DOCS.body[k]!=null) return DOCS.body[k];
+  if(DEMO) return "";
+  const {data,error} = await sb.from("docs").select("body,version").eq("key",k).maybeSingle();
+  if(error) throw error;
+  DOCS.body[k] = data?.body || "";
+  return DOCS.body[k];
+}
+const docUnread = k=> DOCS.meta[k] && !(DOCS.reads[k] && DOCS.reads[k].version >= DOCS.meta[k].version);
+
+// üstte uyarı: okunmamış doküman varsa
+function docBanner(){
+  if(!DOCS.loaded){ docsLoad().then(docBanner); return; }
+  const main=document.querySelector("main"); if(!main) return;
+  let b=document.getElementById("docBanner");
+  if(!b){ b=document.createElement("div"); b.id="docBanner"; main.prepend(b); }
+  const pend = docKeys().filter(docUnread).filter(k=>DOC_INFO[k].tab!==S.tab);
+  b.innerHTML = pend.length ? `<div class="docbar"><b>📣 Okuman gereken ${pend.length>1?"dokümanlar":"doküman"} var.</b> Herkesin bir kez okuyup en alttaki <b>“Okudum”</b> butonuna basması gerekiyor.<div class="docbar-b">${pend.map(k=>`<button data-docgo="${k}">${DOC_INFO[k].ic} ${esc(DOC_INFO[k].title)} →</button>`).join("")}</div></div>` : "";
+  b.querySelectorAll("[data-docgo]").forEach(x=>x.onclick=()=>{ S.tab=DOC_INFO[x.dataset.docgo].tab; renderAll(); window.scrollTo(0,0); });
+}
+
+async function renderDoc(k, el){
+  if(!el) return;
+  if(!DOCS.loaded){ el.innerHTML=`<div class="empty">Yükleniyor…</div>`; await docsLoad(); }
+  const m=DOCS.meta[k], info=DOC_INFO[k];
+  const head = `<h2>${info.ic} ${esc(m?.title||info.title)}</h2>`;
+  if(!m){ el.innerHTML = head + `<div class="empty">Bu doküman henüz yüklenmedi.${docRealAdmin()?"<br><small>Aşağıdan yükleyebilirsin.</small>":""}</div>` + docAdminBox(k); docBindAdmin(k, el); return; }
+  const sub = `<div class="sub">Son güncelleme: ${esc(docFmt(m.updated_at))}${m.updated_by_name?" · "+esc(m.updated_by_name):""} · sürüm ${m.version}</div>`;
+  if(DOCS.body[k]==null){ el.innerHTML = head + sub + `<div class="empty">Yükleniyor…</div>`; try{ await docBody(k); }catch(e){ el.innerHTML = head + `<div class="empty">Yüklenemedi: ${esc(e.message||e)}</div>`; return; } if(S.tab!==info.tab) return; }
+  const isSss = k==="dm-sss";
+  const tools = isSss
+    ? `<div class="doctools"><input id="docQ" type="search" placeholder="Soru ara: fiyat, kargo, 3 yaş, jelatin…" value="${esc(DOCS.q)}"><span class="mini" id="docQn"></span></div>`
+    : `<div class="doctoc" id="docToc"></div>`;
+  const r=DOCS.reads[k], done = r && r.version>=m.version;
+  const readBox = `<div class="docread ${done?"ok":""}" id="docRead">${done
+      ? `✓ Bu sürümü <b>${esc(docFmt(r.read_at))}</b> tarihinde okudun.`
+      : `<div><b>Sonuna geldin mi?</b> Okuyup anladıysan işaretle; yöneticin kimin okuduğunu görüyor.</div><button class="btn" id="docReadBtn">✅ Okudum, anladım</button>`}</div>`;
+  el.innerHTML = head + sub + (docUnread(k)?`<div class="docnote">Bu dokümanı herkesin bir kez okuması gerekiyor. En altta “Okudum” butonu var.</div>`:"") + tools
+    + `<div class="docv${isSss?" sss":""}" id="docBody">${DOCS.body[k]}</div>` + readBox + docAdminBox(k) + docReadersBox(k);
+  const body=el.querySelector("#docBody");
+  // kopyala butonları (hazır cevaplar)
+  body.querySelectorAll("blockquote, pre").forEach(bq=>{
+    const c=document.createElement("button"); c.className="doccp"; c.type="button"; c.textContent="Kopyala";
+    c.onclick=async ()=>{ const t=bq.innerText.replace(/Kopyala(ndı ✓)?\s*$/,"").trim();
+      try{ await navigator.clipboard.writeText(t); }catch(e){ const ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
+      c.textContent="Kopyalandı ✓"; setTimeout(()=>c.textContent="Kopyala",1500); };
+    bq.appendChild(c);
+  });
+  // tablo kaydırma sarmalayıcı
+  body.querySelectorAll("table").forEach(t=>{ if(!t.parentElement.classList.contains("doctw")){ const w=document.createElement("div"); w.className="doctw"; t.replaceWith(w); w.appendChild(t); } });
+  // sayfa içi bağlantılar
+  body.querySelectorAll('a[href^="#"]').forEach(a=>a.onclick=e=>{ e.preventDefault(); const id=a.getAttribute("href").slice(1); const t=body.querySelector("#"+CSS.escape(id))||body.querySelector("#dm-"+CSS.escape(id)); if(t) t.scrollIntoView({behavior:"smooth",block:"start"}); });
+  body.querySelectorAll('a[href^="http"]').forEach(a=>{ a.target="_blank"; a.rel="noopener"; });
+  if(isSss){
+    // her soru (h3) ve altındakiler bir blok; arama bu bloklarda
+    const kids=[...body.children]; let cur=null;
+    kids.forEach(n=>{ if(n.tagName==="H3"){ cur=document.createElement("div"); cur.className="docq"; n.before(cur); } else if(n.tagName==="H2"||n.tagName==="H1"||n.tagName==="HR"){ cur=null; } if(cur) cur.appendChild(n); });
+    const inp=el.querySelector("#docQ"), qn=el.querySelector("#docQn");
+    const run=()=>{ DOCS.q=inp.value; const q=docNorm(inp.value.trim()); let n=0;
+      body.querySelectorAll(".docq").forEach(b=>{ const hit=!q||docNorm(b.textContent).includes(q); b.classList.toggle("hid",!hit); if(hit) n++; });
+      body.querySelectorAll(":scope > *:not(.docq)").forEach(x=>x.classList.toggle("hid",!!q));
+      qn.textContent = q ? `${n} soru` : ""; };
+    inp.oninput=run; if(DOCS.q) run();
+  } else {
+    const toc=el.querySelector("#docToc");
+    const hs=[...body.querySelectorAll("section[id]")].map(s=>[s.id, (s.querySelector(".sh h1")||s.querySelector("h1,h2"))?.textContent||s.id]);
+    toc.innerHTML = hs.map(([id,t],i)=>`<button data-docto="${esc(id)}">${i===0?"Özet":esc(t.replace(/\s+/g," ").slice(0,40))}</button>`).join("");
+    toc.querySelectorAll("[data-docto]").forEach(b=>b.onclick=()=>body.querySelector("#"+CSS.escape(b.dataset.docto))?.scrollIntoView({behavior:"smooth",block:"start"}));
+  }
+  const rb=el.querySelector("#docReadBtn");
+  if(rb) rb.onclick=async ()=>{
+    const me=docMe(); rb.disabled=true;
+    const row={doc_key:k, user_id:me.id, version:m.version, name:me.name||"", read_at:new Date().toISOString()};
+    try{ if(!DEMO){ const {error}=await sb.from("doc_reads").upsert(row,{onConflict:"doc_key,user_id"}); if(error) throw error; }
+      DOCS.reads[k]=row; toast("Teşekkürler, okundu olarak işaretlendi ✓"); renderDoc(k, el); docBanner(); }
+    catch(e){ rb.disabled=false; toast("Kaydedilemedi: "+(e.message||e)); }
+  };
+  docBindAdmin(k, el);
+  docLoadReaders(k, el);
+}
+
+function docAdminBox(k){
+  if(!docRealAdmin()) return "";
+  return `<div class="card docadm"><h4>⚙️ Yönetici: içeriği yükle / güncelle</h4>
+    <div class="mini">Bilgisayardaki <b>uzbionik-dm-analiz/panel-yukleme/${k}.html</b> dosyasını seç. Yükleyince sürüm artar ve herkesten yeniden “Okudum” istenir.</div>
+    <input type="file" id="docFile" accept=".html,.htm,text/html" style="margin:8px 0 0">
+    <button class="btn" id="docUp" style="margin-top:8px">Yükle</button></div>`;
+}
+function docBindAdmin(k, el){
+  const up=el.querySelector("#docUp"); if(!up) return;
+  up.onclick=async ()=>{
+    const f=el.querySelector("#docFile").files[0]; if(!f){ toast("Önce dosya seç."); return; }
+    let t=await f.text(); const bm=t.match(/<body[^>]*>([\s\S]*)<\/body>/i); if(bm) t=bm[1];
+    if(t.length<200){ toast("Dosya boş görünüyor."); return; }
+    const old=DOCS.meta[k];
+    const row={key:k, title:DOC_INFO[k].title, body:t, version:(old?.version||0)+1, updated_at:new Date().toISOString(), updated_by_name:docMe().name||"Yönetici"};
+    up.disabled=true; up.textContent="Yükleniyor…";
+    try{ if(!DEMO){ const {error}=await sb.from("docs").upsert(row,{onConflict:"key"}); if(error) throw error; }
+      DOCS.meta[k]={key:k,title:row.title,version:row.version,updated_at:row.updated_at,updated_by_name:row.updated_by_name}; DOCS.body[k]=t;
+      toast(`Yüklendi ✓ (sürüm ${row.version})`); renderDoc(k, el); docBanner(); }
+    catch(e){ up.disabled=false; up.textContent="Yükle"; toast("Yüklenemedi: "+(e.message||e)); }
+  };
+}
+function docReadersBox(k){ return docMgr() && DOCS.meta[k] ? `<div class="card docrd" id="docReaders"><h4>👀 Kimler okudu?</h4><div class="mini">Yükleniyor…</div></div>` : ""; }
+async function docLoadReaders(k, el){
+  const box=el.querySelector("#docReaders"); if(!box) return;
+  const m=DOCS.meta[k];
+  try{
+    let reads=[], people=[];
+    if(DEMO){ reads=Object.values(DOCS.reads).filter(r=>r.doc_key===k); people=[]; }
+    else{
+      const {data:rd}=await sb.from("doc_reads").select("user_id,version,name,read_at").eq("doc_key",k); reads=rd||[];
+      const {data:pp}=await sb.from("profiles").select("id,name,role,is_active,is_approved"); people=(pp||[]).filter(p=>docRoles().includes(p.role) && p.is_active!==false && p.is_approved!==false);
+    }
+    const cur=reads.filter(r=>r.version>=m.version), curIds=new Set(cur.map(r=>r.user_id));
+    const not=people.filter(p=>!curIds.has(p.id));
+    const old=reads.filter(r=>r.version<m.version);
+    box.innerHTML = `<h4>👀 Kimler okudu? <span class="pill">${cur.length} okudu${people.length?` · ${not.length} okumadı`:""}</span></h4>
+      ${cur.length?`<div class="docppl">${cur.sort((a,b)=>a.read_at<b.read_at?1:-1).map(r=>`<span class="ok">✓ ${esc(r.name||"?")} <small>${esc(docFmt(r.read_at))}</small></span>`).join("")}</div>`:`<div class="mini">Henüz kimse okumadı.</div>`}
+      ${not.length?`<div class="flabel" style="margin-top:10px">Henüz okumayanlar</div><div class="docppl">${not.map(p=>`<span class="no">⏳ ${esc(p.name||"?")}${old.some(o=>o.user_id===p.id)?" <small>(eski sürümü okudu)</small>":""}</span>`).join("")}</div>`:""}`;
+  }catch(e){ box.innerHTML=`<h4>👀 Kimler okudu?</h4><div class="mini">Okuma listesi alınamadı: ${esc(e.message||e)}</div>`; }
+}
+/*/DOCS*/
 function renderAll(){
   renderNav(); renderWeeks();
-  ["Board","Gun","Puan","Mesai","Geri","Gallery","Hooks","Prod","Links","Team","Finance","Import"].forEach(t=>$("tab"+t).classList.add("hidden"));
-  const map={board:"Board",gun:"Gun",puan:"Puan",mesai:"Mesai",geri:"Geri",gallery:"Gallery",hooks:"Hooks",prod:"Prod",links:"Links",team:"Team",finance:"Finance",import:"Import"};
+  ["Board","Gun","Puan","Mesai","Geri","Gallery","Hooks","Prod","Links","Team","Finance","Import","Analiz"].forEach(t=>$("tab"+t).classList.add("hidden"));
+  const map={board:"Board",gun:"Gun",puan:"Puan",mesai:"Mesai",geri:"Geri",gallery:"Gallery",hooks:"Hooks",prod:"Prod",links:"Links",team:"Team",finance:"Finance",import:"Import",analiz:"Analiz"};
   if((S.tab==="finance"&&!canFin())||((S.tab==="import"||S.tab==="geri")&&!isAdmin())) S.tab="board";
   $("tab"+map[S.tab]).classList.remove("hidden");
   document.querySelector("main").classList.toggle("wide", S.tab==="prod");
   renderBoard(); renderGun(); renderPuan(); renderMesai(); renderGeri(); renderGallery(); renderHooks(); renderProd(); renderLinks(); renderTeam(); renderFinance(); renderImport();
+  if(S.tab==="analiz") renderDoc("dm-analiz",$("tabAnaliz"));
+  docBanner();
   const ini = (S.profile?.initial || S.profile?.name?.[0] || "?").toUpperCase();
   $("avatar").textContent = ini; $("avatarSide").textContent = ini;
   $("userName").textContent = S.profile?.name || "";
