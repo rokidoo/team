@@ -442,7 +442,9 @@
   .wi .bx{width:22px;height:22px;border:var(--b2);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;background:var(--card);cursor:pointer}
   .wi.ok .bx{background:var(--green);color:#fff}
   .wi .wt{flex:1;min-width:0;font-weight:700;overflow-wrap:anywhere}
-  .wi .wd{font-family:var(--fm);font-size:.68rem;color:var(--mut);white-space:nowrap}
+  .wi .wd{font-family:var(--fm);font-size:.68rem;color:var(--mut);white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+  .wi .wdone{font-family:var(--fb);font-weight:800;font-size:.62rem;color:var(--ink);background:var(--card);border:1.5px solid var(--ink);border-radius:99px;padding:0 7px}
+  .wi .wdone.lateok{background:var(--mustard-s)}
   .plinks{display:flex;gap:8px;flex-wrap:wrap;margin:-6px 0 18px}
   .plinks a{border:var(--b2);border-radius:99px;padding:7px 13px;font-weight:800;font-size:.78rem;text-decoration:none;color:var(--ink);background:var(--card);box-shadow:3px 3px 0 var(--ink)}
   .plinks a:active{transform:translate(2px,2px);box-shadow:none}
@@ -612,19 +614,19 @@ function renderGun(){
     const inH=B.filter(b=>Math.floor((mins(b.start_time)??-1)/60)===h);
     rows+=`<div class="hr ${h===nowH?"now":""}"><div class="hl">${pad(h)}:00</div><div class="hc">${inH.map(blockHtml).join("")}${canEdit()?`<button class="add" data-add="${pad(h)}:00">+ ${pad(h)}:00'a ekle</button>`:""}</div></div>`;
   }
-  // haftalık kutu · Yapılanlar: bu hafta tiklenenler (tik tarihi bu hafta; eski haftadan kalıp bu hafta bitenler dahil)
+  // haftalık kutu · Yapılanlar: planı BU HAFTAYA ait olup tiklenenler (geç bitse de kendi haftasında durur, etikette yapıldığı gün)
   // Yapılmayanlar: bu haftaya kadar tiklenmemiş HER iş — önceki haftalardan kalanlar tiklenene kadar her haftaya taşınır
   const wm=monday(day), we=addDays(wm,6), tdy=trToday(), upTo=we<tdy?we:tdy;
   const byTime=(a,b)=>a.day<b.day?-1:a.day>b.day?1:(mins(a.start_time)??0)-(mins(b.start_time)??0);
   const doneDay=b=>b.done_at?new Date(b.done_at).toLocaleDateString("sv-SE",{timeZone:"Europe/Istanbul"}):b.day;
-  const wDone=S.blocks.filter(b=>b.done&&doneDay(b)>=wm&&doneDay(b)<=we).sort(byTime);
+  const wDone=S.blocks.filter(b=>b.done&&b.day>=wm&&b.day<=we).sort(byTime);
   const wLeft=S.blocks.filter(b=>!b.done&&b.day<=upTo).sort(byTime);
   const wCarry=wLeft.filter(b=>b.day<wm).length;
   const wNext=S.blocks.filter(b=>!b.done&&b.day>tdy&&b.day<=we).length;
   const WB=S.blocks.filter(b=>b.day>=wm&&b.day<=we);
   const wdl=d=>new Date(d+"T00:00:00").toLocaleDateString("tr-TR",{weekday:"short",day:"numeric"});
   const wlbl=b=>b.day===tdy?"bugün":b.day<wm?`${trShort(b.day)} · önceki hafta`:wdl(b.day);
-  const wi=b=>`<div class="wi ${b.done?"ok":b.day<tdy?"late":""}"><span class="bx" data-done="${b.id}" title="${b.done?"Geri al":"Yapıldı"}">${b.done?"✓":""}</span><span class="wt">${esc(b.title)}</span><span class="wd">${esc(wlbl(b))}</span></div>`;
+  const wi=b=>`<div class="wi ${b.done?"ok":b.day<tdy?"late":""}"><span class="bx" data-done="${b.id}" title="${b.done?"Geri al":"Yapıldı"}">${b.done?"✓":""}</span><span class="wt">${esc(b.title)}</span><span class="wd">${esc(wlbl(b))}${b.done?`<span class="wdone ${doneDay(b)>b.day?"lateok":""}">✓ ${doneDay(b)===tdy?"bugün":esc(trShort(doneDay(b)))} yapıldı</span>`:""}</span></div>`;
   const wkBox=`<div class="card wkbox"><div class="wkh"><b>📊 ${wm===monday(tdy)?"Bu hafta":"Hafta"} · ${esc(trShort(wm))} – ${esc(trShort(we))}</b><span>✅ ${wDone.length} yapıldı · ⏳ ${wLeft.length} yapılmadı${wCarry?` (${wCarry} önceki haftalardan)`:""}${wNext?` · ${wNext} ileride`:""}</span></div>
     <div class="wkcols"><div><div class="flabel">✅ Yapılanlar</div>${wDone.map(wi).join("")||`<div class="note" style="margin:0">Henüz yok</div>`}</div>
     <div><div class="flabel">⏳ Yapılmayanlar</div>${wLeft.map(wi).join("")||`<div class="note" style="margin:0">${WB.length?"Hepsi tamam 🎉":"Bu hafta plan yok"}</div>`}</div></div></div>`;
