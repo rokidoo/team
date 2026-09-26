@@ -757,7 +757,7 @@ async function renderPuan(){
   el.innerHTML=`
     <div class="dayrow"><button class="nb" data-pd="-1">‹</button><input type="date" id="pDay" value="${day}" max="${t}"><button class="nb" data-pd="1" ${day>=t?"disabled":""}>›</button><span class="dl">${esc(trDateW(day))}</span>${day!==t?`<button class="btn ghost sm" id="pToday" style="width:auto;margin:0">Bugün</button>`:""}</div>
     <div class="note" style="margin:0 0 14px">${own?`Operasyon ekibini 1–10 arası puanla ve kısa bir not yaz. Puanlar yalnızca yönetime görünür; ekipten kimse kimin ne verdiğini görmez. Aynı puana tekrar basarsan seçim kalkar.`
-      :`<b>Yönetici görünümü:</b> Erdem'in bu gün verdiği puanlar. Aldığı puan ortalamasına %10 ağırlıkla katılır — bu bilgi sadece sende görünür.`}</div>
+      :`<b>Yönetici görünümü:</b> Erdem'in bu gün verdiği puanlar. Sıralamada toplam puanın %10'u Erdem'in puanından gelir (ekip %40 + Erdem %10) — bu bilgi sadece sende görünür.`}</div>
     <div class="card daynote" style="margin-bottom:16px"><div class="flabel">🗒 Günün yorumu · operasyon</div>
       <textarea id="pNote" rows="3" placeholder="${own?"Bugün operasyonda genel olarak ne gördün? Ekip nasıldı, ne iyi gitti, ne aksadı…":"Erdem bu gün için henüz yorum yazmadı."}" ${own?"":"disabled"}>${esc(nd)}</textarea>
       ${own?`<div class="note" style="margin:4px 0 0">İsteğe bağlı · puan vermesen de tek başına kaydedebilirsin.</div>`:""}</div>
