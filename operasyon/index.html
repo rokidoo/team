@@ -567,14 +567,17 @@ const sum = (arr,f)=>arr.reduce((a,x)=>a+(+(f?f(x):x)||0),0);
 const avg = arr=>arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : null;
 const chip = (label,soft)=>`<span class="chip" style="background:${soft}">${esc(label)}</span>`;
 const NOTE_MIN = 30;   // puan notu en az bu kadar karakter
-// Ortağın (Erdem) verdiği puan, kişinin aldığı ortalamayı %w etkiler: ekip ort. × (1−w) + ortak ort. × w.
+// Ortağın (Erdem) puanı sıralamada toplamın %rank'ı (10): "Ekip puanı" ağırlığından (50) ayrılır → ekip 40 + Erdem 10.
+// Aldığı ortalama da aynı oranla: ekip ort. × (1−e) + Erdem ort. × e, e = rank / puan ağırlığı (10/50).
 // Ayar shared_settings.score_weights'te ve yalnız yönetici (admin) okuyabilir; okunamazsa düz ortalama.
 const isWRater = id=>!!S.sw && (S.sw.ops||[]).includes(id);
+const wRank = ()=>!S.sw ? 0 : S.sw.rank!=null ? +S.sw.rank||0 : Math.round((+S.sw.w||0)*100);
+const wEff  = ()=>{ const P=+weights().puan||0; return P>0 ? Math.min(1, wRank()/P) : 0; };
 function recvAvg(rows){ const v=rows.filter(s=>s.score!=null); if(!v.length) return null;
   const p=v.filter(s=>isWRater(s.rater_id)).map(s=>s.score), o=v.filter(s=>!isWRater(s.rater_id)).map(s=>s.score);
-  if(!p.length||!o.length) return avg(v.map(s=>s.score)); const w=+S.sw.w||0; return avg(o)*(1-w)+avg(p)*w; }
-const wPct = ()=>Math.round((+S.sw?.w||0)*100);
-const wBadge = id=>isWRater(id)?` <span class="pill" title="Verdiği puan alınan ortalamayı %${wPct()} etkiler · bunu sadece sen görürsün">%${wPct()} etki</span>`:"";
+  if(!p.length||!o.length) return avg(v.map(s=>s.score)); const w=wEff(); return avg(o)*(1-w)+avg(p)*w; }
+const wPct = ()=>wRank();
+const wBadge = id=>isWRater(id)?` <span class="pill" title="Verdiği puan sıralamada %${wPct()} ağırlıkta · bunu sadece sen görürsün">sıralamada %${wPct()}</span>`:"";
 const isAdmin = ()=>S.profile?.role==="admin" || S.profile?.role==="partner";   // ortaklar operasyonda tam yetkili
 const canOps  = ()=>S.profile && ["ops","admin","partner"].includes(S.profile.role);
 const memById = id=>S.members.find(m=>m.id===id);
@@ -1756,7 +1759,7 @@ async function renderBirinci(){
   const past=months.map((m,i)=>{ const ov=awardOf("ay",m); const id=ov?ov.member_id:pastRows[i][0]?.member_id; return {m, who:id?memById(id):null}; }).filter(x=>x.who);
   el.innerHTML=`
     <h2>Birinci</h2>
-    <div class="sub">Her hafta bitince haftanın, ay bitince ayın birincisi otomatik belli olur.${isAdmin()?" Formül: "+Object.entries(w).map(([k,v])=>`${RANK_L[k]} %${v}`).join(" · "):""}</div>
+    <div class="sub">Her hafta bitince haftanın, ay bitince ayın birincisi otomatik belli olur.${isAdmin()?" Formül: "+Object.entries(w).flatMap(([k,v])=>k==="puan"&&wRank()?[`${RANK_L[k]} %${Math.max(0,v-wRank())}`,`Erdem %${wRank()}`]:[`${RANK_L[k]} %${v}`]).join(" · "):""}</div>
     <div class="dayrow"><button class="nb" data-bm="-1">‹</button><span class="dl">${trMonth(first)}</span><button class="nb" data-bm="1">›</button>${isAdmin()?`<button class="btn ghost sm" id="wEdit">⚙️ Ağırlıklar</button>`:""}</div>
     <div class="sect"><h3>🏆 Ayın birincisi</h3>${winnerCard("ay",first,last,mRows)}${rankTable(mRows)}</div>
     <div class="sect"><h3>📅 Haftalar</h3>
@@ -1782,13 +1785,16 @@ async function renderBirinci(){
   });
   const we=$("wEdit"); if(we) we.onclick=()=>{
     modal(`<h3>Sıralama ağırlıkları</h3><div class="sub">Toplam 100 olmalı.</div>
-      ${Object.keys(RANK_DEF).map(k=>`<div class="flabel">${RANK_L[k]}</div><input type="number" min="0" max="100" id="w_${k}" value="${w[k]}">`).join("")}
+      ${Object.keys(RANK_DEF).map(k=>`<div class="flabel">${RANK_L[k]}</div><input type="number" min="0" max="100" id="w_${k}" value="${k==="puan"&&S.sw?Math.max(0,w[k]-wRank()):w[k]}">${k==="puan"&&S.sw?`<div class="flabel">Erdem (sadece sen görürsün)</div><input type="number" min="0" max="100" id="w_erdem" value="${wRank()}">`:""}`).join("")}
       <button class="btn" id="wSave">Kaydet</button>`);
     $("wSave").onclick=async ()=>{
       const nw={}; Object.keys(RANK_DEF).forEach(k=>nw[k]=numOrNull($("w_"+k).value)||0);
+      const er=S.sw&&$("w_erdem") ? (numOrNull($("w_erdem").value)||0) : null;
+      if(er!=null) nw.puan+=er;   // ortaklar "Ekip puanı"nı Erdem dahil tek kalem görür
       const tot=Object.values(nw).reduce((a,b)=>a+b,0); if(tot!==100){ toast(`Toplam ${tot}, 100 olmalı.`); return; }
-      try{ if(!DEMO){ const {error}=await sb.from("ops_settings").upsert({key:"rank_weights",value:nw,updated_at:nowIso()},{onConflict:"key"}); if(error) throw error; }
-        S.weights=nw; closeModal(); renderBirinci(); }catch(e){ toast(errMsg(e)); }
+      try{ if(!DEMO){ const {error}=await sb.from("ops_settings").upsert({key:"rank_weights",value:nw,updated_at:nowIso()},{onConflict:"key"}); if(error) throw error;
+          if(er!=null){ const sw={...S.sw, rank:er}; delete sw.w; const {error:e2}=await sb.from("shared_settings").upsert({key:"score_weights",value:sw,updated_at:nowIso()},{onConflict:"key"}); if(e2) throw e2; } }
+        S.weights=nw; if(er!=null){ S.sw={...S.sw, rank:er}; delete S.sw.w; } closeModal(); renderBirinci(); }catch(e){ toast(errMsg(e)); }
     };
   };
 }
@@ -1879,7 +1885,7 @@ function renderPano(){
     <div class="sect"><h3>👤 Kişi bazlı · ${esc(title)}</h3><div class="tblwrap"><table class="compact">
       <tr><th>Kişi</th><th>Gün</th><th>Arama</th><th>Bakmadı</th><th>Mesaj</th><th>Sipariş</th><th>Kargo</th><th>Ort. giriş</th><th>Geç</th><th>Mesai</th><th>İzin</th><th>Aldığı puan</th><th>Verdiği</th></tr>
       ${people.map(prow).join("")}
-    </table></div><div class="note">Geç = 09:10'dan sonra giriş. Aldığı puan = ekip arkadaşlarının verdiği ortalama (parantez: puan sayısı).${S.sw?` Ortağın verdiği puan %${wPct()} ağırlıkla katılır — bunu sadece sen görürsün.`:""}</div></div>
+    </table></div><div class="note">Geç = 09:10'dan sonra giriş. Aldığı puan = ekip arkadaşlarının verdiği ortalama (parantez: puan sayısı).${S.sw?` Erdem'in puanı sıralamada %${wPct()} ağırlıkta (ekip %${Math.max(0,(+weights().puan||0)-wPct())} + Erdem %${wPct()}); aldığı ortalamada da bu oranla sayılır — bunu sadece sen görürsün.`:""}</div></div>
 
     <div class="sect"><h3>🗓 Doldurma disiplini · son 14 iş günü</h3><div class="card">${disc}</div></div>
 
