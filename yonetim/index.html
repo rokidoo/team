@@ -594,7 +594,7 @@
       </form>
       <form id="signupForm" style="display:none">
         <div class="field"><label>Ad Soyad</label><input type="text" id="suName" placeholder="Elif Yılmaz" autocomplete="name" /></div>
-        <div class="field"><label>Ekip</label><select id="suTeam"><option value="creative">Kreatif ekibi</option><option value="ops">Operasyon ekibi</option></select></div>
+        <div class="field"><label>Ekip</label><select id="suTeam"><option value="creative">Kreatif ekibi</option><option value="ops">Operasyon ekibi</option><option value="ads">Reklam ekibi</option></select></div>
         <div class="field"><label>E-posta</label><input type="email" id="suEmail" autocomplete="email" /></div>
         <div class="field"><label>Şifre (min. 6 karakter)</label><input type="password" id="suPass" autocomplete="new-password" /></div>
         <button type="submit" class="btn btn-primary full" id="suBtn">Kayıt Ol</button>
@@ -879,9 +879,9 @@ const COLUMNS = [
   { id:"done",  title:"Tamamlandı",   cls:"col-done"  },
 ];
 const STATUS_LABEL = { todo:"Yapılacak", doing:"Süreçte", done:"Tamamlandı" };
-const ROLE_LABEL = { admin:"Yönetici", partner:"Ortak", ops:"Operasyon ekibi", creative:"Kreatif ekibi" };
-const PANELS = { kreatif:{href:"/kreatif/", l:"🎬 Kreatif paneli"}, operasyon:{href:"/operasyon/", l:"🏭 Operasyon paneli"} };
-function panelsFor(role){ return role==="admin"||role==="partner" ? ["kreatif","operasyon"] : role==="ops" ? ["operasyon"] : role==="creative" ? ["kreatif"] : []; }
+const ROLE_LABEL = { admin:"Yönetici", partner:"Ortak", ops:"Operasyon ekibi", creative:"Kreatif ekibi", ads:"Reklam ekibi" };
+const PANELS = { kreatif:{href:"/kreatif/", l:"🎬 Kreatif paneli"}, operasyon:{href:"/operasyon/", l:"🏭 Operasyon paneli"}, reklam:{href:"/reklam/", l:"📣 Reklam paneli"} };
+function panelsFor(role){ return role==="admin"||role==="partner" ? ["kreatif","operasyon","reklam"] : role==="ops" ? ["operasyon"] : role==="creative" ? ["kreatif"] : role==="ads" ? ["reklam"] : []; }
 function renderHub(){
   const el = $("#hub"); if(!el) return;
   const ps = panelsFor(profile.role);
@@ -1765,7 +1765,7 @@ async function enterApp(user) {
   if (!profile.is_admin && !profile.is_approved) {
     $("#app").classList.remove("on");
     // kreatif / operasyon ekibi yanlışlıkla yönetime düştüyse: kendi paneline yönlendir
-    const own = profile.role === "creative" ? PANELS.kreatif : profile.role === "ops" ? PANELS.operasyon : null;
+    const own = profile.role === "creative" ? PANELS.kreatif : profile.role === "ops" ? PANELS.operasyon : profile.role === "ads" ? PANELS.reklam : null;
     const pb = $("#pendingPanelBtn");
     if (own) {
       $("#pendingTitle").textContent = "Yanlış panel";
@@ -1792,7 +1792,7 @@ async function ensureProfile() {
   let { data } = await sb.from("profiles").select("*").eq("id", me.id).maybeSingle();
   if (!data) {
     const md = me.user_metadata || {};
-    await sb.from("profiles").insert({ id: me.id, name: md.name || me.email, role: ["ops","creative"].includes(md.role) ? md.role : "creative" });
+    await sb.from("profiles").insert({ id: me.id, name: md.name || me.email, role: ["ops","creative","ads"].includes(md.role) ? md.role : "creative" });
     ({ data } = await sb.from("profiles").select("*").eq("id", me.id).maybeSingle());
   }
   profile = data || { id: me.id, name: me.email, role: "creative" };
@@ -1925,7 +1925,7 @@ function renderTeamList() {
           <br><span style="color:var(--ink-soft); font-weight:700; font-size:10px">${esc(ROLE_LABEL[p.role]||p.role||"")}${p.initial?" · "+esc(p.initial):""}</span>
           ${durum}
         </span>
-        ${profile.is_realadmin ? `<select data-role-user="${id}" style="font-size:10.5px; padding:3px 4px; border-radius:8px; border:1px solid var(--line); background:var(--card)">${["creative","ops","partner","admin"].map(r=>`<option value="${r}" ${p.role===r?"selected":""}>${ROLE_LABEL[r]}</option>`).join("")}</select>` : ""}
+        ${profile.is_realadmin ? `<select data-role-user="${id}" style="font-size:10.5px; padding:3px 4px; border-radius:8px; border:1px solid var(--line); background:var(--card)">${["creative","ops","ads","partner","admin"].map(r=>`<option value="${r}" ${p.role===r?"selected":""}>${ROLE_LABEL[r]}</option>`).join("")}</select>` : ""}
         ${pending ? `<button type="button" class="btn btn-mustard" data-approve-user="${id}" style="padding:4px 9px; font-size:10.5px; flex-shrink:0">Onayla</button>` : ""}
         ${profile.is_realadmin ? `<button type="button" class="btn btn-ghost" data-toggle-user="${id}" style="padding:4px 9px; font-size:10.5px; flex-shrink:0">${inactive?"Geri aç":"Pasife al"}</button>` : ""}
         ${profile.is_realadmin ? `<button type="button" class="cat-del" data-purge-user="${id}" title="Kalıcı sil (geri alınamaz)" style="opacity:.45">✕</button>` : ""}
@@ -2171,6 +2171,8 @@ const BACKUP_TABLES = [
   "ops_members","ops_settings","ops_daily","ops_scores","ops_checks","ops_check_items",
   "ops_duty","ops_team_daily","ops_voice","ops_stock","ops_brands","ops_products",
   "ops_assignments","ops_awards","ops_tasks",
+  // reklam
+  "ads_daily","ads_mood","ads_settings",
   // kreatif
   "weeks","creatives","weekly_results","weekly_financials","hooks","team_members",
   "links","link_imports","pipeline_cards","idea_pool",
