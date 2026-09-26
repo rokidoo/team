@@ -431,6 +431,18 @@
   .wk button{border:var(--b2);border-radius:10px;background:var(--card);padding:6px 2px;cursor:pointer;font-family:var(--fb);font-weight:800;font-size:.7rem;line-height:1.3}
   .wk button.on{background:var(--ink);color:var(--card)} .wk button .c{display:block;font-family:var(--fm);font-size:.66rem;opacity:.8}
   .deny{text-align:center;padding:40px 16px}
+  .wkbox{margin-bottom:16px}
+  .wkh{display:flex;justify-content:space-between;gap:6px 10px;flex-wrap:wrap;align-items:baseline;margin-bottom:10px}
+  .wkh b{font-family:var(--fh);font-size:1rem}
+  .wkh span{font-size:.76rem;font-weight:800;color:var(--ink-soft)}
+  .wkcols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:560px){ .wkcols{grid-template-columns:1fr} }
+  .wi{display:flex;gap:8px;align-items:center;padding:6px 8px;border:1.5px solid var(--ink);border-radius:10px;margin-bottom:6px;background:var(--cobalt-s);font-size:.84rem}
+  .wi.late{background:var(--red-s)} .wi.ok{background:var(--green-s)} .wi.ok .wt{text-decoration:line-through;opacity:.7}
+  .wi .bx{width:22px;height:22px;border:var(--b2);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;background:var(--card);cursor:pointer}
+  .wi.ok .bx{background:var(--green);color:#fff}
+  .wi .wt{flex:1;min-width:0;font-weight:700;overflow-wrap:anywhere}
+  .wi .wd{font-family:var(--fm);font-size:.68rem;color:var(--mut);white-space:nowrap}
   .plinks{display:flex;gap:8px;flex-wrap:wrap;margin:-6px 0 18px}
   .plinks a{border:var(--b2);border-radius:99px;padding:7px 13px;font-weight:800;font-size:.78rem;text-decoration:none;color:var(--ink);background:var(--card);box-shadow:3px 3px 0 var(--ink)}
   .plinks a:active{transform:translate(2px,2px);box-shadow:none}
@@ -600,6 +612,15 @@ function renderGun(){
     const inH=B.filter(b=>Math.floor((mins(b.start_time)??-1)/60)===h);
     rows+=`<div class="hr ${h===nowH?"now":""}"><div class="hl">${pad(h)}:00</div><div class="hc">${inH.map(blockHtml).join("")}${canEdit()?`<button class="add" data-add="${pad(h)}:00">+ ${pad(h)}:00'a ekle</button>`:""}</div></div>`;
   }
+  // haftalık kutu: bu haftanın planları · yapılmayan = bugüne kadarki günlerde tiklenmemiş olanlar
+  const wm=monday(day), we=addDays(wm,6), tdy=trToday();
+  const WB=S.blocks.filter(b=>b.day>=wm&&b.day<=we).sort((a,b)=>a.day<b.day?-1:a.day>b.day?1:(mins(a.start_time)??0)-(mins(b.start_time)??0));
+  const wDone=WB.filter(b=>b.done), wLeft=WB.filter(b=>!b.done&&b.day<=tdy), wNext=WB.filter(b=>!b.done&&b.day>tdy).length;
+  const wdl=d=>new Date(d+"T00:00:00").toLocaleDateString("tr-TR",{weekday:"short",day:"numeric"});
+  const wi=b=>`<div class="wi ${b.done?"ok":b.day<tdy?"late":""}"><span class="bx" data-done="${b.id}" title="${b.done?"Geri al":"Yapıldı"}">${b.done?"✓":""}</span><span class="wt">${esc(b.title)}</span><span class="wd">${b.day===tdy?"bugün":esc(wdl(b.day))}</span></div>`;
+  const wkBox=`<div class="card wkbox"><div class="wkh"><b>📊 Bu hafta · ${esc(trShort(wm))} – ${esc(trShort(we))}</b><span>✅ ${wDone.length} yapıldı · ⏳ ${wLeft.length} yapılmadı${wNext?` · ${wNext} ileride`:""}</span></div>
+    <div class="wkcols"><div><div class="flabel">✅ Yapılanlar</div>${wDone.map(wi).join("")||`<div class="note" style="margin:0">Henüz yok</div>`}</div>
+    <div><div class="flabel">⏳ Yapılmayanlar</div>${wLeft.map(wi).join("")||`<div class="note" style="margin:0">${WB.length?"Hepsi tamam 🎉":"Bu hafta plan yok"}</div>`}</div></div></div>`;
   const dur=(mins(log.out_time)!=null&&mins(log.in_time)!=null&&mins(log.out_time)>mins(log.in_time))?mins(log.out_time)-mins(log.in_time):null;
   el.innerHTML=`
     ${dayNav()}
@@ -609,6 +630,7 @@ function renderGun(){
       ${dur!=null?`<div class="dur">⏱ ${Math.floor(dur/60)} sa ${dur%60?dur%60+" dk":""} içeride</div>`:""}
     </div>
     <div class="sum"><span class="pill2">📋 ${B.length} plan</span><span class="pill2">✅ ${done} yapıldı</span>${B.length?`<span class="pill2">⏳ ${B.length-done} kaldı</span>`:""}${canEdit()?`<button class="btn sm" id="addBlk" style="width:auto;margin:0">+ Plan ekle</button>`:""}</div>
+    ${wkBox}
     <div class="sect"><h3>🕘 Saat saat plan</h3></div>
     <div class="tl">${rows}</div>
     <div class="card" style="margin-bottom:16px">
@@ -717,7 +739,7 @@ async function renderPuan(){
     return `<div class="ps ${d.score!=null?"set":""}" data-key="${esc(key)}">
       <div class="ph"><b>${esc(name)}</b><span class="tm2">${team}</span>${sv?`<span class="tm2" style="background:var(--green-s)">✓ kayıtlı · ${sv.score??"—"}</span>`:""}</div>
       <div class="scrow">${[1,2,3,4,5,6,7,8,9,10].map(v=>`<button class="scbtn ${d.score===v?"on":""}" data-n="${v}" ${own?"":"disabled"}>${v}</button>`).join("")}</div>
-      ${own||d.comment?`<textarea rows="2" data-c placeholder="Bugün nasıldı? Ne iyi gitti, ne eksikti (en az ${NOTE_MIN} karakter)" ${own?"":"disabled"}>${esc(d.comment||"")}</textarea>
+      ${own||d.comment||!own?`<textarea rows="2" data-c placeholder="${own?`Bugün nasıldı? Ne iyi gitti, ne eksikti (en az ${NOTE_MIN} karakter)`:"Not yok"}" ${own?"":"disabled"}>${esc(d.comment||"")}</textarea>
       ${own?`<div class="pcnt ${d.score!=null&&n<NOTE_MIN?"bad":""}">${n}/${NOTE_MIN}</div>`:""}`:""}
     </div>`; };
   const opsHtml = S.P.opsRater ? (S.P.ops.length?S.P.ops.map(m=>person("o:"+m.id,m.name,m.kind==="puanci"?"⭐ Puan + stok":"🏭 Operasyon")).join(""):`<div class="note">Aktif ekip üyesi yok.</div>`)
@@ -727,10 +749,10 @@ async function renderPuan(){
     <div class="dayrow"><button class="nb" data-pd="-1">‹</button><input type="date" id="pDay" value="${day}" max="${t}"><button class="nb" data-pd="1" ${day>=t?"disabled":""}>›</button><span class="dl">${esc(trDateW(day))}</span>${day!==t?`<button class="btn ghost sm" id="pToday" style="width:auto;margin:0">Bugün</button>`:""}</div>
     <div class="note" style="margin:0 0 14px">${own?`Operasyon ekibini 1–10 arası puanla ve kısa bir not yaz. Puanlar yalnızca yönetime görünür; ekipten kimse kimin ne verdiğini görmez. Aynı puana tekrar basarsan seçim kalkar.`
       :`<b>Yönetici görünümü:</b> Erdem'in bu gün verdiği puanlar. Aldığı puan ortalamasına %10 ağırlıkla katılır — bu bilgi sadece sende görünür.`}</div>
+    <div class="card daynote" style="margin-bottom:16px"><div class="flabel">🗒 Günün yorumu · operasyon</div>
+      <textarea id="pNote" rows="3" placeholder="${own?"Bugün operasyonda genel olarak ne gördün? Ekip nasıldı, ne iyi gitti, ne aksadı…":"Erdem bu gün için henüz yorum yazmadı."}" ${own?"":"disabled"}>${esc(nd)}</textarea>
+      ${own?`<div class="note" style="margin:4px 0 0">İsteğe bağlı · puan vermesen de tek başına kaydedebilirsin.</div>`:""}</div>
     <div class="sect"><h3>🏭 Operasyon ekibi</h3>${opsHtml}</div>
-    ${own||nd?`<div class="card" style="margin-bottom:6px"><div class="flabel">🗒 Günün yorumu · operasyon</div>
-      <textarea id="pNote" rows="4" placeholder="Bugün operasyonda genel olarak ne gördün? Ekip nasıldı, ne iyi gitti, ne aksadı…" ${own?"":"disabled"}>${esc(nd)}</textarea>
-      ${own?`<div class="note" style="margin:4px 0 0">İsteğe bağlı. Puan vermesen de tek başına kaydedebilirsin.</div>`:""}</div>`:""}
     ${own?`<div class="savebar ${changed?"stick":""}"><button class="btn" id="pSave" ${changed?"":"disabled"}>${changed?`Kaydet (${changed})`:"Değişiklik yok"}</button></div>`:""}`;
   const go=d=>{ S.pday=d; renderPuan(); };
   el.querySelectorAll("[data-pd]").forEach(b=>b.onclick=()=>{ const d=addDays(day,+b.dataset.pd); if(d<=t) go(d); });
@@ -856,6 +878,8 @@ async function boot(){
     const t=trToday();
     S.blocks=[{id:"b1",owner_id:"u_erdem",day:t,start_time:"09:30",end_time:"10:30",title:"Haftalık reklam toplantısı",note:"",done:true,created_by:"u_erdem"},
               {id:"b2",owner_id:"u_erdem",day:t,start_time:"14:00",end_time:"15:00",title:"Tedarikçi görüşmesi",note:"Kids macun ambalaj teklifi",done:false,created_by:"u_admin",created_by_name:"Yasin"}];
+    S.blocks.push({id:"b3",owner_id:"u_erdem",day:addDays(t,-1),start_time:"11:00",end_time:"12:00",title:"Kargo firmasıyla fiyat görüşmesi",done:false,created_by:"u_erdem"},
+                  {id:"b4",owner_id:"u_erdem",day:addDays(t,-1),start_time:"15:00",end_time:"16:00",title:"Stok raporuna bak",done:true,created_by:"u_erdem"});
     S.logs=[]; S.tasks=[{id:"t1",title:"Ekim bütçe planını çıkar",descr:"",due:addDays(t,2)}];
     if(/erdem/.test(location.search)){ S.me={id:"u_erdem"}; S.profile={name:"Erdem Kuş",role:"partner"}; S.isAdmin=false; }
     $("vApp").classList.remove("hidden"); $("whoAmI").textContent=S.profile.name; renderLinks(); render(); return;
