@@ -445,6 +445,9 @@
   .kp b{display:block;font-family:var(--fm);font-size:1.15rem}
   .kp span{font-size:.66rem;font-weight:800;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
   .deny{text-align:center;padding:40px 16px}
+  .pendbtn{border:var(--b2);border-radius:99px;padding:7px 12px;font-weight:800;font-size:.8rem;background:var(--mustard);box-shadow:3px 3px 0 var(--ink);cursor:pointer;font-family:var(--fb);color:var(--ink)}
+  .pendbtn:active{transform:translate(2px,2px);box-shadow:none}
+  .ent.wait{border-color:var(--orange);box-shadow:4px 4px 0 var(--orange)}
   @media (max-width:640px){ .io{grid-template-columns:1fr} .cats{grid-template-columns:1fr} .kp{grid-template-columns:1fr 1fr} .bars .br{grid-template-columns:110px 1fr 70px} }
 </style>
 <!--MOB-->
@@ -830,10 +833,12 @@ function renderMesai(){
 /* ----- 👥 Ekip (yönetici): yazılanlar + cevap ----- */
 function renderEkip(){
   const el=$("body"); const m=monday(S.eRef), e=addDays(m,6);
-  const R=S.rows.filter(r=>r.day>=m&&r.day<=e).sort((a,b)=>a.day<b.day?1:-1);
-  const pend=S.rows.filter(r=>(r.idea||r.wish)&&!r.answer&&(S.mgr||r.user_id!==S.me?.id)).length;
+  const isPend=r=>(r.idea||r.wish)&&!r.answer&&(S.mgr||r.user_id!==S.me?.id);
+  const P=S.rows.filter(isPend).sort((a,b)=>a.day<b.day?1:-1), pend=P.length;
+  if(S.ePend&&!pend) S.ePend=false;
+  const R=S.ePend ? P : S.rows.filter(r=>r.day>=m&&r.day<=e).sort((a,b)=>a.day<b.day?1:-1);
   const card=r=>{ const c=otOf(r); const p=person(r.user_id)||(r.user_id===S.me?.id?{name:S.profile?.name}:null); const hh=CATS.filter(([k])=>+(r.hours||{})[k]>0);
-    return `<div class="ent"><div class="eh"><b>${esc(p?.name||"?")}</b><span class="pill">${esc(trDayS(r.day))}</span>${c.work!=null?`<span class="pill">⏱ ${hTxt(c.work)}</span><span class="pill ${otCls(c.ot)}">${c.kind==="pazar"?"pazar ×1,5":"mesai "+otTxt(c.ot)}</span>`:""}${r.admin_by_name?`<span class="pill">✏️ ${esc(r.admin_by_name)}</span>`:""}</div>
+    return `<div class="ent${isPend(r)?" wait":""}" data-ent="${r.id}"><div class="eh"><b>${esc(p?.name||"?")}</b><span class="pill">${esc(trDayS(r.day))}</span>${c.work!=null?`<span class="pill">⏱ ${hTxt(c.work)}</span><span class="pill ${otCls(c.ot)}">${c.kind==="pazar"?"pazar ×1,5":"mesai "+otTxt(c.ot)}</span>`:""}${r.admin_by_name?`<span class="pill">✏️ ${esc(r.admin_by_name)}</span>`:""}</div>
       ${hh.length?`<div class="f">${hh.map(([k,l])=>`<span class="pill" style="margin:0 4px 4px 0;display:inline-block">${esc(l)} ${nf1.format(+r.hours[k])} sa</span>`).join("")}</div>`:""}
       ${r.did?`<div class="f"><i>Ne yaptı</i>${esc(r.did)}</div>`:""}
       ${r.review?`<div class="f"><i>İş değerlendirmesi</i>${esc(r.review)}</div>`:""}
@@ -844,17 +849,22 @@ function renderEkip(){
     </div>`; };
   const d14=[...Array(14)].map((_,i)=>addDays(trToday(),-13+i));
   el.innerHTML=`
-    <div class="dayrow"><button class="nb" data-w="-1">‹</button><span class="dl">${esc(trShort(m))} – ${esc(trShort(e))}</span><button class="nb" data-w="1">›</button><input type="date" id="eCal" value="${S.eRef}" style="width:auto;margin:0">${pend?`<span class="pill2" style="border:var(--b2);border-radius:99px;padding:4px 10px;font-weight:800;background:var(--mustard-s)">⏳ ${pend} cevap bekleyen</span>`:""}</div>
-    <div class="card"><h4>🗓 Doldurma · son 14 gün</h4>${S.people.map(p=>`<div style="display:flex;gap:4px;align-items:center;margin-bottom:4px"><b style="width:120px;font-size:.8rem">${esc(p.name)}</b>${d14.map(d=>`<span title="${esc(trDayS(d))}" style="width:18px;height:18px;border:1.5px solid var(--ink);border-radius:5px;background:${rowOf(p.id,d)?"var(--green)":dow(d)===0?"var(--gray-s)":"var(--card)"}"></span>`).join("")}</div>`).join("")||`<div class="note">Reklam ekibinde kimse yok.</div>`}</div>
+    ${S.ePend?`<div class="dayrow"><button class="btn ghost sm" id="pendBack" style="width:auto;margin:0">← Haftaya dön</button><span class="dl">⏳ Cevap bekleyen ${pend} soru</span></div>
+    <div class="note" style="margin:0 0 12px">Tüm tarihlerden cevaplanmamış istek ve sorular, en yenisi üstte. Cevapladıkça listeden düşer.</div>`
+    :`<div class="dayrow"><button class="nb" data-w="-1">‹</button><span class="dl">${esc(trShort(m))} – ${esc(trShort(e))}</span><button class="nb" data-w="1">›</button><input type="date" id="eCal" value="${S.eRef}" style="width:auto;margin:0">${pend?`<button class="pendbtn" id="pendGo" title="Cevap bekleyen sorulara git">⏳ ${pend} cevap bekleyen →</button>`:""}</div>`}
+    ${S.ePend?"":`<div class="card"><h4>🗓 Doldurma · son 14 gün</h4>${S.people.map(p=>`<div style="display:flex;gap:4px;align-items:center;margin-bottom:4px"><b style="width:120px;font-size:.8rem">${esc(p.name)}</b>${d14.map(d=>`<span title="${esc(trDayS(d))}" style="width:18px;height:18px;border:1.5px solid var(--ink);border-radius:5px;background:${rowOf(p.id,d)?"var(--green)":dow(d)===0?"var(--gray-s)":"var(--card)"}"></span>`).join("")}</div>`).join("")||`<div class="note">Reklam ekibinde kimse yok.</div>`}</div>`}
     ${R.length?R.map(card).join(""):`<div class="empty">Bu hafta kayıt yok.</div>`}`;
   el.querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>{ S.eRef=addDays(S.eRef,7*+b.dataset.w); renderEkip(); });
-  $("eCal").onchange=ev=>{ if(ev.target.value){ S.eRef=ev.target.value; renderEkip(); } };
+  if($("eCal")) $("eCal").onchange=ev=>{ if(ev.target.value){ S.eRef=ev.target.value; renderEkip(); } };
+  if($("pendGo")) $("pendGo").onclick=()=>{ S.ePend=true; renderEkip(); window.scrollTo({top:0,behavior:"smooth"}); };
+  if($("pendBack")) $("pendBack").onclick=()=>{ S.ePend=false; renderEkip(); window.scrollTo({top:0}); };
   el.querySelectorAll("[data-anss]").forEach(b=>b.onclick=async ()=>{
     const id=b.dataset.anss, txt=el.querySelector(`[data-ans="${id}"]`).value.trim();
     const upd={ answer:txt||null, answer_by_name:txt?(S.profile?.name||"Yönetici"):null, answer_at:txt?nowIso():null };
     b.disabled=true;
     try{ if(!DEMO){ const {error}=await sb.from("ads_daily").update(upd).eq("id",id); if(error) throw error; }
-      const r=S.rows.find(x=>x.id===id); Object.assign(r,upd); toast(txt?"Cevap gönderildi ✓":"Cevap kaldırıldı"); renderEkip(); }catch(e){ toast("Kaydedilemedi: "+(e?.message||e)); b.disabled=false; }
+      const r=S.rows.find(x=>x.id===id); Object.assign(r,upd); const wasPend=S.ePend; renderEkip();
+      toast(txt?(wasPend&&!S.ePend?"Cevap gönderildi ✓ · bekleyen soru kalmadı":"Cevap gönderildi ✓"):"Cevap kaldırıldı"); }catch(e){ toast("Kaydedilemedi: "+(e?.message||e)); b.disabled=false; }
   });
 }
 
