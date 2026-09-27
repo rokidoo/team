@@ -1572,7 +1572,8 @@ function renderImport(){
   $("btnImport").onclick = doImport;
 }
 
-const pageLbl = p=>p.own ? "Planım" : p.k.split("-")[0].replace(/^./,c=>c.toLocaleUpperCase("tr"))+" planı";
+const PAGE_NAMES = {cagdas:"Çağdaş", erdem:"Erdem", "erdem-kus":"Erdem", yasin:"Yasin"};
+const pageLbl = p=>p.own ? "Planım" : (PAGE_NAMES[p.k] || p.k.split("-")[0].replace(/^./,c=>c.toLocaleUpperCase("tr")))+" planı";
 function addPageLinks(){
   (S.myPages||[]).forEach(p=>{
     $("nav").insertAdjacentHTML("beforeend", `<button onclick="location.href='/${p.k}/'"><span class="ic">🗓</span>${esc(pageLbl(p))}</button>`);
@@ -1801,12 +1802,14 @@ const durTxt = m=> !m? "—" : m>=60? `${Math.floor(m/60)} sa${m%60? " "+(m%60)+
 const numOrNull = v=>{ const s=String(v??"").trim(); if(s==="") return null; const n=parseInt(s.replace(/[^\d-]/g,""),10); return isNaN(n)?null:n; };
 const sum = (arr,f)=>arr.reduce((a,x)=>a+(+(f?f(x):x)||0),0);
 const avg = arr=>arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : null;
-// Ortağın (Erdem) verdiği puan, kişinin aldığı ortalamayı %w etkiler: ekip ort. × (1−w) + ortak ort. × w.
+// Ortağın (Çağdaş) verdiği puan, kişinin aldığı ortalamayı %w etkiler: ekip ort. × (1−w) + ortak ort. × w.
 // Ayar shared_settings.score_weights'te ve yalnız yönetici (admin) okuyabilir; okunamazsa düz ortalama.
 const isWRaterK = r=>!!S.sw && (S.sw.kre||[]).includes(r);
 function recvAvgK(rows){ const v=rows.filter(s=>s.score!=null); if(!v.length) return null;
   const p=v.filter(s=>isWRaterK(s.rater)).map(s=>s.score), o=v.filter(s=>!isWRaterK(s.rater)).map(s=>s.score);
-  if(!p.length||!o.length) return avg(v.map(s=>s.score)); const w=+S.sw.w||0; return avg(o)*(1-w)+avg(p)*w; }
+  if(!p.length||!o.length) return avg(v.map(s=>s.score)); const w=kreW(); return avg(o)*(1-w)+avg(p)*w; }
+// kreatifte ağırlıklı puan verenin (Çağdaş) oranı: score_weights.kre_w (eski ayarlarda w)
+const kreW = ()=>+(S.sw?.kre_w ?? S.sw?.w ?? 0)||0;
 const nowIso = ()=>new Date().toISOString();
 const uid = ()=>"d"+Math.random().toString(36).slice(2,10);
 const inRange = (d,[a,b])=>d>=a && d<=b;
@@ -2379,7 +2382,7 @@ function renderGeri(){
   const el=$("tabGeri"); if(!el) return;
   if(!isAdmin()){ el.innerHTML=""; return; }
   const nm=k=>OWNERS[k]?.name||k;
-  FB.render(el,{teams:[{k:"k", l:"🎬 Kreatif", wr:isWRaterK, wv:+S.sw?.w||0, rows:()=>(S.kscores||[]).map(s=>({id:s.id, day:s.day, rater:s.rater, ratee:s.ratee, rn:nm(s.rater), en:nm(s.ratee), score:s.score, comment:s.comment||""})),
+  FB.render(el,{teams:[{k:"k", l:"🎬 Kreatif", wr:isWRaterK, wv:kreW(), rows:()=>(S.kscores||[]).map(s=>({id:s.id, day:s.day, rater:s.rater, ratee:s.ratee, rn:nm(s.rater), en:nm(s.ratee), score:s.score, comment:s.comment||""})),
     del:async ids=>{ if(!DEMO){ const {error}=await sb.from("kre_scores").delete().in("id",ids); if(error) throw error; } S.kscores=S.kscores.filter(x=>!ids.includes(x.id)); }}]});
 }
 function renderPuan(){
