@@ -679,7 +679,7 @@ function renderGun(){
       </div>
       <div class="cr">${rightHtml()}</div>
     </div>
-    ${voiceOk()?`<button class="vfab" id="vFab" title="Sesle ekle: saat söylersen plana, söylemezsen hızlı nota" aria-label="Sesle ekle">🎤</button><div class="vpanel hidden" id="vPanel"></div>`:""}`;
+    <button class="vfab" id="vFab" title="Sesle ekle: saat söylersen plana, söylemezsen hızlı nota" aria-label="Sesle ekle">🎤</button><div class="vpanel hidden" id="vPanel"></div>`;
   bindGun(el);
   const tb=$("tlb");
   if(tb){ if(keepScroll!=null) tb.scrollTop=keepScroll; else if(getComputedStyle(tb).overflowY==="auto"&&d===t){ const H=hourPx(), [h0]=tlRange(d); tb.scrollTop=Math.max(0,(nowMin()/60-h0-1.5)*H); } }
@@ -805,7 +805,7 @@ function rightHtml(){
       <div style="margin-top:8px">${quick.length?quick.map(x=>itemHtml(x)).join(""):`<div class="note" style="margin:0">Liste boş. Gün değişse de buradakiler kaybolmaz.</div>`}</div>
       ${doneHere.length?`<details style="margin-top:8px"><summary style="font-size:.78rem">✓ ${d===trToday()?"Bugün":esc(trShort(d))} tamamlananlar (${doneHere.length})</summary><div style="margin-top:6px">${doneHere.map(x=>itemHtml(x)).join("")}</div></details>`:""}
     </div>
-    <div class="card"><div class="ptitle">Hızlı not <span class="sp"></span>${voiceOk()?`<span class="note" style="margin:0">🎤 ile sesle eklenir</span>`:""}</div>
+    <div class="card"><div class="ptitle">Hızlı not <span class="sp"></span><span class="note" style="margin:0">🎤 ile sesle eklenir</span></div>
       <textarea id="fNote" rows="4" placeholder="Fikir, hatırlatma… (bu tarihe kaydedilir, işe dönüşmez)">${esc(dr.note||"")}</textarea></div>
     <div class="card"><div class="ptitle">Kısa kontroller <span class="sp"></span><button class="ib" id="ckEdit" title="Başlıkları düzenle">✏️</button></div>
       ${sig?`<div class="sig">${sig.map(s=>{ const cls=s.warn?"w":s.n?"bad":"ok"; const inner=`${s.ic} ${esc(s.lb)}${s.warn?"":`: <b>${s.n}</b>`}`; return s.tab?`<button class="${cls}" data-sigtab="${s.tab}">${inner}</button>`:`<a class="${cls}" href="${s.href}">${inner}</a>`; }).join("")}</div>`:`<div class="note" style="margin:0 0 8px">Diğer panellerden durum okunuyor…</div>`}
@@ -1095,41 +1095,60 @@ function editChecks(){
    Tek dokunuş: konuş → bitince kendiliğinden kaydedilir.
    Saat söylediysen ("saat 3'te tedarikçiyle görüşme", "yarın 10-12 reklam analizi") → günlük plana.
    "7 saat uyudum" → günün uykusu. Diğer her şey → o günün hızlı notuna. */
-// demo testi: ?fakesr (normal) / ?fakesr=safari (ikinci start sessizce düşer) — yalnız DEMO'da
-const FakeSR = DEMO && /fakesr/.test(location.search) ? (()=>{ window.__fakeQ=[]; window.__fakeN=0; const safari=/fakesr=safari/.test(location.search);
-  return class{ constructor(){ this.uses=0; window.__fakeN++; } start(){ if(this.on) throw new Error("InvalidStateError"); this.uses++; if(safari&&this.uses>1) return; this.on=true;
-    setTimeout(()=>{ this.onstart&&this.onstart(); const t=window.__fakeQ.shift()||""; if(t) this.onresult({results:[[{transcript:t}]]}); setTimeout(()=>{ this.on=false; this.onend&&this.onend(); },50); },50); }
-    stop(){} abort(){ this.on=false; } }; })() : null;
+// demo testi: ?fakesr, ?fakesr=slow (izin sorusu gibi 3 sn gecikme), ?fakesr=denied (izin reddi) — yalnız DEMO'da
+const FakeSR = DEMO && /fakesr/.test(location.search) ? (()=>{ window.__fakeQ=[]; window.__fakeN=0; const mode=(location.search.match(/fakesr=(\w+)/)||[])[1]||"";
+  return class{ constructor(){ window.__fakeN++; } start(){ if(this.on) throw new Error("InvalidStateError"); this.on=true;
+    if(mode==="denied"){ setTimeout(()=>{ this.onerror&&this.onerror({error:"not-allowed"}); this.on=false; this.onend&&this.onend(); },80); return; }
+    setTimeout(()=>{ if(!this.on) return; this.onstart&&this.onstart(); const t=window.__fakeQ.shift()||""; if(t) this.onresult({results:[[{transcript:t}]]}); setTimeout(()=>{ this.on=false; this.onend&&this.onend(); },50); }, mode==="slow"?3000:50); }
+    stop(){} abort(){ if(this.on){ this.on=false; this.onerror&&this.onerror({error:"aborted"}); this.onend&&this.onend(); } } }; })() : null;
 const SR = FakeSR || window.SpeechRecognition || window.webkitSpeechRecognition;
 const voiceOk = ()=>!!SR;
-// Tek tanıyıcı nesnesi yeniden kullanılır; takılırsa (başlamazsa/bitmezse) sıfırlanıp yenisi açılır.
-// Böylece aynı oturumda art arda kullanım çalışır (Safari'de ikinci start'ın sessizce düşmesi dahil).
-let recI=null, listening=false, vText="", vTimer=null, vStartT=null;
+// Her dokunuşta yeni tanıyıcı açılır (eskisi kapatılır). İzin sorusu için 8 sn beklenir.
+// Tarayıcı ses tanımayı desteklemiyorsa, izin yoksa ya da iPhone'da ana ekran uygulamasıysa
+// (orada ses tanıma kapalı) "söyle ya da yaz" penceresi açılır: klavyedeki dikte 🎤 tuşu her yerde çalışır.
+let recI=null, listening=false, gotStart=false, vText="", vFall=null, vTimer=null, vStartT=null;
+const isIOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+const isStandalone=()=>navigator.standalone===true||matchMedia("(display-mode: standalone)").matches;
 function vUI(on, msg){
   const btn=$("vFab"), pan=$("vPanel");
   if(btn){ btn.classList.toggle("rec",on); btn.textContent=on?"⏹":"🎤"; }
   if(pan){ if(msg){ pan.textContent=msg; pan.classList.remove("hidden"); } else pan.classList.add("hidden"); }
 }
 function vReset(){ listening=false; clearTimeout(vTimer); clearTimeout(vStartT); vUI(false); }
+const V_ERR={ "not-allowed":"Mikrofon izni verilmedi. Tarayıcı ayarlarından bu siteye mikrofon izni ver.", "service-not-allowed":"Bu ortamda tarayıcının ses tanıması kapalı.",
+  "audio-capture":"Mikrofon bulunamadı ya da başka bir uygulama kullanıyor.", "network":"Ses tanıma için internet bağlantısı gerekli.", "language-not-supported":"Tarayıcı Türkçe ses tanımayı desteklemiyor." };
 function newRec(){
   const r=new SR(); r.lang="tr-TR"; r.interimResults=true; r.continuous=false; r.maxAlternatives=1;
-  r.onstart=()=>{ clearTimeout(vStartT); };
-  r.onresult=e=>{ vText=""; for(const x of e.results) vText+=x[0].transcript; vUI(true,"🎙 "+vText); };
-  r.onerror=e=>{ if(e.error==="aborted") return; vText=""; toast(e.error==="not-allowed"||e.error==="service-not-allowed"?"Mikrofon izni verilmedi.":e.error==="no-speech"?"Ses duyulmadı, tekrar dokun.":"Ses anlaşılamadı, tekrar dokun."); };
-  r.onend=()=>{ const t=vText.trim(); vText=""; vReset(); if(t) handleVoice(t); };
+  const started=()=>{ if(gotStart) return; gotStart=true; clearTimeout(vStartT); vUI(true,"🎙 Dinliyorum… (bitince bekle ya da tekrar dokun)"); };
+  r.onstart=started; r.onaudiostart=started;
+  r.onresult=e=>{ started(); vText=""; for(const x of e.results) vText+=x[0].transcript; vUI(true,"🎙 "+vText); };
+  r.onerror=e=>{ if(e.error==="aborted") return; if(e.error==="no-speech"){ toast("Ses duyulmadı, tekrar dokun."); return; } vFall=(V_ERR[e.error]||"Ses tanınamadı")+` (${e.error})`; };
+  r.onend=()=>{ if(r!==recI) return; const t=vText.trim(); vText=""; vReset(); if(t){ handleVoice(t); return; } if(vFall){ const m=vFall; vFall=null; voiceTyped(m); } };
   return r;
 }
 function voiceCapture(){
-  if(!SR){ toast("Bu tarayıcı sesle yazmayı desteklemiyor."); return; }
-  if(listening){ try{ recI.stop(); }catch(e){} clearTimeout(vTimer); vTimer=setTimeout(()=>{ if(listening){ try{ recI.abort(); }catch(e){} recI=null; vReset(); } },1500); return; }
-  vText=""; listening=true; vUI(true,"🎙 Dinliyorum… (bitince bekle ya da tekrar dokun)");
-  const go=fresh=>{ if(fresh||!recI) recI=newRec(); recI.start(); };
-  try{ go(false); }
-  catch(e){ try{ recI&&recI.abort(); }catch(e2){} try{ go(true); }catch(e3){ recI=null; vReset(); toast("Mikrofon başlatılamadı, sayfayı yenileyip tekrar dene."); return; } }
-  // başlamazsa (onstart gelmezse) tanıyıcıyı yenile ve bir kez daha dene
-  vStartT=setTimeout(()=>{ if(!listening) return; try{ recI.abort(); }catch(e){} try{ recI=newRec(); recI.start(); vStartT=setTimeout(()=>{ if(listening){ try{ recI.abort(); }catch(e){} recI=null; vReset(); toast("Mikrofon açılmadı, tekrar dokun."); } },2500); }catch(e){ recI=null; vReset(); } },1200);
-  // en fazla 20 sn dinle
-  vTimer=setTimeout(()=>{ if(listening){ try{ recI.stop(); }catch(e){} } },20000);
+  if(!SR){ voiceTyped("Bu tarayıcı ses tanımayı desteklemiyor."); return; }
+  if(isIOS&&isStandalone()){ voiceTyped(); return; }
+  if(listening){ const r=recI; try{ r.stop(); }catch(e){} clearTimeout(vTimer); vTimer=setTimeout(()=>{ if(listening&&recI===r){ try{ r.abort(); }catch(e){} vReset(); } },1500); return; }
+  try{ recI&&recI.abort(); }catch(e){}
+  recI=newRec(); vText=""; vFall=null; gotStart=false; listening=true; vUI(true,"🎙 Mikrofon açılıyor… (izin sorulursa izin ver)");
+  try{ recI.start(); }
+  catch(e){ vReset(); voiceTyped(`Mikrofon başlatılamadı (${e.name||e.message}).`); return; }
+  const r=recI;
+  vStartT=setTimeout(()=>{ if(listening&&!gotStart&&recI===r){ try{ r.abort(); }catch(e){} vReset(); voiceTyped("Mikrofon açılmadı."); } },8000);
+  vTimer=setTimeout(()=>{ if(listening&&recI===r){ try{ r.stop(); }catch(e){} } },25000);
+}
+// yedek yol: klavyenin dikte tuşuyla ya da yazarak — aynı kurallarla plana / nota / uykuya gider
+function voiceTyped(msg){
+  modal(`<h3>🎤 Söyle ya da yaz</h3>
+    ${msg?`<div class="linked" style="background:var(--orange-s)">⚠ ${esc(msg)}</div>`:""}
+    <div class="note" style="margin:0 0 10px">Klavyedeki <b>🎤 dikte</b> tuşuna basıp konuşabilirsin. Saat söylersen plana (ör. "saat 3'te tedarikçiyle görüşme"), "23'te yattım 7'de kalktım" dersen uykuya, diğer her şey hızlı nota eklenir.</div>
+    <textarea id="vtT" rows="3" placeholder="Konuş ya da yaz…"></textarea>
+    <div class="btnrow"><button class="btn ghost" id="vtX">Vazgeç</button><button class="btn" id="vtS">Ekle</button></div>`);
+  const ta=$("vtT"); ta.focus();
+  ta.onkeydown=e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); $("vtS").click(); } };
+  $("vtX").onclick=closeModal;
+  $("vtS").onclick=()=>{ const t=ta.value.trim(); if(!t){ toast("Bir şey söyle ya da yaz."); return; } closeModal(); handleVoice(t); };
 }
 const VOICE_WD={pazartesi:0,sali:1,carsamba:2,persembe:3,cuma:4,cumartesi:5,pazar:6};
 function parseVoice(raw){
