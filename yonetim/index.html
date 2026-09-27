@@ -1019,13 +1019,15 @@ const COLUMNS = [
   { id:"done",  title:"Tamamlandı",   cls:"col-done"  },
 ];
 const STATUS_LABEL = { todo:"Yapılacak", doing:"Süreçte", done:"Tamamlandı" };
-const ROLE_LABEL = { admin:"Yönetici", partner:"Ortak", ops:"Operasyon ekibi", creative:"Kreatif ekibi", ads:"Reklam ekibi" };
-const PANELS = { kreatif:{href:"/kreatif/", l:"🎬 Kreatif paneli"}, operasyon:{href:"/operasyon/", l:"🏭 Operasyon paneli"}, reklam:{href:"/reklam/", l:"📣 Reklam paneli"} };
-function panelsFor(role){ return role==="admin"||role==="partner" ? ["kreatif","operasyon","reklam"] : role==="ops" ? ["operasyon"] : role==="creative" ? ["kreatif"] : role==="ads" ? ["reklam"] : []; }
+const ROLE_LABEL = { admin:"Yönetici", partner:"Ortak", ops:"Operasyon ekibi", creative:"Kreatif ekibi", ads:"Reklam ekibi", accounting:"Muhasebe" };
+const PAGE_NAMES = { cagdas:"Çağdaş", erdem:"Erdem", "erdem-kus":"Erdem", yasin:"Yasin" };
+const pageName = k => PAGE_NAMES[k] || k.split("-")[0].replace(/^./, c => c.toLocaleUpperCase("tr"));
+const PANELS = { kreatif:{href:"/kreatif/", l:"🎬 Kreatif paneli"}, operasyon:{href:"/operasyon/", l:"🏭 Operasyon paneli"}, reklam:{href:"/reklam/", l:"📣 Reklam paneli"}, muhasebe:{href:"/muhasebe/", l:"🧾 Muhasebe"} };
+function panelsFor(role){ return role==="admin"||role==="partner" ? ["kreatif","operasyon","reklam","muhasebe"] : role==="ops" ? ["operasyon"] : role==="creative" ? ["kreatif"] : role==="ads" ? ["reklam"] : role==="accounting" ? ["muhasebe"] : []; }
 function renderHub(){
   const el = $("#hub"); if(!el) return;
   const ps = panelsFor(profile.role);
-  const pg = myPages.map(p => `<a class="btn btn-ghost hub-link" href="/${p.k}/">🗓 ${p.own ? "Planım" : esc(p.k.split("-")[0].replace(/^./, c => c.toLocaleUpperCase("tr"))) + " planı"}</a>`).join("");
+  const pg = myPages.map(p => `<a class="btn btn-ghost hub-link" href="/${p.k}/">🗓 ${p.own ? "Planım" : esc(pageName(p.k)) + " planı"}</a>`).join("");
   const links = ps.length || pg ? `<span class="hub-lbl">Panellerin:</span>` + ps.map(k => `<a class="btn btn-ghost hub-link" href="${PANELS[k].href}">${PANELS[k].l}</a>`).join("") + pg : "";
   const tabs = profile.is_admin ? `<div class="tabs" id="mainTabs" style="width:auto">
       <button data-main="gorev" class="${mainTab==="gorev"?"active":""}">📋 Görevler</button>
@@ -1164,7 +1166,9 @@ const swPuanW=()=>+(S.o.rankW?.puan ?? 40)||0;
 const swEff=()=>{ const P=swPuanW(); return P>0?Math.min(1,swRank()/P):0; };
 function recvAvgT(t,rows){ const v=rows.filter(s=>s.score!=null); if(!v.length) return null; const rk=s=>t==="o"?s.rater_id:s.rater;
   const p=v.filter(s=>isWR(t,rk(s))).map(s=>s.score), o=v.filter(s=>!isWR(t,rk(s))).map(s=>s.score);
-  if(!p.length||!o.length) return avg(v.map(s=>s.score)); const w=swEff(); return avg(o)*(1-w)+avg(p)*w; }
+  if(!p.length||!o.length) return avg(v.map(s=>s.score)); const w=t==="k"?kreW():swEff(); return avg(o)*(1-w)+avg(p)*w; }
+// Kreatif: ağırlıklı puan veren ortak (Çağdaş, score_weights.kre) kişinin aldığı ortalamada kre_w oranında sayılır (ekip %90 + Çağdaş %10).
+const kreW=()=>+(S.sw?.kre_w ?? S.sw?.w ?? 0)||0;
 const nowIso=()=>new Date().toISOString();
 const uid=()=>"d"+Math.random().toString(36).slice(2,10);
 const inRange=(d,[a,b])=>d>=a&&d<=b;
@@ -1228,11 +1232,16 @@ async function loadAll(){
   // analiz dosyaları (tablo yoksa sessizce: Verimlilik sekmesi uyarı gösterir)
   { const {data,error}=await sb.from("analyses").select("*"); S.analyses=data||[]; S.anErr=error?error.message:null; }
   S.sw=null; if(isAdmin()) try{ const [{data:sw},{data:rw}]=await Promise.all([sb.from("shared_settings").select("value").eq("key","score_weights").maybeSingle(), sb.from("ops_settings").select("value").eq("key","rank_weights").maybeSingle()]); S.sw=sw?.value||null; S.o.rankW=rw?.value||null; }catch(e){}
-  // ortağın operasyon için "günün yorumu" (erdem-kus → pv_log.ops_note); sadece yönetici okur
-  S.oDayNotes={}; if(isAdmin()) try{
-    const [{data:pp},{data:nl}]=await Promise.all([sb.from("shared_settings").select("value").eq("key","private_pages").maybeSingle(), sb.from("pv_log").select("owner_id,day,ops_note").not("ops_note","is",null).gte("day",since)]);
-    const who=id=>{ const k=Object.entries(pp?.value||{}).find(([,v])=>v===id)?.[0]; return k?k.split("-")[0].replace(/^./,c=>c.toLocaleUpperCase("tr")):"Ortak"; };
-    (nl||[]).forEach(n=>{ if(String(n.ops_note||"").trim()) (S.oDayNotes[n.day] ||= []).push({by:who(n.owner_id), text:n.ops_note}); });
+  // ortakların "günün yorumu": operasyon (erdem → pv_log.ops_note) + kreatif (cagdas → pv_log.kre_note); sadece yönetici okur
+  S.oDayNotes={}; S.kDayNotes={}; if(isAdmin()) try{
+    const {data:pp}=await sb.from("shared_settings").select("value").eq("key","private_pages").maybeSingle();
+    let r=await sb.from("pv_log").select("owner_id,day,ops_note,kre_note").or("ops_note.not.is.null,kre_note.not.is.null").gte("day",since);
+    if(r.error) r=await sb.from("pv_log").select("owner_id,day,ops_note").not("ops_note","is",null).gte("day",since);   // v3.2 SQL'i öncesi
+    const who=id=>{ const k=Object.entries(pp?.value||{}).find(([,v])=>v===id)?.[0]; return k?pageName(k):"Ortak"; };
+    (r.data||[]).forEach(n=>{
+      if(String(n.ops_note||"").trim()) (S.oDayNotes[n.day] ||= []).push({by:who(n.owner_id), text:n.ops_note});
+      if(String(n.kre_note||"").trim()) (S.kDayNotes[n.day] ||= []).push({by:who(n.owner_id), text:n.kre_note});
+    });
   }catch(e){}
   // operasyon ekibinin işleri: ortak tasks tablosundan, üye hesabına göre
   S.o.tasks=unifyTasks(S.tasksRaw,S.assigneesRaw).map(t=>{ const m=S.o.members.find(x=>x.user_id===t.assigned_to); return m?{...t,member_id:m.id}:null; }).filter(Boolean);
@@ -1807,7 +1816,7 @@ function renderGeri(){
   FB.render(el,{teams:[
     {k:"o", l:"🏭 Operasyon", wr:r=>isWR("o",r), wv:swEff(), wlbl:`sıralamada %${swRank()}`, wtip:`Erdem'in puanı sıralamada %${swRank()} ağırlıkta (ekip %${Math.max(0,swPuanW()-swRank())} + Erdem %${swRank()})`, wnote:`Kişi kartlarındaki ortalamada Erdem'in puanı sıralamadaki oranıyla sayılır (ekip %${Math.max(0,swPuanW()-swRank())} : Erdem %${swRank()}).`, dayNotes:()=>S.oDayNotes||{}, rows:()=>S.o.scores.map(s=>({id:s.id, day:s.day, rater:s.rater_id, ratee:s.ratee_id, rn:oName(s.rater_id), en:oName(s.ratee_id), score:s.score, comment:s.comment||""})),
       del:async ids=>{ const {error}=await sb.from("ops_scores").delete().in("id",ids); if(error) throw error; S.o.scores=S.o.scores.filter(x=>!ids.includes(x.id)); }},
-    {k:"k", l:"🎬 Kreatif",   wr:r=>isWR("k",r), wv:swEff(), rows:()=>S.k.scores.map(s=>({id:s.id, day:s.day, rater:s.rater, ratee:s.ratee, rn:kName(s.rater), en:kName(s.ratee), score:s.score, comment:s.comment||""})),
+    {k:"k", l:"🎬 Kreatif",   wr:r=>isWR("k",r), wv:kreW(), wlbl:`%${Math.round(kreW()*100)}`, wtip:`${kName((S.sw?.kre||[])[0])||"Ortak"} · verdiği puan alınan ortalamada %${Math.round(kreW()*100)} ağırlıkta (ekip %${100-Math.round(kreW()*100)})`, wnote:`Kişi kartlarındaki ortalamada ${kName((S.sw?.kre||[])[0])||"ortak"} tarafından verilen puan %${Math.round(kreW()*100)} sayılır (ekip %${100-Math.round(kreW()*100)}).`, dayNotes:()=>S.kDayNotes||{}, rows:()=>S.k.scores.map(s=>({id:s.id, day:s.day, rater:s.rater, ratee:s.ratee, rn:kName(s.rater), en:kName(s.ratee), score:s.score, comment:s.comment||""})),
       del:async ids=>{ const {error}=await sb.from("kre_scores").delete().in("id",ids); if(error) throw error; S.k.scores=S.k.scores.filter(x=>!ids.includes(x.id)); }},
   ]});
 }
@@ -1905,7 +1914,7 @@ async function enterApp(user) {
   if (!profile.is_admin && !profile.is_approved) {
     $("#app").classList.remove("on");
     // kreatif / operasyon ekibi yanlışlıkla yönetime düştüyse: kendi paneline yönlendir
-    const own = profile.role === "creative" ? PANELS.kreatif : profile.role === "ops" ? PANELS.operasyon : profile.role === "ads" ? PANELS.reklam : null;
+    const own = profile.role === "creative" ? PANELS.kreatif : profile.role === "ops" ? PANELS.operasyon : profile.role === "ads" ? PANELS.reklam : profile.role === "accounting" ? PANELS.muhasebe : null;
     const pb = $("#pendingPanelBtn");
     if (own) {
       $("#pendingTitle").textContent = "Yanlış panel";
@@ -2065,7 +2074,7 @@ function renderTeamList() {
           <br><span style="color:var(--ink-soft); font-weight:700; font-size:10px">${esc(ROLE_LABEL[p.role]||p.role||"")}${p.initial?" · "+esc(p.initial):""}</span>
           ${durum}
         </span>
-        ${profile.is_realadmin ? `<select data-role-user="${id}" style="font-size:10.5px; padding:3px 4px; border-radius:8px; border:1px solid var(--line); background:var(--card)">${["creative","ops","ads","partner","admin"].map(r=>`<option value="${r}" ${p.role===r?"selected":""}>${ROLE_LABEL[r]}</option>`).join("")}</select>` : ""}
+        ${profile.is_realadmin ? `<select data-role-user="${id}" style="font-size:10.5px; padding:3px 4px; border-radius:8px; border:1px solid var(--line); background:var(--card)">${["creative","ops","ads","accounting","partner","admin"].map(r=>`<option value="${r}" ${p.role===r?"selected":""}>${ROLE_LABEL[r]}</option>`).join("")}</select>` : ""}
         ${pending ? `<button type="button" class="btn btn-mustard" data-approve-user="${id}" style="padding:4px 9px; font-size:10.5px; flex-shrink:0">Onayla</button>` : ""}
         ${profile.is_realadmin ? `<button type="button" class="btn btn-ghost" data-toggle-user="${id}" style="padding:4px 9px; font-size:10.5px; flex-shrink:0">${inactive?"Geri aç":"Pasife al"}</button>` : ""}
         ${profile.is_realadmin ? `<button type="button" class="cat-del" data-purge-user="${id}" title="Kalıcı sil (geri alınamaz)" style="opacity:.45">✕</button>` : ""}
