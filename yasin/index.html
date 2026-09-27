@@ -1489,8 +1489,9 @@ function authView(v){ ["Login","Forgot","Reset"].forEach(k=>$("auth"+k).classLis
 function showAuth(msg,err){ $("vAuth").classList.remove("hidden"); $("vApp").classList.add("hidden"); const m=$("authMsg"); m.textContent=msg||""; m.className="authmsg"+(err?" err":""); }
 function showReset(){ showAuth("",false); authView("reset"); }
 function renderLinks(){
-  const pg=S.pages.filter(k=>k!==PAGE_KEY).map(k=>[`/${k}/`,"🗓 "+k.split("-")[0].replace(/^./,c=>c.toLocaleUpperCase("tr"))+" planı"]);
-  $("plinks").innerHTML=[["/yonetim/","📋 Yönetim"],["/kreatif/","🎬 Kreatif"],["/operasyon/","🏭 Operasyon"],["/reklam/","📣 Reklam"],...pg].map(([h,l])=>`<a href="${h}">${l} →</a>`).join("");
+  const NM={cagdas:"Çağdaş", erdem:"Erdem", "erdem-kus":"Erdem"};
+  const pg=S.pages.filter(k=>k!==PAGE_KEY).map(k=>[`/${k}/`,"🗓 "+(NM[k]||k.split("-")[0].replace(/^./,c=>c.toLocaleUpperCase("tr")))+" planı"]);
+  $("plinks").innerHTML=[["/yonetim/","📋 Yönetim"],["/kreatif/","🎬 Kreatif"],["/operasyon/","🏭 Operasyon"],["/reklam/","📣 Reklam"],["/muhasebe/","🧾 Muhasebe"],...pg].map(([h,l])=>`<a href="${h}">${l} →</a>`).join("");
 }
 function deny(){
   $("vAuth").classList.add("hidden"); $("vApp").classList.remove("hidden");
@@ -1503,7 +1504,7 @@ async function refresh(){
 }
 async function boot(){
   if(DEMO){
-    S.me={id:"u_yasin"}; S.profile={name:"Yasin (demo)",role:"admin"}; S.isAdmin=true; S.owner="u_yasin"; S.pages=["erdem-kus","yasin"];
+    S.me={id:"u_yasin"}; S.profile={name:"Yasin (demo)",role:"admin"}; S.isAdmin=true; S.owner="u_yasin"; S.pages=["erdem","cagdas","yasin"];
     await loadAll();
     if(!S.team.profiles?.length) S.team={loaded:true, profiles:[{id:"u_yasin",name:"Yasin",role:"admin"},{id:"u_p",name:"Ortak",role:"partner"},{id:"u_a",name:"Reklamcı",role:"ads"},{id:"u_o",name:"Operasyon kişisi",role:"ops"},{id:"u_c",name:"Kreatif kişisi",role:"creative"}],
       cats:[{id:"c1",name:"Meta / Strateji",color:"#E8402A"},{id:"c2",name:"Operasyon",color:"#2F5DFF"}], tasks:[{id:"t1",user_id:"u_yasin",title:"Ekim bütçe planını onayla",status:"todo",priority:"yuksek",due:addDays(trToday(),1),assigned_by:"u_p",created_at:nowIso()},{id:"t2",user_id:"u_o",title:"Kargo anlaşmasını güncelle",status:"doing",priority:"normal",due:addDays(trToday(),-1),assigned_by:"u_yasin",created_at:nowIso()}], asg:[]};
@@ -1568,7 +1569,7 @@ boot();
 /* ===== MOBİL: alt menü en fazla 5 buton (4 sekme + "Daha"), sekme etiketleri ikon + yazı ===== */
 (()=>{
   // uygulama (ana ekran) açılınca en son kullanılan panele dönsün
-  try{ const m = location.pathname.match(/^\/(yonetim|operasyon|kreatif|reklam|erdem-kus|yasin)\//); if(m) localStorage.setItem("remaks_last", "/"+m[1]+"/"); }catch(e){}
+  try{ const m = location.pathname.match(/^\/(yonetim|operasyon|kreatif|reklam|erdem|cagdas|muhasebe|yasin)\//); if(m) localStorage.setItem("remaks_last", "/"+m[1]+"/"); }catch(e){}
   const mq = matchMedia("(max-width:959px)"), MAX = 5;
   const EMO = /^\s*((?:\p{Extended_Pictographic}|\p{Regional_Indicator})(?:️|‍\p{Extended_Pictographic})*)\s*/u;
   const obs = new MutationObserver(run);
