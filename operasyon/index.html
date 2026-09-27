@@ -822,7 +822,8 @@ async function loadAll(){
 }
 
 /* ================= NAV ================= */
-const pageLbl = p=>p.own ? "Planım" : p.k.split("-")[0].replace(/^./,c=>c.toLocaleUpperCase("tr"))+" planı";
+const PAGE_NAMES = {cagdas:"Çağdaş", erdem:"Erdem", "erdem-kus":"Erdem", yasin:"Yasin"};
+const pageLbl = p=>p.own ? "Planım" : (PAGE_NAMES[p.k] || p.k.split("-")[0].replace(/^./,c=>c.toLocaleUpperCase("tr")))+" planı";
 function addPageLinks(){
   (S.myPages||[]).forEach(p=>{
     $("nav").insertAdjacentHTML("beforeend", `<button onclick="location.href='/${p.k}/'"><span class="ic">🗓</span>${esc(pageLbl(p))}</button>`);
