@@ -211,7 +211,10 @@
   .tlh span.last{transform:translateY(-100%)}
   .tlb{padding-bottom:4px}
   .sleep{display:inline-flex;align-items:center;gap:5px;border:var(--b2);border-radius:99px;padding:2px 4px 2px 10px;font-size:.72rem;font-weight:800;background:var(--purple-s);white-space:nowrap}
-  .sleep input{width:58px;margin:0;padding:3px 6px;font-size:.8rem;border-radius:99px;text-align:center;font-family:var(--fm)}
+  .sleep input{width:92px;margin:0;padding:3px 6px;font-size:.8rem;border-radius:99px;text-align:center;font-family:var(--fm)}
+  .sleep b{font-family:var(--fm);padding-right:6px}
+  @media(max-width:959px){ .sleep input{width:118px;padding:3px 4px} .sleep input::-webkit-calendar-picker-indicator{margin-left:0;padding:0} }
+  @media(max-width:420px){ .sleep{flex-wrap:wrap;border-radius:14px;padding:4px 8px;row-gap:4px} }
   .vfab{position:fixed;right:22px;bottom:24px;z-index:70;width:62px;height:62px;border-radius:50%;border:var(--b);background:var(--mustard);font-size:1.6rem;cursor:pointer;box-shadow:var(--sh)}
   .vfab:active{transform:translate(3px,3px);box-shadow:none}
   .vfab.rec{background:var(--red);color:#fff;animation:vpulse 1.2s infinite}
@@ -480,6 +483,7 @@ const trLong = s=>dObj(s).toLocaleDateString("tr-TR",{day:"numeric",month:"long"
 const trMid = s=>dObj(s).toLocaleDateString("tr-TR",{day:"numeric",month:"long"})+" "+WD[wdIdx(s)];
 const trShort = s=>dObj(s).toLocaleDateString("tr-TR",{day:"numeric",month:"short"});
 const fm = m=>`${pad(Math.floor(m/60))}:${pad(m%60)}`;
+const mins = t=>{ if(!t||!/^\d{1,2}:\d{2}/.test(t)) return null; const [h,m]=t.split(":").map(Number); return h*60+m; };
 const hTxt = m=>{ m=Math.round(m||0); if(!m) return "0"; const h=Math.floor(m/60), r=m%60; return (h?h+" sa":"")+(h&&r?" ":"")+(r?r+" dk":""); };
 const hDec = m=>(Math.round((m||0)/6)/10).toLocaleString("tr-TR");
 const nowIso = ()=>new Date().toISOString();
@@ -561,7 +565,7 @@ async function saveSet(key, value){
   if(DEMO){ demoPersist(); return; }
   const {error}=await sb.from("ys_settings").upsert({owner_id:S.owner,key,value,updated_at:nowIso()},{onConflict:"owner_id,key"}); if(error) throw error;
 }
-function fail(e){ console.error(e); const m=e?.message||String(e); toast(/done|sleep/.test(m)&&/column|schema/i.test(m)?"Kaydedilemedi: Supabase'de yeni SQL (yapıldı / uyku sütunu) çalıştırılmalı.":"Kaydedilemedi: "+m); setSave("⚠ kaydedilemedi"); }
+function fail(e){ console.error(e); const m=e?.message||String(e); toast(/done|sleep/.test(m)&&/column|schema/i.test(m)?"Kaydedilemedi: Supabase'de yeni SQL (yapıldı / uyku sütunları) çalıştırılmalı.":"Kaydedilemedi: "+m); setSave("⚠ kaydedilemedi"); }
 function setSave(t){ const el=document.querySelector(".savest"); if(el) el.textContent=t; }
 async function loadAll(){
   if(DEMO){
@@ -653,7 +657,7 @@ function renderGun(){
       <input id="qIn" placeholder="14-16 reklam analizi #reklam @uzbionik · saatsiz yazarsan hızlı iş olur" autocomplete="off" enterkeyhint="done">
       <button class="btn sm" id="qAdd">Ekle</button>
     </div>
-    <div class="qhelp">Örnek: <code>9.30-11 tedarikçi görüşmesi #stok @uzbionik</code> → plan · <code>301. video metni &gt; metni yaz &gt; ekibe ilet</code> → alt adımlı hızlı iş · <code>uyku 7,5</code> → günün uykusu · 🎤 düğmesiyle sesle ekle</div>
+    <div class="qhelp">Örnek: <code>9.30-11 tedarikçi görüşmesi #stok @uzbionik</code> → plan · <code>301. video metni &gt; metni yaz &gt; ekibe ilet</code> → alt adımlı hızlı iş · <code>uyku 23:30-7</code> → yattığın–kalktığın saat · 🎤 düğmesiyle sesle ekle</div>
     <div class="g3">
       <div class="cl">${leftHtml()}</div>
       <div class="cc">
@@ -663,7 +667,7 @@ function renderGun(){
           <span class="pill ok">✅ Yapıldı ${hTxt(T.done)}${T.nW?` · ${T.nDone}/${T.nW}`:""}</span>
           <span class="pill ${T.left&&d<t?"bad":""}">⏳ Yapılmadı ${hTxt(T.left)}</span>
           ${T.personal?`<span class="pill">🏃 Kişisel ${hTxt(T.personal)}</span>`:""}
-          <label class="sleep" title="Bu gece kaç saat uyudun?">😴 Uyku <input id="fSleep" type="text" inputmode="decimal" maxlength="5" placeholder="–" value="${dr.sleep!=null?String(dr.sleep).replace(".",","):""}"> sa</label>
+          <span class="sleep" title="Bu sabaha kadar olan uyku: yattığın ve kalktığın saat">😴 Uyku <input id="fSlA" type="time" step="900" aria-label="Yattığım saat" value="${esc(dr.sleep_from||"")}"><span>→</span><input id="fSlB" type="time" step="900" aria-label="Kalktığım saat" value="${esc(dr.sleep_to||"")}"><b>${dr.sleep!=null?String(dr.sleep).replace(".",",")+" sa":"– sa"}</b></span>
           <span class="sp"></span>
           <button class="btn sm" id="addBlk">+ Plan ekle</button>
         </div>
@@ -832,7 +836,7 @@ function weekHtml(){
     return `<div class="wkd ${d===t?"today":""} ${d===S.day?"sel":""} ${i===6?"sun":""}">
       <button class="h" data-wday="${d}">${WD[i]}${d===t?" · bugün":""}<small>${esc(trShort(d))}</small></button>
       <input data-wfocus="${d}" placeholder="${i===6?"Değerlendirme ve planlama":"Odak…"}" value="${esc(dr.focus||"")}">
-      ${dr.sleep!=null?`<div class="tot">😴 ${String(dr.sleep).replace(".",",")} sa uyku</div>`:""}
+      ${dr.sleep!=null||dr.sleep_from?`<div class="tot">😴 ${dr.sleep_from&&dr.sleep_to?esc(dr.sleep_from)+"–"+esc(dr.sleep_to)+" · ":""}${dr.sleep!=null?String(dr.sleep).replace(".",",")+" sa":""}</div>`:""}
       ${B.map(b=>`<div class="wb ${b.done?"ok":""} ${!b.done&&d<t&&work(b)?"miss":""}" style="border-left:5px solid ${areaColor(b.area)}"><span class="wtk" data-tick="${b.id}" role="checkbox" aria-checked="${b.done?"true":"false"}">${b.done?"✓":""}</span><button class="wtx" data-wbk="${b.id}"><span class="k">${fm(b.start_min)}–${fm(b.end_min)}</span>${esc(b.title||"(başlıksız)")}</button></div>`).join("")}
       <div class="tot">Plan ${hTxt(T.plan)} · ✓ ${hTxt(T.done)}</div>
       <button class="add" data-wadd="${d}">+ Plan</button></div>`; }).join("");
@@ -857,8 +861,9 @@ function bindGun(el){
     x.oninput=()=>{ setSave("…"); debounce(id+d,save); }; x.onblur=()=>{ if(debouncers[id+d]){ clearTimeout(debouncers[id+d]); delete debouncers[id+d]; save(); } }; };
   auto("fFocus","focus",S.day); auto("fNote","note",S.day); auto("fResume","resume",S.day); auto("fOutcome","outcome",S.day); auto("tmFocus","focus",addDays(S.day,1));
   const vf=$("vFab"); if(vf) vf.onclick=voiceCapture;
-  const sl=$("fSleep"); if(sl){ const saveSl=()=>{ const raw=String(sl.value).trim().replace(",","."); const num=parseFloat(raw); if(raw!==""&&!(num>=0&&num<=24)){ toast("Uyku 0–24 arası bir sayı olmalı (örn. 7,5)."); return; } const v=raw===""?null:Math.round(num*4)/4; if(v===(dayRow(S.day).sleep??null)) return;
-    setSave("kaydediliyor…"); saveDay(S.day,{sleep:v}).then(()=>setSave("✓ uyku kaydedildi")).catch(fail); }; sl.onchange=saveSl; sl.onblur=saveSl; sl.onkeydown=e=>{ if(e.key==="Enter") sl.blur(); }; }
+  const sa=$("fSlA"), sb=$("fSlB");
+  if(sa&&sb){ const saveSl=()=>{ const f=sa.value||null, t=sb.value||null; const dr=dayRow(S.day); if(f===(dr.sleep_from||null)&&t===(dr.sleep_to||null)) return; setSleep(S.day,{from:f,to:t},true); };
+    sa.onchange=saveSl; sb.onchange=saveSl; }
   el.querySelectorAll("[data-ck]").forEach(c=>c.onclick=async()=>{ const k=c.dataset.ck; const ck={...(dayRow(S.day).checks||{})}; if(ck[k]) delete ck[k]; else ck[k]=true;
     try{ await saveDay(S.day,{checks:ck}); renderGun(); }catch(e){ fail(e); } });
   $("ckEdit").onclick=editChecks;
@@ -929,17 +934,34 @@ function parseLine(text){
   if(!r.area && /\b(uyku|spor|mola)\b/i.test(norm(r.title))) r.area=matchArea("kisisel");
   return r;
 }
+// Uyku: "uyku 23:30-7", "23'te yattım 7'de kalktım", "11'den 7'ye uyudum", "7 saat uyudum".
+// Kayıt, uyanılan günün satırına yazılır (bu sabaha kadar olan uyku).
+const hhmm=(h,m)=>`${pad(h%24)}:${pad(m||0)}`;
+const bedH=h=>h===12?0:(h>=6&&h<=11?h+12:h);          // "11'de yattım" = 23:00, "12'de" = 00:00, "1'de" = 01:00
+function sleepSpan(f,t){ const a=mins(f), b=mins(t); if(a==null||b==null) return null; let d=b-a; if(d<=0) d+=1440; return Math.round(d/60*4)/4; }
 function sleepOf(text){
-  const n=norm(text); const m=n.match(/^(?:uyku|uyudum)\s*:?\s*(\d{1,2}(?:[.,]\d+)?)\s*(?:sa|saat)?$/) || n.match(/^(\d{1,2}(?:[.,]\d+)?)\s*(?:sa|saat)?\s*(?:uyku|uyudum)$/)
+  const n=norm(text).replace(/[’']/g,"").replace(/(\d)\.(\d{2})\b/g,"$1:$2");
+  let m=n.match(/^(?:uyku|uyudum)\s*:?\s*(\d{1,2})(?::(\d{2}))?\s*[-–]\s*(\d{1,2})(?::(\d{2}))?$/)
+     || n.match(/(\d{1,2})(?::(\d{2}))?\s*(?:-|den|dan|ten|tan)\s*(?:sabah\s*)?(\d{1,2})(?::(\d{2}))?\s*(?:ye|ya|e|a)?\s*(?:kadar\s*)?(?:uyudum|uyku)/);
+  if(m) return {from:hhmm(bedH(+m[1]),+m[2]), to:hhmm(+m[3],+m[4])};
+  const bed=n.match(/(\d{1,2})(?::(\d{2}))?\s*(?:de|da|te|ta)?\s*(?:gibi\s*)?(?:yatt|uyudum\b(?!.*saat))/), wake=n.match(/(\d{1,2})(?::(\d{2}))?\s*(?:de|da|te|ta)?\s*(?:gibi\s*)?(?:kalkt|uyand)/);
+  if(bed||wake) return {from:bed?hhmm(bedH(+bed[1]),+bed[2]):undefined, to:wake?hhmm(+wake[1],+wake[2]):undefined};
+  m=n.match(/^(?:uyku|uyudum)\s*:?\s*(\d{1,2}(?:[.,]\d+)?)\s*(?:sa|saat)?$/) || n.match(/^(\d{1,2}(?:[.,]\d+)?)\s*(?:sa|saat)?\s*(?:uyku|uyudum)$/)
     || n.match(/(\d{1,2}(?:[.,]\d+)?|bir|iki|uc|dort|bes|alti|yedi|sekiz|dokuz|on)\s*(bucuk)?\s*saat\s*(?:kadar\s*)?(?:uyudum|uyku)/);
   if(!m) return null;
   const W={bir:1,iki:2,uc:3,dort:4,bes:5,alti:6,yedi:7,sekiz:8,dokuz:9,on:10};
   let v=W[m[1]]??parseFloat(String(m[1]).replace(",",".")); if(m[2]) v+=.5;
-  return v>=0&&v<=24?Math.round(v*4)/4:null;
+  return v>=0&&v<=24?{hours:Math.round(v*4)/4}:null;
 }
-async function setSleep(d,v){ try{ await saveDay(d,{sleep:v}); rerender(); toast(`😴 ${trShort(d)} uyku: ${String(v).replace(".",",")} saat ✓`); return true; }catch(e){ fail(e); return false; } }
+async function setSleep(d,o,quiet){
+  const cur=dayRow(d); const from=o.from!==undefined?o.from:(cur.sleep_from||null), to=o.to!==undefined?o.to:(cur.sleep_to||null);
+  const hours=o.hours!=null?o.hours:(from&&to?sleepSpan(from,to):(o.from===null||o.to===null?null:cur.sleep??null));
+  try{ await saveDay(d,{sleep_from:from, sleep_to:to, sleep:hours}); rerender();
+    const txt=`${from&&to?from+"–"+to+" · ":from?"yattım "+from+" · ":to?"kalktım "+to+" · ":""}${hours!=null?String(hours).replace(".",",")+" saat":""}`;
+    toast(`😴 ${trShort(d)} uyku: ${txt||"silindi"} ✓`); return true; }catch(e){ fail(e); return false; }
+}
 async function quickLine(text){
-  const sv=sleepOf(text); if(sv!=null){ if(await setSleep(S.day,sv)) $("qIn").value=""; return; }
+  const sv=sleepOf(text); if(sv){ if(await setSleep(S.day,sv)) $("qIn").value=""; return; }
   const p=parseLine(text); if(p.error){ toast(p.error); return; }
   if(!p.title&&p.start==null){ toast("Bir şey yaz."); return; }
   if(p.newProject && !S.set.projects.includes(p.newProject)){ try{ await saveSet("projects",[...S.set.projects,p.newProject]); }catch(e){ fail(e); return; } }
@@ -1073,20 +1095,41 @@ function editChecks(){
    Tek dokunuş: konuş → bitince kendiliğinden kaydedilir.
    Saat söylediysen ("saat 3'te tedarikçiyle görüşme", "yarın 10-12 reklam analizi") → günlük plana.
    "7 saat uyudum" → günün uykusu. Diğer her şey → o günün hızlı notuna. */
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+// demo testi: ?fakesr (normal) / ?fakesr=safari (ikinci start sessizce düşer) — yalnız DEMO'da
+const FakeSR = DEMO && /fakesr/.test(location.search) ? (()=>{ window.__fakeQ=[]; window.__fakeN=0; const safari=/fakesr=safari/.test(location.search);
+  return class{ constructor(){ this.uses=0; window.__fakeN++; } start(){ if(this.on) throw new Error("InvalidStateError"); this.uses++; if(safari&&this.uses>1) return; this.on=true;
+    setTimeout(()=>{ this.onstart&&this.onstart(); const t=window.__fakeQ.shift()||""; if(t) this.onresult({results:[[{transcript:t}]]}); setTimeout(()=>{ this.on=false; this.onend&&this.onend(); },50); },50); }
+    stop(){} abort(){ this.on=false; } }; })() : null;
+const SR = FakeSR || window.SpeechRecognition || window.webkitSpeechRecognition;
 const voiceOk = ()=>!!SR;
-let rec=null;
-function voiceCapture(){
+// Tek tanıyıcı nesnesi yeniden kullanılır; takılırsa (başlamazsa/bitmezse) sıfırlanıp yenisi açılır.
+// Böylece aynı oturumda art arda kullanım çalışır (Safari'de ikinci start'ın sessizce düşmesi dahil).
+let recI=null, listening=false, vText="", vTimer=null, vStartT=null;
+function vUI(on, msg){
   const btn=$("vFab"), pan=$("vPanel");
-  if(rec){ rec.stop(); return; }
-  try{ rec=new SR(); }catch(e){ toast("Bu tarayıcı sesle yazmayı desteklemiyor."); return; }
-  rec.lang="tr-TR"; rec.interimResults=true; rec.continuous=false;
-  let text="";
-  rec.onresult=e=>{ text=""; for(const r of e.results) text+=r[0].transcript; if(pan) pan.textContent="🎙 "+text; };
-  rec.onerror=e=>{ text=""; toast(e.error==="not-allowed"?"Mikrofon izni verilmedi.":e.error==="no-speech"?"Ses duyulmadı.":"Ses anlaşılamadı."); };
-  rec.onend=()=>{ rec=null; if(btn){ btn.classList.remove("rec"); btn.textContent="🎤"; } if(pan) pan.classList.add("hidden"); if(text.trim()) handleVoice(text.trim()); };
-  btn.classList.add("rec"); btn.textContent="⏹"; if(pan){ pan.textContent="🎙 Dinliyorum… (bitince bekle ya da tekrar dokun)"; pan.classList.remove("hidden"); }
-  rec.start();
+  if(btn){ btn.classList.toggle("rec",on); btn.textContent=on?"⏹":"🎤"; }
+  if(pan){ if(msg){ pan.textContent=msg; pan.classList.remove("hidden"); } else pan.classList.add("hidden"); }
+}
+function vReset(){ listening=false; clearTimeout(vTimer); clearTimeout(vStartT); vUI(false); }
+function newRec(){
+  const r=new SR(); r.lang="tr-TR"; r.interimResults=true; r.continuous=false; r.maxAlternatives=1;
+  r.onstart=()=>{ clearTimeout(vStartT); };
+  r.onresult=e=>{ vText=""; for(const x of e.results) vText+=x[0].transcript; vUI(true,"🎙 "+vText); };
+  r.onerror=e=>{ if(e.error==="aborted") return; vText=""; toast(e.error==="not-allowed"||e.error==="service-not-allowed"?"Mikrofon izni verilmedi.":e.error==="no-speech"?"Ses duyulmadı, tekrar dokun.":"Ses anlaşılamadı, tekrar dokun."); };
+  r.onend=()=>{ const t=vText.trim(); vText=""; vReset(); if(t) handleVoice(t); };
+  return r;
+}
+function voiceCapture(){
+  if(!SR){ toast("Bu tarayıcı sesle yazmayı desteklemiyor."); return; }
+  if(listening){ try{ recI.stop(); }catch(e){} clearTimeout(vTimer); vTimer=setTimeout(()=>{ if(listening){ try{ recI.abort(); }catch(e){} recI=null; vReset(); } },1500); return; }
+  vText=""; listening=true; vUI(true,"🎙 Dinliyorum… (bitince bekle ya da tekrar dokun)");
+  const go=fresh=>{ if(fresh||!recI) recI=newRec(); recI.start(); };
+  try{ go(false); }
+  catch(e){ try{ recI&&recI.abort(); }catch(e2){} try{ go(true); }catch(e3){ recI=null; vReset(); toast("Mikrofon başlatılamadı, sayfayı yenileyip tekrar dene."); return; } }
+  // başlamazsa (onstart gelmezse) tanıyıcıyı yenile ve bir kez daha dene
+  vStartT=setTimeout(()=>{ if(!listening) return; try{ recI.abort(); }catch(e){} try{ recI=newRec(); recI.start(); vStartT=setTimeout(()=>{ if(listening){ try{ recI.abort(); }catch(e){} recI=null; vReset(); toast("Mikrofon açılmadı, tekrar dokun."); } },2500); }catch(e){ recI=null; vReset(); } },1200);
+  // en fazla 20 sn dinle
+  vTimer=setTimeout(()=>{ if(listening){ try{ recI.stop(); }catch(e){} } },20000);
 }
 const VOICE_WD={pazartesi:0,sali:1,carsamba:2,persembe:3,cuma:4,cumartesi:5,pazar:6};
 function parseVoice(raw){
@@ -1118,7 +1161,7 @@ function parseVoice(raw){
 }
 async function handleVoice(text){
   const sv=sleepOf(text);
-  if(sv!=null){ const d=/\bdun\b/.test(norm(text))?addDays(trToday(),-1):S.day; await setSleep(d,sv); return; }
+  if(sv){ const d=/\bdun\b/.test(norm(text))?addDays(trToday(),-1):S.day; await setSleep(d,sv); return; }
   const p=parseVoice(text);
   if(p){
     const ok=await saveBlock({day:p.day, start_min:p.start_min, end_min:p.end_min, title:p.title, area:p.area, project:null, done:false}, null);
@@ -1285,7 +1328,7 @@ function renderOzet(){
       <div class="sect"><h3>Alanlara göre</h3>${areaRows.length?`<div class="tblw"><table><tr><th>Alan</th><th class="n">Plan</th><th class="n">Yapılan</th><th class="n">Yapılmayan</th><th>Plan / yapılan</th></tr>${areaRows.map(k=>row(k,A[k],maxV)).join("")}</table></div>`:`<div class="empty">Bu hafta blok yok.</div>`}</div>
       <div class="sect"><h3>Marka / projeye göre</h3>${Object.keys(P).filter(k=>k!=="—").length?`<div class="tblw"><table><tr><th>Proje</th><th class="n">Plan</th><th class="n">Yapılan</th></tr>${Object.entries(P).filter(([k])=>k!=="—").sort((a,b)=>b[1].real-a[1].real).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="n">${hDec(v.plan)} sa</td><td class="n">${hDec(v.real)} sa</td></tr>`).join("")}</table></div>`:`<div class="empty">Projeye bağlı blok yok.</div>`}</div>
     </div>
-    <div class="sect"><h3>Günlere göre</h3><div class="tblw"><table><tr><th>Gün</th><th>Odak</th><th class="n">Plan</th><th class="n">Yapılan</th><th class="n">✓</th><th class="n">😴</th></tr>${days.map((d,i)=>{ const T=dayTotals(d); return `<tr><td><a href="#" data-oday="${d}" style="color:inherit;font-weight:800">${WD[i]} ${esc(trShort(d))}</a></td><td style="white-space:normal">${esc(dayRow(d).focus||"")}</td><td class="n">${hTxt(T.plan)}</td><td class="n">${hTxt(T.done)}</td><td class="n">${T.nDone}/${T.nW}</td><td class="n">${dayRow(d).sleep!=null?String(dayRow(d).sleep).replace(".",","):"–"}</td></tr>`; }).join("")}</table></div></div>
+    <div class="sect"><h3>Günlere göre</h3><div class="tblw"><table><tr><th>Gün</th><th>Odak</th><th class="n">Plan</th><th class="n">Yapılan</th><th class="n">✓</th><th class="n">😴</th></tr>${days.map((d,i)=>{ const T=dayTotals(d); return `<tr><td><a href="#" data-oday="${d}" style="color:inherit;font-weight:800">${WD[i]} ${esc(trShort(d))}</a></td><td style="white-space:normal">${esc(dayRow(d).focus||"")}</td><td class="n">${hTxt(T.plan)}</td><td class="n">${hTxt(T.done)}</td><td class="n">${T.nDone}/${T.nW}</td><td class="n">${dayRow(d).sleep_from&&dayRow(d).sleep_to?esc(dayRow(d).sleep_from)+"–"+esc(dayRow(d).sleep_to)+" · ":""}${dayRow(d).sleep!=null?String(dayRow(d).sleep).replace(".",",")+" sa":"–"}</td></tr>`; }).join("")}</table></div></div>
     <div class="two">
       <div class="sect"><h3>✓ Yapılanlar (${doneW.length})</h3>${doneW.map(x=>`<div class="tk"><b>${esc(x.title||"(başlıksız)")}</b><div class="m"><span class="tag">📅 ${esc(whenTxt(x))}</span>${x.area?`<span class="tag"><i style="background:${areaColor(x.area)}"></i>${esc(x.area)}</span>`:""}</div></div>`).join("")||`<div class="empty">Yok</div>`}</div>
       <div class="sect"><h3>⏳ Yapılmayanlar (${openW.length})</h3>${openW.map(x=>`<div class="tk"><b>${esc(x.title||"(başlıksız)")}</b><div class="m"><span class="tag ${x.day<trToday()?"late":""}">📅 ${esc(whenTxt(x))}</span>${x.area?`<span class="tag"><i style="background:${areaColor(x.area)}"></i>${esc(x.area)}</span>`:""}</div></div>`).join("")||`<div class="empty">Yok</div>`}</div>
