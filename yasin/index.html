@@ -216,11 +216,13 @@
   @media(max-width:959px){ .sleep input{width:118px;padding:3px 4px} .sleep input::-webkit-calendar-picker-indicator{margin-left:0;padding:0} }
   @media(max-width:420px){ .sleep{flex-wrap:wrap;border-radius:14px;padding:4px 8px;row-gap:4px} }
   .vfab{position:fixed;right:22px;bottom:24px;z-index:70;width:62px;height:62px;border-radius:50%;border:var(--b);background:var(--mustard);font-size:1.6rem;cursor:pointer;box-shadow:var(--sh)}
+  .vlog{white-space:pre-wrap;font-family:var(--fm);font-size:.66rem;background:var(--cream2);border-radius:8px;padding:8px;margin-top:6px;max-height:220px;overflow:auto}
   .vfab:active{transform:translate(3px,3px);box-shadow:none}
   .vfab.rec{background:var(--red);color:#fff;animation:vpulse 1.2s infinite}
   @keyframes vpulse{50%{box-shadow:0 0 0 10px rgba(232,64,42,.25)}}
   .vpanel{position:fixed;right:22px;bottom:98px;z-index:70;max-width:min(420px,calc(100vw - 44px));background:var(--ink);color:#fff;border:var(--b2);border-radius:14px;padding:10px 14px;font-weight:700;font-size:.85rem;box-shadow:var(--sh-sm)}
-  @media(max-width:959px){ .vfab{bottom:calc(96px + env(safe-area-inset-bottom));right:16px} .vpanel{bottom:calc(168px + env(safe-area-inset-bottom));right:16px} }
+  @media(max-width:959px){ #toastHost .toast{bottom:calc(170px + env(safe-area-inset-bottom))!important}
+    .vfab{bottom:calc(96px + env(safe-area-inset-bottom));right:16px} .vpanel{bottom:calc(168px + env(safe-area-inset-bottom));right:16px} }
   .extbg{position:absolute;left:0;right:0;background:rgba(168,85,247,.07);border-top:2px dashed var(--purple);pointer-events:none}
   .nday{position:absolute;right:6px;margin-top:3px;font-size:.64rem;font-weight:800;color:var(--purple);pointer-events:none;z-index:1}
   .bk{position:absolute;left:3px;right:3px;border:2px solid var(--ink);border-radius:8px;padding:2px 6px 2px 36px;overflow:hidden;cursor:pointer;font-size:.72rem;line-height:1.25;z-index:2;background:var(--card)}
@@ -1098,45 +1100,58 @@ function editChecks(){
 // demo testi: ?fakesr, ?fakesr=slow (izin sorusu gibi 3 sn gecikme), ?fakesr=denied (izin reddi) — yalnız DEMO'da
 const FakeSR = DEMO && /fakesr/.test(location.search) ? (()=>{ window.__fakeQ=[]; window.__fakeN=0; const mode=(location.search.match(/fakesr=(\w+)/)||[])[1]||"";
   return class{ constructor(){ window.__fakeN++; } start(){ if(this.on) throw new Error("InvalidStateError"); this.on=true;
+    if(mode==="flaky"&&window.__fakeN%2===0){ setTimeout(()=>{ this.on=false; this.onend&&this.onend(); },30); return; }   // her ikinci tanıyıcı sessizce biter
+    if(mode==="once"&&window.__fakeN>1){ setTimeout(()=>{ this.on=false; this.onend&&this.onend(); },30); return; }        // ilkinden sonra hiçbiri başlamaz
     if(mode==="denied"){ setTimeout(()=>{ this.onerror&&this.onerror({error:"not-allowed"}); this.on=false; this.onend&&this.onend(); },80); return; }
     setTimeout(()=>{ if(!this.on) return; this.onstart&&this.onstart(); const t=window.__fakeQ.shift()||""; if(t) this.onresult({results:[[{transcript:t}]]}); setTimeout(()=>{ this.on=false; this.onend&&this.onend(); },50); }, mode==="slow"?3000:50); }
     stop(){} abort(){ if(this.on){ this.on=false; this.onerror&&this.onerror({error:"aborted"}); this.onend&&this.onend(); } } }; })() : null;
 const SR = FakeSR || window.SpeechRecognition || window.webkitSpeechRecognition;
 const voiceOk = ()=>!!SR;
-// Her dokunuşta yeni tanıyıcı açılır (eskisi kapatılır). İzin sorusu için 8 sn beklenir.
-// Tarayıcı ses tanımayı desteklemiyorsa, izin yoksa ya da iPhone'da ana ekran uygulamasıysa
-// (orada ses tanıma kapalı) "söyle ya da yaz" penceresi açılır: klavyedeki dikte 🎤 tuşu her yerde çalışır.
-let recI=null, listening=false, gotStart=false, vText="", vFall=null, vTimer=null, vStartT=null;
+// Her dokunuşta yeni tanıyıcı açılır; eskisine dokunulmaz (abort, Chrome'da yeni oturumu da kesebiliyor).
+// Oturum hiç başlamadan biterse bir kez kendiliğinden yeniden denenir. İzin sorusu için 8 sn beklenir.
+// Olmazsa "söyle ya da yaz" penceresi açılır (klavyedeki dikte 🎤 tuşu her yerde çalışır); pencerede teknik iz görünür.
+let recI=null, listening=false, gotStart=false, vText="", vFall=null, vTimer=null, vStartT=null, vRetry=0, vT0=0;
 const isIOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
 const isStandalone=()=>navigator.standalone===true||matchMedia("(display-mode: standalone)").matches;
+window.__vlog=[]; const vlog=m=>{ window.__vlog.push(`${new Date().toLocaleTimeString("tr-TR")} ${m}`); if(window.__vlog.length>40) window.__vlog.shift(); };
 function vUI(on, msg){
   const btn=$("vFab"), pan=$("vPanel");
   if(btn){ btn.classList.toggle("rec",on); btn.textContent=on?"⏹":"🎤"; }
   if(pan){ if(msg){ pan.textContent=msg; pan.classList.remove("hidden"); } else pan.classList.add("hidden"); }
 }
 function vReset(){ listening=false; clearTimeout(vTimer); clearTimeout(vStartT); vUI(false); }
-const V_ERR={ "not-allowed":"Mikrofon izni verilmedi. Tarayıcı ayarlarından bu siteye mikrofon izni ver.", "service-not-allowed":"Bu ortamda tarayıcının ses tanıması kapalı.",
+const V_ERR={ "not-allowed":"Mikrofon izni verilmedi. Tarayıcı ayarlarından bu siteye mikrofon izni ver.", "service-not-allowed":"Bu ortamda tarayıcının ses tanıması kapalı (iPhone'da ana ekran uygulaması ya da Chrome olabilir; Safari'den açmayı dene).",
   "audio-capture":"Mikrofon bulunamadı ya da başka bir uygulama kullanıyor.", "network":"Ses tanıma için internet bağlantısı gerekli.", "language-not-supported":"Tarayıcı Türkçe ses tanımayı desteklemiyor." };
+let recSeq=0;
 function newRec(){
-  const r=new SR(); r.lang="tr-TR"; r.interimResults=true; r.continuous=false; r.maxAlternatives=1;
-  const started=()=>{ if(gotStart) return; gotStart=true; clearTimeout(vStartT); vUI(true,"🎙 Dinliyorum… (bitince bekle ya da tekrar dokun)"); };
-  r.onstart=started; r.onaudiostart=started;
-  r.onresult=e=>{ started(); vText=""; for(const x of e.results) vText+=x[0].transcript; vUI(true,"🎙 "+vText); };
-  r.onerror=e=>{ if(e.error==="aborted") return; if(e.error==="no-speech"){ toast("Ses duyulmadı, tekrar dokun."); return; } vFall=(V_ERR[e.error]||"Ses tanınamadı")+` (${e.error})`; };
-  r.onend=()=>{ if(r!==recI) return; const t=vText.trim(); vText=""; vReset(); if(t){ handleVoice(t); return; } if(vFall){ const m=vFall; vFall=null; voiceTyped(m); } };
+  const r=new SR(); r.__n=++recSeq; r.lang="tr-TR"; r.interimResults=true; r.continuous=false; r.maxAlternatives=1; vlog(`#${r.__n} açıldı`);
+  const started=ev=>{ vlog(`#${r.__n} ${ev}`); if(r!==recI||gotStart) return; gotStart=true; clearTimeout(vStartT); vUI(true,"🎙 Dinliyorum… (bitince bekle ya da tekrar dokun)"); };
+  r.onstart=()=>started("başladı"); r.onaudiostart=()=>started("ses alınıyor");
+  r.onresult=e=>{ if(r!==recI) return; gotStart=true; clearTimeout(vStartT); vText=""; for(const x of e.results) vText+=x[0].transcript; vUI(true,"🎙 "+vText); };
+  r.onerror=e=>{ vlog(`#${r.__n} hata: ${e.error}`); if(r!==recI||e.error==="aborted") return; if(e.error==="no-speech"){ toast("Ses duyulmadı, tekrar dokun."); return; } vFall=(V_ERR[e.error]||"Ses tanınamadı")+` (${e.error})`; };
+  r.onend=()=>{ vlog(`#${r.__n} bitti${vText?` · "${vText}"`:""}`); if(r!==recI) return;
+    const t=vText.trim(); vText="";
+    // hiç başlamadan (≈2 sn içinde, hatasız) bittiyse: bir kez yeni tanıyıcıyla tekrar dene
+    if(!t && !gotStart && !vFall && vRetry<1 && Date.now()-vT0<2500){ vRetry++; vlog("başlamadı → yeniden deneniyor"); setTimeout(()=>{ if(listening) startRec(); },300); return; }
+    vReset(); if(t){ handleVoice(t); return; }
+    if(vFall){ const m=vFall; vFall=null; voiceTyped(m); return; }
+    if(!gotStart) voiceTyped("Mikrofon açılmadı."); else toast("Ses alınamadı, tekrar dokun.");
+  };
   return r;
 }
-function voiceCapture(){
-  if(!SR){ voiceTyped("Bu tarayıcı ses tanımayı desteklemiyor."); return; }
-  if(isIOS&&isStandalone()){ voiceTyped(); return; }
-  if(listening){ const r=recI; try{ r.stop(); }catch(e){} clearTimeout(vTimer); vTimer=setTimeout(()=>{ if(listening&&recI===r){ try{ r.abort(); }catch(e){} vReset(); } },1500); return; }
-  try{ recI&&recI.abort(); }catch(e){}
-  recI=newRec(); vText=""; vFall=null; gotStart=false; listening=true; vUI(true,"🎙 Mikrofon açılıyor… (izin sorulursa izin ver)");
-  try{ recI.start(); }
-  catch(e){ vReset(); voiceTyped(`Mikrofon başlatılamadı (${e.name||e.message}).`); return; }
-  const r=recI;
-  vStartT=setTimeout(()=>{ if(listening&&!gotStart&&recI===r){ try{ r.abort(); }catch(e){} vReset(); voiceTyped("Mikrofon açılmadı."); } },8000);
+function startRec(){
+  recI=newRec(); vText=""; vFall=null; gotStart=false; vT0=Date.now();
+  try{ recI.start(); }catch(e){ vlog(`başlatma hatası: ${e.name||e.message}`); vReset(); voiceTyped(`Mikrofon başlatılamadı (${e.name||e.message}).`); return; }
+  const r=recI; clearTimeout(vStartT); clearTimeout(vTimer);
+  vStartT=setTimeout(()=>{ if(listening&&!gotStart&&recI===r){ vlog("8 sn'de başlamadı"); recI=null; try{ r.abort(); }catch(e){} vReset(); voiceTyped("Mikrofon açılmadı."); } },8000);
   vTimer=setTimeout(()=>{ if(listening&&recI===r){ try{ r.stop(); }catch(e){} } },25000);
+}
+function voiceCapture(){
+  vlog(`🎤 dokunuş (dinliyor=${listening})`);
+  if(!SR){ voiceTyped("Bu tarayıcı ses tanımayı desteklemiyor."); return; }
+  if(listening){ const r=recI; try{ r&&r.stop(); }catch(e){} clearTimeout(vTimer); vTimer=setTimeout(()=>{ if(listening&&recI===r){ vlog("durmadı → kapatıldı"); recI=null; try{ r.abort(); }catch(e){} vReset(); } },1500); return; }
+  listening=true; vRetry=0; vUI(true,"🎙 Mikrofon açılıyor… (izin sorulursa izin ver)");
+  startRec();
 }
 // yedek yol: klavyenin dikte tuşuyla ya da yazarak — aynı kurallarla plana / nota / uykuya gider
 function voiceTyped(msg){
@@ -1144,7 +1159,8 @@ function voiceTyped(msg){
     ${msg?`<div class="linked" style="background:var(--orange-s)">⚠ ${esc(msg)}</div>`:""}
     <div class="note" style="margin:0 0 10px">Klavyedeki <b>🎤 dikte</b> tuşuna basıp konuşabilirsin. Saat söylersen plana (ör. "saat 3'te tedarikçiyle görüşme"), "23'te yattım 7'de kalktım" dersen uykuya, diğer her şey hızlı nota eklenir.</div>
     <textarea id="vtT" rows="3" placeholder="Konuş ya da yaz…"></textarea>
-    <div class="btnrow"><button class="btn ghost" id="vtX">Vazgeç</button><button class="btn" id="vtS">Ekle</button></div>`);
+    <div class="btnrow"><button class="btn ghost" id="vtX">Vazgeç</button><button class="btn" id="vtS">Ekle</button></div>
+    ${msg?`<details style="margin-top:12px"><summary style="font-size:.74rem">Teknik ayrıntı (sorun sürerse ekran görüntüsünü gönder)</summary><pre class="vlog">${esc(navigator.userAgent)}\nuygulama: ${isStandalone()?"ana ekran":"tarayıcı"} · ses tanıma: ${SR?"var":"yok"}\n${esc(window.__vlog.join("\n"))}</pre></details>`:""}`);
   const ta=$("vtT"); ta.focus();
   ta.onkeydown=e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); $("vtS").click(); } };
   $("vtX").onclick=closeModal;
