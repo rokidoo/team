@@ -239,6 +239,35 @@
   .bk.short{padding-top:0;padding-bottom:0} .bk.short .ar,.bk.short .tm{display:none} .bk.mid .ar{display:none}
   .nowl{position:absolute;left:0;right:0;height:2px;background:var(--red);z-index:3;pointer-events:none}
   .nowl::before{content:"";position:absolute;left:-4px;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--red)}
+  /* saat saat yapılacaklar listesi */
+  .vtog{display:inline-flex;border:var(--b2);border-radius:10px;overflow:hidden;margin-left:auto}
+  .vtog button{border:none;background:var(--card);padding:6px 10px;font-weight:800;font-size:.72rem;cursor:pointer;font-family:var(--fb)}
+  .vtog button+button{border-left:var(--b2)} .vtog button.on{background:var(--ink);color:var(--card)}
+  .dstrip{display:flex;gap:6px;overflow-x:auto;scroll-snap-type:x proximity;padding:2px 2px 8px;margin-bottom:6px;scrollbar-width:thin;overscroll-behavior-x:contain}
+  .dstrip button{flex:0 0 auto;scroll-snap-align:center;border:var(--b2);border-radius:12px;background:var(--card);padding:6px 10px;min-width:62px;cursor:pointer;font-family:var(--fb);font-weight:800;font-size:.72rem;line-height:1.25;text-align:center}
+  .dstrip button .n{display:block;font-family:var(--fm);font-size:.62rem;font-weight:700;color:var(--mut)}
+  .dstrip button.tdy{background:var(--mustard-s)} .dstrip button.on{background:var(--ink);color:var(--card)} .dstrip button.on .n{color:var(--card);opacity:.8}
+  .tdl{overflow-y:auto;max-height:min(70dvh,900px);overscroll-behavior:contain;scroll-behavior:auto}
+  @media(max-width:959px){ .tdl{max-height:62dvh} }
+  .hrow{display:grid;grid-template-columns:52px minmax(0,1fr);border-top:1px solid var(--gray-s)}
+  .hrow:first-child{border-top:none}
+  .hrow.now{background:var(--mustard-s)} .hrow.past .hl{opacity:.55}
+  .hrow .hl{font-family:var(--fm);font-weight:700;font-size:.74rem;color:var(--mut);padding:9px 6px;text-align:right;border-right:1.5px solid var(--ink)}
+  .hrow.now .hl{color:var(--red)}
+  .hrow .hc{padding:4px 6px 4px 8px;display:flex;flex-direction:column;gap:4px;min-width:0}
+  .td{display:flex;align-items:center;gap:8px;border:1.5px solid var(--ink);border-radius:10px;padding:5px 8px;background:var(--card);border-left:5px solid var(--c)}
+  .td.ok{background:var(--green-s)} .td.ok .tt{text-decoration:line-through;opacity:.65} .td.miss{background:var(--red-s)}
+  .td .tick{position:static;transform:none;width:22px;height:22px;flex-shrink:0;border:2px solid var(--ink);border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:800;background:var(--card);cursor:pointer;font-size:.8rem}
+  .td.ok .tick{background:var(--green);color:#fff}
+  .td .tx{flex:1;min-width:0;cursor:pointer}
+  .td .tt{font-weight:800;font-size:.86rem;overflow-wrap:anywhere}
+  .td .tm{font-family:var(--fm);font-size:.64rem;font-weight:700;color:var(--ink-soft)}
+  .hc .cont{font-size:.62rem;font-weight:800;color:var(--mut)}
+  .hadd{margin:0;border:1.5px dashed transparent;background:transparent;padding:6px 8px;font-size:.82rem;border-radius:9px;font-weight:600;width:100%}
+  .hadd::placeholder{color:transparent}
+  .hrow:hover .hadd::placeholder,.hadd:focus::placeholder,.hrow.now .hadd::placeholder,.hrow.hempty .hadd::placeholder{color:var(--mut)}
+  .hadd:focus{border-color:var(--cobalt);background:var(--card);box-shadow:none;outline:none}
+  @media (hover:none){ .hadd::placeholder{color:var(--mut)} }
   .selx{position:absolute;left:3px;right:3px;background:rgba(47,93,255,.16);border:2px dashed var(--cobalt);border-radius:8px;z-index:4;pointer-events:none;font-family:var(--fm);font-size:.66rem;font-weight:700;padding:2px 6px;color:var(--cobalt)}
   .taphint{background:var(--cobalt-s);border:var(--b2);border-radius:12px;padding:8px 12px;font-size:.78rem;font-weight:700;margin-bottom:10px;display:flex;gap:8px;align-items:center}
   .taphint button{margin-left:auto}
@@ -519,7 +548,7 @@ const ROLE = {admin:"Yönetici", partner:"Ortak", ops:"Operasyon", creative:"Kre
 
 /* ---------- durum ---------- */
 const S = { me:null, profile:null, owner:null, isAdmin:false,
-  day:trToday(), tab:"gun", weekOpen:false, wk:null,
+  day:trToday(), tab:"gun", weekOpen:false, wk:null, view:(()=>{ try{ return localStorage.getItem("ys-view")||"list"; }catch(e){ return "list"; } })(),
   days:[], items:[], blocks:[], set:{areas:DEF_AREAS, projects:DEF_PROJECTS, checks:DEF_CHECKS, template:{}}, reviews:{},
   team:{loaded:false, profiles:[], cats:[], tasks:[], asg:[]}, tf:{who:"", st:"open"}, sig:null, pages:[],
   open:new Set(), tap:null, archOpen:false };
@@ -644,7 +673,7 @@ function dayTotals(d){
 }
 function renderGun(){
   const el=$("body"); const d=S.day, t=trToday(); const dr=dayRow(d); const T=dayTotals(d);
-  const keepScroll=document.querySelector(".tlb")?.scrollTop;
+  const keepScroll=S._keepDay===d?document.querySelector("#tlb")?.scrollTop:null; S._keepDay=d;
   el.innerHTML=`
     <div class="dayhead">
       <button class="ib" data-dn="-1" title="Önceki gün">‹</button>
@@ -674,9 +703,11 @@ function renderGun(){
           <span class="sp"></span>
           <button class="btn sm" id="addBlk">+ Plan ekle</button>
         </div>
+        ${dayStripHtml(d)}
         <div class="tlw">
-          <div class="tlhd"><div></div><div>Planladığım <span class="hint">· boş saate tıkla = plan ekle · ☐ tikle = yapıldı</span></div></div>
-          <div class="tlb" id="tlb">${timelineHtml(d)}</div>
+          <div class="tlhd"><div></div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">Planladığım <span class="hint">${S.view==="list"?"· saatin satırına yaz + Enter = ekle · ☐ tikle = yapıldı":"· boş saate tıkla = plan ekle · ☐ tikle = yapıldı"}</span>
+            <span class="vtog"><button data-view="list" class="${S.view==="list"?"on":""}">📋 Liste</button><button data-view="grid" class="${S.view==="grid"?"on":""}">🗓 Çizelge</button></span></div></div>
+          ${S.view==="list"?`<div class="tdl" id="tlb">${todoListHtml(d)}</div>`:`<div class="tlb" id="tlb">${timelineHtml(d)}</div>`}
         </div>
         ${tomorrowHtml()}
       </div>
@@ -685,11 +716,65 @@ function renderGun(){
     <button class="vfab" id="vFab" title="Sesle ekle: saat söylersen plana, söylemezsen hızlı nota" aria-label="Sesle ekle">🎤</button><div class="vpanel hidden" id="vPanel"></div>`;
   bindGun(el);
   const tb=$("tlb");
-  if(tb){ if(keepScroll!=null) tb.scrollTop=keepScroll; else if(getComputedStyle(tb).overflowY==="auto"&&d===t){ const H=hourPx(), [h0]=tlRange(d); tb.scrollTop=Math.max(0,(nowMin()/60-h0-1.5)*H); } }
+  if(tb){ if(keepScroll!=null) tb.scrollTop=keepScroll;
+    else if(S.view==="list"){ const h=d===t?Math.floor(nowMin()/60):(blocksOn(d)[0]?Math.floor(blocksOn(d)[0].start_min/60):9); const r=tb.querySelector(`[data-hr="${Math.max(0,h-1)}"]`)||tb.querySelector("[data-hr]"); if(r) tb.scrollTop=r.offsetTop-tb.offsetTop; }
+    else if(getComputedStyle(tb).overflowY==="auto"&&d===t){ const H=hourPx(), [h0]=tlRange(d); tb.scrollTop=Math.max(0,(nowMin()/60-h0-1.5)*H); } }
+  if(S._refocus!=null){ const x=document.querySelector(`[data-hadd="${S._refocus}"]`); S._refocus=null; if(x) x.focus({preventScroll:true}); }
 }
 function hourPx(){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--H"))||44; }
 function weekLabel(m){ return `${trShort(m)} – ${trShort(addDays(m,6))}${m===monday(trToday())?" · bu hafta":""}`; }
 const whenTxt = b=>`${b.day===trToday()?"Bugün":trShort(b.day)+" "+WDS[wdIdx(b.day)]} ${fm(b.start_min)}–${fm(b.end_min)}`;
+
+/* ---------- günler şeridi (yana kaydırılır) ---------- */
+function dayStripHtml(d){
+  const t=trToday(); const from=addDays(d<t?d:t,-3), n=Math.max(14, Math.round((new Date(d)-new Date(from))/864e5)+8);
+  return `<div class="dstrip" id="dstrip">${[...Array(n)].map((_,i)=>{ const x=addDays(from,i); const W=blocksOn(x).filter(work), dn=W.filter(b=>b.done).length;
+    return `<button data-dstrip="${x}" class="${x===d?"on":""} ${x===t?"tdy":""}">${esc(WDS[wdIdx(x)])} ${+x.slice(8)}<span class="n">${W.length?dn+"/"+W.length:"—"}</span></button>`; }).join("")}</div>`;
+}
+/* ---------- saat saat yapılacaklar listesi ---------- */
+function todoListHtml(d){
+  const t=trToday(), nm=nowMin(), [h0,h1]=tlRange(d); const B=blocksOn(d);
+  let out="";
+  for(let h=h0; h<h1; h++){
+    const inH=B.filter(b=>Math.floor(b.start_min/60)===h);
+    const cont=B.filter(b=>b.start_min<h*60&&b.end_min>h*60);   // önceki saatten süren plan
+    const isNow=d===t&&Math.floor(nm/60)===h, past=d<t||(d===t&&h<Math.floor(nm/60));
+    out+=`<div class="hrow ${isNow?"now":""} ${past?"past":""} ${inH.length||cont.length?"":"hempty"}" data-hr="${h}"><div class="hl">${pad(h)}:00</div><div class="hc">
+      ${cont.map(b=>`<div class="cont">↳ ${esc(b.title||"(başlıksız)")} sürüyor · ${fm(b.end_min)}'e kadar</div>`).join("")}
+      ${inH.map(todoRow).join("")}
+      <input class="hadd" data-hadd="${h}" placeholder="+ ${pad(h)}:00'a ekle…" autocomplete="off" enterkeyhint="done">
+    </div></div>`;
+  }
+  return out;
+}
+function todoRow(b){
+  const miss=!b.done&&b.day<trToday()&&work(b);
+  return `<div class="td ${b.done?"ok":""} ${miss?"miss":""}" style="--c:${areaColor(b.area)}">
+    <span class="tick" data-tick="${b.id}" role="checkbox" aria-checked="${b.done?"true":"false"}" aria-label="Yapıldı">${b.done?"✓":""}</span>
+    <div class="tx" data-bk="${b.id}"><div class="tt">${esc(b.title||"(başlıksız)")}</div><div class="tm">${fm(b.start_min)}–${fm(b.end_min)} · ${hTxt(dur(b))}${b.area?" · "+esc(b.area):""}${b.project?" · @"+esc(b.project):""}${miss?" · yapılmadı":""}</div></div></div>`;
+}
+// saatin satırına yazılan iş: o saatteki ilk boş 15 dk'dan başlar, 30 dk sürer (süreyi dokunup değiştirebilirsin), sonraki plana çarpmaz
+async function addInHour(h, text){
+  text=String(text||"").trim(); if(!text) return;
+  const p=parseLine(text); if(p.error){ toast(p.error); return; }
+  let s=p.start, e=p.end, over=false;
+  if(s==null){
+    const B=blocksOn(S.day);
+    for(let m=h*60; m<h*60+60; m+=15){ if(!B.some(b=>m<b.end_min&&m+15>b.start_min)){ s=m; break; } }
+    if(s==null){ s=h*60+30; e=h*60+60; over=true; }   // saat doluysa yapılacak iş yine o saatin altına eklenir
+    else{ const nxt=B.filter(b=>b.start_min>=s+15).map(b=>b.start_min); e=Math.min(s+30, ...nxt, h*60+60, 1440);   // 30 dk: bir saate 2–4 iş sığar
+    if(e-s<15) e=s+15; }
+  }
+  if(p.newProject && !S.set.projects.includes(p.newProject)){ try{ await saveSet("projects",[...S.set.projects,p.newProject]); }catch(err){} }
+  S._refocus=h;
+  const ok=await saveBlock({day:S.day, start_min:s, end_min:e, title:p.title||text, area:p.area, project:p.project, done:false, allowOverlap:over}, null);
+  if(ok) toast(`${fm(s)}–${fm(e)} eklendi ✓`); else S._refocus=null;
+}
+function bindList(){
+  document.querySelectorAll("[data-hadd]").forEach(x=>x.addEventListener("keydown",ev=>{ if(ev.key==="Enter"&&!ev.isComposing){ ev.preventDefault(); addInHour(+x.dataset.hadd, x.value); } }));
+  document.querySelectorAll(".td [data-tick]").forEach(x=>x.addEventListener("click",ev=>{ ev.stopPropagation(); toggleBlock(S.blocks.find(k=>k.id===x.dataset.tick)); }));
+  document.querySelectorAll(".td [data-bk]").forEach(x=>x.addEventListener("click",()=>{ const b=S.blocks.find(k=>k.id===x.dataset.bk); if(b) openEditor(b); }));
+}
 
 /* ---------- çizelge ---------- */
 function tlRange(d){ let h0=DAY_H0, h1=DAY_H1; blocksOn(d).forEach(b=>{ h0=Math.min(h0,Math.floor(b.start_min/60)); h1=Math.max(h1,Math.ceil(b.end_min/60)); }); return [h0,h1]; }
@@ -859,7 +944,10 @@ function bindGun(el){
   $("qAdd").onclick=()=>quickLine($("qIn").value);
   $("qIn").onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); quickLine($("qIn").value); } };
   $("addBlk").onclick=()=>{ const n=nowMin(); const s=S.day===trToday()?Math.ceil(n/30)*30:9*60; openEditor({day:S.day, start_min:Math.min(s,1410), end_min:Math.min(s+60,1440)}); };
-  bindTimeline();
+  if(S.view==="list") bindList(); else bindTimeline();
+  el.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>{ S.view=b.dataset.view; try{ localStorage.setItem("ys-view",S.view); }catch(e){} S._keepDay=null; renderGun(); });
+  el.querySelectorAll("[data-dstrip]").forEach(b=>b.onclick=()=>{ S.day=b.dataset.dstrip; S.wk=null; S.tap=null; renderGun(); });
+  const ds=$("dstrip"); if(ds){ const on=ds.querySelector(".on"); if(on) ds.scrollLeft=on.offsetLeft-ds.offsetLeft-ds.clientWidth/2+on.clientWidth/2; }
   const auto=(id,field,d)=>{ const x=$(id); if(!x) return; const save=()=>{ setSave("kaydediliyor…"); saveDay(d,{[field]:x.value}).then(()=>setSave("✓ kaydedildi")).catch(fail); };
     x.oninput=()=>{ setSave("…"); debounce(id+d,save); }; x.onblur=()=>{ if(debouncers[id+d]){ clearTimeout(debouncers[id+d]); delete debouncers[id+d]; save(); } }; };
   auto("fFocus","focus",S.day); auto("fNote","note",S.day); auto("fResume","resume",S.day); auto("fOutcome","outcome",S.day); auto("tmFocus","focus",addDays(S.day,1));
@@ -1025,7 +1113,8 @@ async function saveBlock(f, ex){
   if(e<s) e+=1440;
   if(e-s>1440){ toast("Bir plan 24 saatten uzun olamaz."); return false; }
   const segs = e<=1440 ? [{day:f.day,s,e}] : [{day:f.day,s,e:1440},{day:addDays(f.day,1),s:0,e:e-1440}];
-  for(const g of segs){ const o=overlapOf(g.day,g.s,g.e,ex?.id);
+  const same=ex&&ex.day===f.day&&ex.start_min===s&&ex.end_min===e;   // saati değişmeyen düzenleme (ör. sadece başlık) çakışmaya takılmasın
+  for(const g of segs){ const o=(f.allowOverlap||same)?null:overlapOf(g.day,g.s,g.e,ex?.id);
     if(o){ toast(`Çakışma: ${trShort(g.day)} "${o.title||"başlıksız"}" (${fm(o.start_min)}–${fm(o.end_min)}) ile üst üste geliyor.`); return false; } }
   try{
     const wasDone=!!ex?.done;
@@ -1561,7 +1650,8 @@ $("btnReset").onclick=async ()=>{
 };
 $("btnOut").onclick=async ()=>{ if(!DEMO) await sb.auth.signOut(); location.reload(); };
 // çizelgedeki şimdi çizgisi dakikada bir güncellenir
-setInterval(()=>{ if(S.tab==="gun"&&S.day===trToday()){ const H=hourPx(); document.querySelectorAll(".nowl").forEach(n=>n.style.top=nowMin()/60*H+"px"); } },60000);
+setInterval(()=>{ if(S.tab==="gun"&&S.day===trToday()){ const H=hourPx(); document.querySelectorAll(".nowl").forEach(n=>{ const h0=+(n.parentElement?.dataset.h0||0); n.style.top=(nowMin()-h0*60)/60*H+"px"; });
+  const h=Math.floor(nowMin()/60); document.querySelectorAll(".hrow[data-hr]").forEach(r=>{ const x=+r.dataset.hr; r.classList.toggle("now",x===h); r.classList.toggle("past",x<h); }); } },60000);
 boot();
 </script>
 <!--MOBJS-->
