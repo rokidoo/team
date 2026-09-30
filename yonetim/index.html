@@ -1019,11 +1019,11 @@ const COLUMNS = [
   { id:"done",  title:"Tamamlandı",   cls:"col-done"  },
 ];
 const STATUS_LABEL = { todo:"Yapılacak", doing:"Süreçte", done:"Tamamlandı" };
-const ROLE_LABEL = { admin:"Yönetici", partner:"Ortak", ops:"Operasyon ekibi", creative:"Kreatif ekibi", ads:"Reklam ekibi", accounting:"Muhasebe" };
+const ROLE_LABEL = { admin:"Yönetici", partner:"Ortak", ops:"Operasyon ekibi", creative:"Kreatif ekibi", ads:"Reklam ekibi", accounting:"Muhasebe", inf:"Influencer" };
 const PAGE_NAMES = { cagdas:"Çağdaş", erdem:"Erdem", "erdem-kus":"Erdem", yasin:"Yasin" };
 const pageName = k => PAGE_NAMES[k] || k.split("-")[0].replace(/^./, c => c.toLocaleUpperCase("tr"));
-const PANELS = { kreatif:{href:"/kreatif/", l:"🎬 Kreatif paneli"}, operasyon:{href:"/operasyon/", l:"🏭 Operasyon paneli"}, reklam:{href:"/reklam/", l:"📣 Reklam paneli"}, muhasebe:{href:"/muhasebe/", l:"🧾 Muhasebe"} };
-function panelsFor(role){ return role==="admin"||role==="partner" ? ["kreatif","operasyon","reklam","muhasebe"] : role==="ops" ? ["operasyon"] : role==="creative" ? ["kreatif"] : role==="ads" ? ["reklam"] : role==="accounting" ? ["muhasebe"] : []; }
+const PANELS = { kreatif:{href:"/kreatif/", l:"🎬 Kreatif paneli"}, operasyon:{href:"/operasyon/", l:"🏭 Operasyon paneli"}, reklam:{href:"/reklam/", l:"📣 Reklam paneli"}, muhasebe:{href:"/muhasebe/", l:"🧾 Muhasebe"}, inf:{href:"/inf/", l:"⭐ Influencer takip"} };
+function panelsFor(role){ return role==="admin"||role==="partner" ? ["kreatif","operasyon","reklam","muhasebe","inf"] : role==="ops" ? ["operasyon"] : role==="creative" ? ["kreatif"] : role==="ads" ? ["reklam"] : role==="accounting" ? ["muhasebe"] : role==="inf" ? ["inf"] : []; }
 function renderHub(){
   const el = $("#hub"); if(!el) return;
   const ps = panelsFor(profile.role);
@@ -1914,7 +1914,7 @@ async function enterApp(user) {
   if (!profile.is_admin && !profile.is_approved) {
     $("#app").classList.remove("on");
     // kreatif / operasyon ekibi yanlışlıkla yönetime düştüyse: kendi paneline yönlendir
-    const own = profile.role === "creative" ? PANELS.kreatif : profile.role === "ops" ? PANELS.operasyon : profile.role === "ads" ? PANELS.reklam : profile.role === "accounting" ? PANELS.muhasebe : null;
+    const own = profile.role === "creative" ? PANELS.kreatif : profile.role === "ops" ? PANELS.operasyon : profile.role === "ads" ? PANELS.reklam : profile.role === "accounting" ? PANELS.muhasebe : profile.role === "inf" ? PANELS.inf : null;
     const pb = $("#pendingPanelBtn");
     if (own) {
       $("#pendingTitle").textContent = "Yanlış panel";
@@ -2074,7 +2074,7 @@ function renderTeamList() {
           <br><span style="color:var(--ink-soft); font-weight:700; font-size:10px">${esc(ROLE_LABEL[p.role]||p.role||"")}${p.initial?" · "+esc(p.initial):""}</span>
           ${durum}
         </span>
-        ${profile.is_realadmin ? `<select data-role-user="${id}" style="font-size:10.5px; padding:3px 4px; border-radius:8px; border:1px solid var(--line); background:var(--card)">${["creative","ops","ads","accounting","partner","admin"].map(r=>`<option value="${r}" ${p.role===r?"selected":""}>${ROLE_LABEL[r]}</option>`).join("")}</select>` : ""}
+        ${profile.is_realadmin ? `<select data-role-user="${id}" style="font-size:10.5px; padding:3px 4px; border-radius:8px; border:1px solid var(--line); background:var(--card)">${["creative","ops","ads","accounting","inf","partner","admin"].map(r=>`<option value="${r}" ${p.role===r?"selected":""}>${ROLE_LABEL[r]}</option>`).join("")}</select>` : ""}
         ${pending ? `<button type="button" class="btn btn-mustard" data-approve-user="${id}" style="padding:4px 9px; font-size:10.5px; flex-shrink:0">Onayla</button>` : ""}
         ${profile.is_realadmin ? `<button type="button" class="btn btn-ghost" data-toggle-user="${id}" style="padding:4px 9px; font-size:10.5px; flex-shrink:0">${inactive?"Geri aç":"Pasife al"}</button>` : ""}
         ${profile.is_realadmin ? `<button type="button" class="cat-del" data-purge-user="${id}" title="Kalıcı sil (geri alınamaz)" style="opacity:.45">✕</button>` : ""}
