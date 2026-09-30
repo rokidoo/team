@@ -35,7 +35,7 @@
   <script>
   // Remaks uygulaması: en son kullanılan panele git (yoksa yönetim)
   var go = "/yonetim/";
-  try { var l = localStorage.getItem("remaks_last"); if (l === "/erdem-kus/") l = "/erdem/"; if (/^\/(yonetim|operasyon|kreatif|reklam|erdem|cagdas|muhasebe|yasin)\/$/.test(l || "")) go = l; } catch (e) {}
+  try { var l = localStorage.getItem("remaks_last"); if (l === "/erdem-kus/") l = "/erdem/"; if (/^\/(yonetim|operasyon|kreatif|reklam|erdem|cagdas|muhasebe|yasin|inf)\/$/.test(l || "")) go = l; } catch (e) {}
   location.replace(go);
 </script>
 </body>
