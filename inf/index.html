@@ -534,6 +534,42 @@
   .acc input{width:20px;height:20px;margin:0}
   .modal .box{max-width:720px}
   a.ext{color:var(--cobalt);font-weight:800;text-decoration:none}
+  .us{font-family:var(--fm);font-size:.7rem;color:var(--ink-soft);font-weight:700;overflow-wrap:anywhere}
+  .nm{overflow-wrap:anywhere}
+  /* telefon: yeni kişi düğmesi sağ altta, pano tek sütun */
+  .fab{display:none}
+  .mstg{display:none}
+  .kc .nx{display:none}
+  @media (max-width:959px){
+    .addTop{display:none!important}
+    .fab{display:flex;align-items:center;justify-content:center;position:fixed;right:16px;bottom:calc(92px + env(safe-area-inset-bottom));z-index:60;width:58px;height:58px;border-radius:50%;border:var(--b);background:var(--cobalt);color:#fff;font-size:1.9rem;font-weight:800;box-shadow:var(--sh);cursor:pointer}
+    .fab:active{transform:translate(3px,3px);box-shadow:none}
+    .wrap{padding-bottom:calc(170px + env(safe-area-inset-bottom))!important}
+    .mstg{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 10px;margin-bottom:6px;scrollbar-width:none}
+    .mstg::-webkit-scrollbar{display:none}
+    .mstg button{flex:0 0 auto;border:var(--b2);border-radius:12px;background:var(--card);padding:7px 10px;font-weight:800;font-size:.74rem;cursor:pointer;font-family:var(--fb);white-space:nowrap}
+    .mstg button b{font-family:var(--fm);margin-left:4px}
+    .mstg button.on{background:var(--ink);color:var(--card)}
+    .mstg button.zero{opacity:.5}
+    .board.mob{display:block;overflow:visible;padding:0}
+    .board.mob .bcol{display:none;width:auto;max-width:none;flex:none;box-shadow:none;border:none;background:none}
+    .board.mob .bcol.sel{display:block}
+    .board.mob .bhead{display:none}
+    .board.mob .bbody{max-height:none;overflow:visible;padding:0;gap:8px}
+    .kc{padding:10px 12px;font-size:.84rem}
+    .kc .nx{display:flex;gap:6px;margin-top:8px}
+    .kc .nx button{border:var(--b2);border-radius:9px;background:var(--card);padding:6px 10px;font-weight:800;font-size:.72rem;cursor:pointer;font-family:var(--fb)}
+    .acts.flt{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .acts.flt select{flex:none;width:100%;min-width:0;padding:8px 10px}
+    .acts.flt select:last-child{grid-column:1/-1}
+    .modal .box .btnrow{position:sticky;bottom:calc(-24px - env(safe-area-inset-bottom));background:var(--card);padding:10px 0 calc(6px + env(safe-area-inset-bottom));margin-bottom:calc(-24px - env(safe-area-inset-bottom));border-top:2px solid var(--cream2)}
+    .modal .box{max-height:92dvh}
+    .stp{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+    .stp::-webkit-scrollbar{display:none}
+    .stp button{flex:0 0 auto;padding:7px 9px;font-size:.72rem}
+    .fn{grid-template-columns:minmax(0,130px) 1fr 36px}
+    .rm .bt button,.rm .bt a{padding:8px 10px;font-size:.74rem}
+  }
 </style>
 <!--MOB-->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -853,6 +889,7 @@ function render(){
   $("main").querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{ S.tab=b.dataset.t; render(); window.scrollTo(0,0); });
   $("main").querySelectorAll("[data-prod]").forEach(b=>b.onclick=()=>{ S.prod=b.dataset.prod; render(); });
   ({bugun:renderBugun, pano:renderPano, liste:renderListe, ozet:renderOzet, ayar:renderAyar})[S.tab]();
+  if(S.tab!=="ayar"&&S.tab!=="ozet"){ const f=document.createElement("button"); f.className="fab"; f.title="Yeni influencer"; f.setAttribute("aria-label","Yeni influencer"); f.textContent="+"; f.onclick=()=>openPerson(null); $("main").appendChild(f); }
 }
 const who = p=>`<div class="nm">${esc(p.name||(p.username?"@"+p.username:"(isimsiz)"))}</div><div class="us">${p.username?"@"+esc(p.username):""}${p.username&&p.phone?" · ":""}${esc(p.phone||"")}</div>`;
 const pchip = p=>`<span class="pc ${p.product?"":"none"}" title="${esc(prodL(p.product))}">${esc(p.product||"ürün?")}</span>`;
@@ -865,7 +902,7 @@ function renderBugun(){
   const t=trToday(), wk=monday(t);
   const mine=S.L.filter(l=>dayOf(l.at)>=wk);
   const cnt=k=>mine.filter(l=>l.to_stage===k).length;
-  el.innerHTML=`<div class="acts"><button class="btn sm" id="addNew">+ Yeni influencer</button><span class="note" style="margin:0">Bu hafta: 🔎 ${mine.filter(l=>!l.from_stage).length} yeni · 💬 ${cnt("iletisim")} mesaj · 🤝 ${cnt("anlasildi")} anlaşma · 📦 ${cnt("gonderildi")} gönderim · 📥 ${cnt("video")} video · 📱 ${cnt("yayin")} yayın</span></div>
+  el.innerHTML=`<div class="acts"><button class="btn sm addTop" id="addNew">+ Yeni influencer</button><span class="note" style="margin:0">Bu hafta: 🔎 ${mine.filter(l=>!l.from_stage).length} yeni · 💬 ${cnt("iletisim")} mesaj · 🤝 ${cnt("anlasildi")} anlaşma · 📦 ${cnt("gonderildi")} gönderim · 📥 ${cnt("video")} video · 📱 ${cnt("yayin")} yayın</span></div>
     ${R.length?RGRP.filter(([g])=>by[g]).map(([g,l])=>`<div class="rg"><h4>${l} <span class="cnt">${by[g].length}</span></h4>
       ${by[g].slice(0,60).map(r=>remRow(r)).join("")}${by[g].length>60?`<div class="note">+ ${by[g].length-60} kişi daha (Liste sekmesinden filtreleyebilirsin)</div>`:""}</div>`).join("")
       :`<div class="empty">Bugün takip edilmesi gereken kimse yok 🎉<br><small>Yeni influencer bulursan “+ Yeni influencer” ile ekle.</small></div>`}
@@ -888,9 +925,16 @@ function renderPano(){
   const el=$("body"); const P=S.P.filter(inProd);
   const col=s=>{ const L=P.filter(p=>p.stage===s.k).sort((a,b)=>(a.stage_at||"")<(b.stage_at||"")?-1:1);
     return `<div class="bcol" data-col="${s.k}"><div class="bhead" style="background:${SIDE.includes(s)?"var(--gray-s)":"var(--mustard-s)"}">${s.i} ${esc(s.s||s.l)}<span class="cnt">${L.length}</span></div>
-      <div class="bbody">${L.slice(0,150).map(p=>`<div class="kc" draggable="true" data-kc="${p.id}">${who(p)}<div>${pchip(p)} <span class="tg">${esc(dealL(p.deal))}${+p.fee?" · "+esc(TL(p.fee)):""}</span>${flags(p)}</div><div class="us" style="margin-top:3px">${age(p)} gündür burada</div></div>`).join("")||`<div class="empty">—</div>`}${L.length>150?`<div class="note">+ ${L.length-150} kişi (Liste'de gör)</div>`:""}</div></div>`; };
-  el.innerHTML=`<div class="acts"><button class="btn sm" id="addNew">+ Yeni influencer</button><span class="note" style="margin:0">Kartı sürükleyip başka sütuna bırakabilir ya da açıp aşamayı seçebilirsin.</span></div>
-    <div class="board">${ALLST.map(col).join("")}</div>`;
+      <div class="bbody">${L.slice(0,150).map(p=>`<div class="kc" draggable="true" data-kc="${p.id}">${who(p)}<div>${pchip(p)} <span class="tg">${esc(dealL(p.deal))}${+p.fee?" · "+esc(TL(p.fee)):""}</span>${flags(p)}</div><div class="us" style="margin-top:3px">${age(p)} gündür burada</div>${rank(p.stage)>=0&&rank(p.stage)<STAGES.length-1?`<div class="nx"><button data-knx="${p.id}">→ ${esc(STAGES[rank(p.stage)+1].s||STAGES[rank(p.stage)+1].l)}</button></div>`:""}</div>`).join("")||`<div class="empty">—</div>`}${L.length>150?`<div class="note">+ ${L.length-150} kişi (Liste'de gör)</div>`:""}</div></div>`; };
+  const mob=matchMedia("(max-width:959px)").matches;
+  if(mob && !ALLST.some(s=>s.k===S.mSt)) S.mSt=(STAGES.find(s=>P.some(p=>p.stage===s.k))||STAGES[0]).k;
+  el.innerHTML=`<div class="acts"><button class="btn sm addTop" id="addNew">+ Yeni influencer</button><span class="note" style="margin:0">${mob?"Aşamayı seç; kartta “→” ile bir sonraki aşamaya geçir ya da karta dokunup aşamayı seç.":"Kartı sürükleyip başka sütuna bırakabilir ya da açıp aşamayı seçebilirsin."}</span></div>
+    ${mob?`<div class="mstg" id="mstg">${ALLST.map(s=>{ const n=P.filter(p=>p.stage===s.k).length; return `<button data-mst="${s.k}" class="${S.mSt===s.k?"on":""} ${n?"":"zero"}">${s.i} ${esc(s.s||s.l)}<b>${n}</b></button>`; }).join("")}</div>`:""}
+    <div class="board ${mob?"mob":""}">${ALLST.map(col).join("")}</div>`;
+  if(mob){ el.querySelector(`.bcol[data-col="${S.mSt}"]`)?.classList.add("sel");
+    el.querySelectorAll("[data-mst]").forEach(b=>b.onclick=()=>{ S.mSt=b.dataset.mst; renderPano(); });
+    const on=el.querySelector(".mstg .on"); if(on){ const m=$("mstg"); m.scrollLeft=on.offsetLeft-m.offsetLeft-m.clientWidth/2+on.clientWidth/2; }
+    el.querySelectorAll("[data-knx]").forEach(b=>b.onclick=ev=>{ ev.stopPropagation(); const p=S.P.find(x=>x.id===b.dataset.knx); const i=rank(p.stage); if(i>=0&&i<STAGES.length-1) moveStage(p,STAGES[i+1].k); }); }
   $("addNew").onclick=()=>openPerson(null);
   el.querySelectorAll("[data-kc]").forEach(c=>{ c.onclick=()=>openPerson(S.P.find(x=>x.id===c.dataset.kc));
     c.ondragstart=e=>{ e.dataTransfer.setData("text/plain",c.dataset.kc); c.classList.add("dragging"); }; c.ondragend=()=>c.classList.remove("dragging"); });
@@ -916,8 +960,8 @@ function filtered(){
 }
 function renderListe(){
   const el=$("body"), L=filtered();
-  el.innerHTML=`<div class="acts"><button class="btn sm" id="addNew">+ Yeni influencer</button><input type="search" id="lq" placeholder="Ara: isim, @kullanıcı, telefon, şehir…" value="${esc(S.q)}"><button class="btn ghost sm" id="csv">⬇ Excel</button></div>
-    <div class="acts"><select id="fSt"><option value="">Tüm aşamalar</option>${ALLST.map(s=>`<option value="${s.k}" ${S.fSt===s.k?"selected":""}>${s.i} ${esc(s.l)}</option>`).join("")}</select>
+  el.innerHTML=`<div class="acts"><button class="btn sm addTop" id="addNew">+ Yeni influencer</button><input type="search" id="lq" placeholder="Ara: isim, @kullanıcı, telefon, şehir…" value="${esc(S.q)}"><button class="btn ghost sm" id="csv">⬇ Excel</button></div>
+    <div class="acts flt"><select id="fSt"><option value="">Tüm aşamalar</option>${ALLST.map(s=>`<option value="${s.k}" ${S.fSt===s.k?"selected":""}>${s.i} ${esc(s.l)}</option>`).join("")}</select>
       <select id="fDeal"><option value="">Tüm anlaşmalar</option>${DEALS.map(([k,l])=>`<option value="${k}" ${S.fDeal===k?"selected":""}>${esc(l)}</option>`).join("")}<option value="none" ${S.fDeal==="none"?"selected":""}>Belirsiz</option></select>
       <select id="fFlag">${FLAGS.map(([k,l])=>`<option value="${k}" ${S.fFlag===k?"selected":""}>${esc(l)}</option>`).join("")}</select></div>
     <div class="note" style="margin:0 0 10px">${L.length} kişi</div>
