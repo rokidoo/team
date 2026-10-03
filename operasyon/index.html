@@ -605,6 +605,7 @@ html,body{overflow-x:clip}
         <option value="halil">Halil İbrahim</option>
         <option value="rabia">Rabia</option>
         <option value="furkan">Furkan</option>
+        <option value="ugur">Uğur abi</option>
       </select>
     </div>
     <div id="tabGun"></div>
@@ -678,7 +679,7 @@ const LATE_MIN = 9*60+10;
 
 /* ---------- durum ---------- */
 const S = {
-  profile:null, me:null, members:[], products:[], daily:[], scores:[], checks:[], duty:[], team:[], voice:[], stock:[],
+  profile:null, me:null, members:[], products:[], daily:[], scores:[], checks:[], duty:[], team:[], voice:[], stock:[], rets:[], retDays:[],
   tab:"gun", day:null, gunMember:null, puanDay:null, kontrolDay:null, kargoDay:null, stokDay:null,
   panoPeriod:"hafta", panoRef:null, birMonth:null, birWeek:null, awards:[], weights:null, assign:[], tasks:[], denetimDay:null, brands:[], checkItems:[], voiceFilter:{kind:"", brand:"", tag:""}, dbOk:true, dbErr:"",
 };
@@ -814,6 +815,7 @@ async function loadAll(){
     try{ const {data:dx}=await sb.from("ops_settings").select("*").eq("key","duty_exempt").maybeSingle(); S.dutyExempt=Array.isArray(dx?.value)?dx.value:[]; }catch(e){}
     try{ const [asg,tk,ta]=await Promise.all([fetchAll("ops_assignments"), fetchAll("tasks",q=>q.order("created_at",{ascending:false})), fetchAll("task_assignees")]); S.assign=asg||[]; S.tasks=unifyTasks(tk||[], ta||[]); }catch(e){}
     try{ const {data:br}=await sb.from("ops_brands").select("*").order("sort"); S.brands=br||[]; }catch(e){}
+    try{ const [rt,rd]=await Promise.all([fetchAll("ops_returns",q=>q.gte("day",since)), fetchAll("ops_return_days",q=>q.gte("day",since))]); S.rets=rt||[]; S.retDays=rd||[]; S.retOk=true; }catch(e){ S.rets=[]; S.retDays=[]; S.retOk=false; }
     try{ const {data:ci}=await sb.from("ops_check_items").select("*"); S.checkItems=ci||[]; applyCheckItems(S.checkItems); }catch(e){}
   }catch(e){
     S.dbOk=false; S.dbErr=e.message||String(e);
@@ -831,8 +833,8 @@ function addPageLinks(){
   });
 }
 function renderNav(){
-  if(isPuanci()){ // puan + stok yetkilisi: sadece bu iki sekme
-    const t=[["puan","⭐","Puan"],["stok","📊","Stok"]];
+  if(isPuanci()){ // puan + stok yetkilisi: sadece bu sekmeler (+ kargo sorumlusuysa Kargo)
+    const t=[["puan","⭐","Puan"],["stok","📊","Stok"]]; if(holdsRole("kargo")||holdsRole("mesaj_toplam")) t.push(["kargo","📦","Kargo"]);
     $("nav").innerHTML = t.map(([id,ic,l])=>`<button data-tab="${id}" class="${S.tab===id?"on":""}"><span class="ic">${ic}</span>${l}</button>`).join("");
     $("sideNav").innerHTML = t.map(([id,ic,l])=>`<button data-tab="${id}" class="navbtn ${S.tab===id?"on":""}"><span class="ic">${ic}</span><span class="lbl">${l}</span></button>`).join("");
     document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab; renderAll(); window.scrollTo(0,0);});
@@ -840,7 +842,7 @@ function renderNav(){
   }
   const tabs = [["gun","📝","Günüm"],["puan","⭐","Puan"],["kontrol","✅","Kontrol"],["sss","📘","SSS"]];
   if(canDenetim()) tabs.push(["denetim","🔍","Denetim"]);
-  if(canTab("kargo")) tabs.push(["kargo","📦","Kargo"]);
+  if(canKargoTab()) tabs.push(["kargo","📦","Kargo"]);
   tabs.push(["ses","💬","Müşteri"]);
   if(canTab("stok")) tabs.push(["stok","📊","Stok"]);
   tabs.push(["mesai","⏱","Mesai"],["birinci","🏆","Birinci"],["ekip","👥","Ekip"],["analiz","📊","DM Analizi"]);
@@ -1016,10 +1018,10 @@ async function docLoadReaders(k, el){
 const TABS = {gun:"Gun", puan:"Puan", mesai:"Mesai", kontrol:"Kontrol", denetim:"Denetim", kargo:"Kargo", ses:"Ses", stok:"Stok", birinci:"Birinci", ekip:"Ekip", pano:"Pano", import:"Import", sss:"Sss", analiz:"Analiz"};
 const RENDER = {gun:renderGun, puan:renderPuan, mesai:renderMesai, kontrol:renderKontrol, denetim:renderDenetim, kargo:renderKargo, ses:renderSes, stok:renderStok, birinci:renderBirinci, ekip:renderEkip, pano:renderPano, import:renderImport, sss:()=>renderDoc("dm-sss",$("tabSss")), analiz:()=>renderDoc("dm-analiz",$("tabAnaliz"))};
 function renderAll(){
-  if(isPuanci() && !["puan","stok"].includes(S.tab)) S.tab="puan";
+  if(isPuanci() && !["puan","stok"].includes(S.tab) && !(S.tab==="kargo" && (holdsRole("kargo")||holdsRole("mesaj_toplam")))) S.tab="puan";
   renderNav();
   if((S.tab==="pano"||S.tab==="import") && !isAdmin()) S.tab="gun";
-  if((S.tab==="stok"&&!canTab("stok"))||(S.tab==="kargo"&&!canTab("kargo"))||(S.tab==="denetim"&&!canDenetim())) S.tab="gun";
+  if((S.tab==="stok"&&!canTab("stok"))||(S.tab==="kargo"&&!canKargoTab())||(S.tab==="denetim"&&!canDenetim())) S.tab="gun";
   Object.values(TABS).forEach(t=>$("tab"+t).classList.add("hidden"));
   $("tab"+TABS[S.tab]).classList.remove("hidden");
   if(!S.dbOk){
@@ -1600,24 +1602,27 @@ function renderKargo(){
   const r=S.team.find(t=>t.day===day)||{};
   const v=k=>r[k]==null?"":r[k];
   const num=(k,l)=>`<div><div class="flabel">${l}</div><input type="number" inputmode="numeric" min="0" id="k_${k}" value="${v(k)}" placeholder="0"></div>`;
+  // kargo bölümü: "Günlük kargo girişi" sorumlusu (Uğur abi) · mesaj toplamları: "Mesaj kanalı toplamları" sorumlusu
+  const eK=canEditSec("kargo"), eM=canEditSec("mesaj_toplam");
+  const by=k=>{ const h=roleHolder(k); return h?`<span class="pill" style="margin-left:6px">✍️ ${esc(h.name)}</span>`:""; };
   const wk=monday(day); const wkRows=S.team.filter(t=>inRange(t.day,[wk,addDays(wk,6)]));
   const last14=[...S.team].sort((a,b)=>b.day<a.day?-1:1).slice(0,14);
   const weeks=[]; for(let i=0;i<8;i++){ const m=addDays(monday(today()),-7*i); const rows=S.team.filter(t=>inRange(t.day,[m,addDays(m,6)])); weeks.push({m,rows}); }
   const maxC=Math.max(1,...weeks.map(w=>sum(w.rows,x=>x.cargo_total)));
   el.innerHTML=`
     <h2>Kargo & Mesaj Toplamları</h2>
-    <div class="sub">Günün ekip toplamları: kargo firması bazlı çıkışlar ve mesaj kanalı toplamları.</div>
+    <div class="sub">Günün ekip toplamları: kargo firması bazlı çıkışlar ve mesaj kanalı toplamları.${!eK&&roleHolder("kargo")?` Kargo sayılarını <b>${esc(roleHolder("kargo").name)}</b> girer.`:""}${!eM&&roleHolder("mesaj_toplam")?` Mesaj toplamlarını <b>${esc(roleHolder("mesaj_toplam").name)}</b> girer.`:""}</div>
     ${dayNav("kargoDay",day)}
     ${lockNote(day)}
     <div class="card ${dayLocked(day)?"locked":""}" id="kargoForm" style="margin-bottom:16px">
-      <div class="sect"><h3>📦 Çıkan kargo</h3><div class="fgrid">
+      <div class="sect" id="secK"><h3>📦 Çıkan kargo ${by("kargo")}</h3><div class="fgrid">
         ${num("hepsijet","Hepsijet")}${num("yurtici","Yurtiçi")}${num("dhl","DHL")}
         <div><div class="flabel">Toplam</div><input type="number" id="k_cargo_total" value="${v("cargo_total")}" placeholder="otomatik"></div>
       </div></div>
-      <div class="sect"><h3>↩️ Sorunlu</h3><div class="fgrid c3">
+      <div class="sect" id="secK2"><h3>↩️ Sorunlu ${by("kargo")}</h3><div class="fgrid c3">
         ${num("failed","Teslimat başarısız")}${num("returns","İade")}${num("cancels","İptal")}
       </div></div>
-      <div class="sect"><h3>💬 Mesaj kanalı toplamları</h3><div class="fgrid c3">
+      <div class="sect" id="secM"><h3>💬 Mesaj kanalı toplamları ${by("mesaj_toplam")}</h3><div class="fgrid c3">
         ${num("wp_total","WhatsApp")}${num("ig_total","Instagram")}${num("mail_total","Mail")}
       </div></div>
       <div class="flabel">Not</div><textarea id="k_note" rows="2" placeholder="Örn: 10 PTT, sistem hatasıyla geç çıktı">${esc(v("note"))}</textarea>
@@ -1642,15 +1647,18 @@ function renderKargo(){
   bindDayNav(el,"kargoDay",renderKargo);
   ["hepsijet","yurtici","dhl"].forEach(k=>$("k_"+k).oninput=()=>{ $("k_cargo_total").value=(numOrNull($("k_hepsijet").value)||0)+(numOrNull($("k_yurtici").value)||0)+(numOrNull($("k_dhl").value)||0); });
   if(dayLocked(day)) $("kargoForm").querySelectorAll("input,textarea,button").forEach(x=>x.disabled=true);
+  if(!eK) ["secK","secK2"].forEach(id=>$(id).querySelectorAll("input").forEach(x=>x.disabled=true));
+  if(!eM) $("secM").querySelectorAll("input").forEach(x=>x.disabled=true);
   $("kargoSave").onclick=async ()=>{
     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
     if(dayLocked(day)){ toast(LOCK_MSG); return; }
+    // sadece yetkili olduğu bölümün alanları gönderilir; diğerinin girdiği sayılar silinmez
     const row={day, updated_by:S.me?.id||null, updated_at:nowIso(), note:$("k_note").value.trim()||null};
-    ["hepsijet","yurtici","dhl","cargo_total","failed","returns","cancels","wp_total","ig_total","mail_total"].forEach(k=>row[k]=numOrNull($("k_"+k).value));
-    if(row.cargo_total==null && (row.hepsijet!=null||row.yurtici!=null||row.dhl!=null)) row.cargo_total=(row.hepsijet||0)+(row.yurtici||0)+(row.dhl||0);
+    [...(eK?["hepsijet","yurtici","dhl","cargo_total","failed","returns","cancels"]:[]), ...(eM?["wp_total","ig_total","mail_total"]:[])].forEach(k=>row[k]=numOrNull($("k_"+k).value));
+    if(eK && row.cargo_total==null && (row.hepsijet!=null||row.yurtici!=null||row.dhl!=null)) row.cargo_total=(row.hepsijet||0)+(row.yurtici||0)+(row.dhl||0);
     $("kargoSave").disabled=true;
     try{ if(!DEMO){ const {error}=await sb.from("ops_team_daily").upsert(row,{onConflict:"day"}); if(error) throw error; }
-      S.team=S.team.filter(t=>t.day!==day); S.team.push(row); toast("Kaydedildi ✓"); renderKargo(); }
+      const old=S.team.find(t=>t.day===day)||{}; S.team=S.team.filter(t=>t.day!==day); S.team.push({...old,...row}); toast("Kaydedildi ✓"); renderKargo(); }
     catch(e){ toast(errMsg(e)); $("kargoSave").disabled=false; }
   };
 }
@@ -1741,12 +1749,14 @@ function renderStok(){
       ${prods.map((p,i)=>{ const l=lastOf(p.key); const cur=at(p.key,day); const low=p.min_qty&&((cur??l?.qty)??Infinity)<p.min_qty; const hdr=(activeBrands().length>1&&(i===0||prods[i-1].brand!==p.brand))?`<div class="flabel" style="margin-top:10px">🏷 ${esc(brandName(p.brand)||"Markasız")}</div>`:""; return hdr+`<div class="row"><div style="font-weight:700;${low?"color:var(--red)":""}">${esc(p.name)}${low?" ⚠️":""}</div><div class="last">${l?`${nf.format(l.qty)}<br><small style="color:var(--mut)">${trShort(l.day)}</small>`:"—"}</div><input type="number" inputmode="numeric" min="0" id="s_${p.key}" value="${cur??""}" placeholder="—"></div>`; }).join("")||`<div class="empty">Ürün yok — ${isAdmin()?"“Markalar & Ürünler” ile ekle.":"yönetici eklesin."}</div>`}
       <button class="btn" id="stokSave" style="margin-top:14px">Sayımı Kaydet</button>
     </div>
+    ${retHtml(day,prods)}
     ${cols.length?`<div class="sect"><h3>📊 Son sayımlar</h3><div class="tblwrap"><table class="compact">
       <tr><th>Ürün</th>${cols.map(d=>`<th>${trShort(d)}</th>`).join("")}</tr>
       ${prods.map(p=>`<tr><td>${esc(p.name)}</td>${cols.map((d,i)=>{ const q=at(p.key,d); const prev=cols[i+1]!=null?at(p.key,cols[i+1]):null; const cls=q!=null&&prev!=null?(q>prev?"up":q<prev?"down":""):""; return `<td class="${cls}">${q!=null?nf.format(q):"—"}</td>`; }).join("")}</tr>`).join("")}
     </table></div></div>`:""}
   `;
   bindDayNav(el,"stokDay",renderStok);
+  bindRet(day,prods);
   $("stokSave").onclick=async ()=>{
     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
     const rows=prods.map(p=>({day,product:p.key,qty:numOrNull($("s_"+p.key).value),by_id:S.me?.id||null})).filter(r=>r.qty!=null);
@@ -1834,10 +1844,58 @@ async function openMemberModal(id){
   };
 }
 
+/* ================= GÜNLÜK İADE (stok sorumlusu girer) =================
+   ops_return_days: gün başına gelen iade sipariş (paket) sayısı + not
+   ops_returns    : gün × ürün → kullanılabilir / kullanılamaz (erimiş, ezik, açılmış…) adet */
+function retHtml(day, prods){
+  if(!S.retOk && !DEMO) return `<div class="card" style="margin-bottom:18px"><h3 style="font-size:1rem">↩️ Günlük iade</h3><div class="note">İade tabloları için Supabase'de v3.4 SQL'i çalıştırılmalı.</div></div>`;
+  const d=S.retDays.find(r=>r.day===day)||{};
+  const at=(p,f)=>S.rets.find(r=>r.day===day&&r.product===p)?.[f];
+  const days=[...new Set([...S.retDays.map(r=>r.day),...S.rets.map(r=>r.day)])].sort().reverse().slice(0,14);
+  const sumDay=(dd,f)=>S.rets.filter(r=>r.day===dd).reduce((a,r)=>a+(+r[f]||0),0);
+  const wk=monday(day), wkDays=days.filter(x=>inRange(x,[wk,addDays(wk,6)]));
+  const wOk=wkDays.reduce((a,x)=>a+sumDay(x,"ok_qty"),0), wBad=wkDays.reduce((a,x)=>a+sumDay(x,"bad_qty"),0), wOrd=wkDays.reduce((a,x)=>a+(+(S.retDays.find(r=>r.day===x)?.orders)||0),0);
+  return `<div class="card" style="margin-bottom:18px" id="retCard">
+    <h3 style="font-size:1rem;margin-bottom:4px">↩️ Günlük iade · ${trShort(day)}</h3>
+    <div class="note" style="margin:0 0 10px">Bugün gelen iade paketlerini say: kaç sipariş geldi, içinden kaç ürün tekrar satılabilir, kaçı erimiş / ezik / açılmış (kullanılamaz).</div>
+    <div class="fgrid c2"><div><div class="flabel">Gelen iade sipariş (paket)</div><input type="number" inputmode="numeric" min="0" id="r_orders" value="${d.orders??""}" placeholder="0"></div></div>
+    <div class="stk"><div class="row" style="grid-template-columns:1fr 92px 92px;gap:8px;border-bottom:var(--b2);align-items:end"><div class="flabel" style="margin:0">Ürün</div><div class="flabel" style="margin:0;text-align:center;white-space:normal;line-height:1.2">✅ Kullanılabilir</div><div class="flabel" style="margin:0;text-align:center;white-space:normal;line-height:1.2">❌ Erimiş / bozuk</div></div>
+      ${prods.map(p=>`<div class="row" style="grid-template-columns:1fr 92px 92px"><div style="font-weight:700">${esc(p.name)}</div><input type="number" inputmode="numeric" min="0" id="rok_${p.key}" value="${at(p.key,"ok_qty")??""}" placeholder="—"><input type="number" inputmode="numeric" min="0" id="rbad_${p.key}" value="${at(p.key,"bad_qty")??""}" placeholder="—"></div>`).join("")||`<div class="empty">Ürün yok</div>`}</div>
+    <div class="flabel">Not (isteğe bağlı)</div><textarea id="r_note" rows="2" placeholder="Örn: 2 kavanoz erimiş, 1 kutu ezik geldi">${esc(d.note||"")}</textarea>
+    <button class="btn" id="retSave">${d.day?"İadeyi güncelle":"İadeyi kaydet"}</button>
+    ${d.by_id?`<div class="note">Son: ${esc(memName(d.by_id))}${d.updated_at?" · "+new Date(d.updated_at).toLocaleString("tr-TR"):""}</div>`:""}
+    ${days.length?`<div class="flabel" style="margin-top:14px">Bu hafta: ${wOrd} sipariş · ✅ ${wOk} kullanılabilir · ❌ ${wBad} kullanılamaz${wOk+wBad?` (%${Math.round(wBad/(wOk+wBad)*100)} kayıp)`:""}</div>
+    <div class="tblwrap" style="margin-top:6px"><table class="compact"><tr><th>Gün</th><th>Sipariş</th><th>✅ Kullanılabilir</th><th>❌ Bozuk</th><th>Not</th></tr>
+      ${days.map(x=>{ const r=S.retDays.find(y=>y.day===x)||{}; return `<tr><td>${trShort(x)}</td><td>${r.orders??"—"}</td><td>${sumDay(x,"ok_qty")}</td><td class="${sumDay(x,"bad_qty")?"down":""}">${sumDay(x,"bad_qty")}</td><td style="text-align:left;white-space:normal;min-width:140px">${esc(r.note||"")}</td></tr>`; }).join("")}</table></div>`:""}
+  </div>`;
+}
+function bindRet(day, prods){
+  const b=$("retSave"); if(!b) return;
+  b.onclick=async ()=>{
+    if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
+    const orders=numOrNull($("r_orders").value), note=$("r_note").value.trim()||null;
+    const rows=prods.map(p=>({day, product:p.key, ok_qty:numOrNull($("rok_"+p.key).value), bad_qty:numOrNull($("rbad_"+p.key).value), by_id:S.me?.id||null, updated_at:nowIso()})).filter(r=>r.ok_qty!=null||r.bad_qty!=null);
+    if(orders==null && !rows.length && !note){ toast("İade sayısı ya da ürün adedi gir."); return; }
+    const dayRow={day, orders, note, by_id:S.me?.id||null, updated_at:nowIso()};
+    b.disabled=true;
+    try{
+      await upsert("ops_return_days",[dayRow],"day");
+      // bu gün için boş bırakılan ürün satırlarını sil (önce girilip sonra temizlenmiş olabilir)
+      const empty=prods.filter(p=>!rows.some(r=>r.product===p.key)&&S.rets.some(r=>r.day===day&&r.product===p.key)).map(p=>p.key);
+      if(empty.length && !DEMO){ const {error}=await sb.from("ops_returns").delete().eq("day",day).in("product",empty); if(error) throw error; }
+      await upsert("ops_returns",rows.map(r=>({...r, ok_qty:r.ok_qty??0, bad_qty:r.bad_qty??0})),"day,product");
+      S.retDays=S.retDays.filter(r=>r.day!==day).concat(dayRow);
+      S.rets=S.rets.filter(r=>r.day!==day).concat(rows.map(r=>({...r, ok_qty:r.ok_qty??0, bad_qty:r.bad_qty??0})));
+      toast("İade kaydedildi ✓"); renderStok();
+    }catch(e){ toast(/ops_return/.test(e?.message||"")?"İade tabloları için v3.4 SQL'i çalıştırılmalı.":errMsg(e)); b.disabled=false; }
+  };
+}
+
 /* ================= SORUMLULUKLAR · GÖREVLER · DENETİM ================= */
 const ROLES = {
   stok:             {l:"Stok sayımı",                       i:"📊", tab:"stok",    d:"Stok sekmesi yalnızca bu kişiye görünür."},
-  kargo:            {l:"Kargo & mesaj toplamları girişi",   i:"📦", tab:"kargo",   d:"Kargo sekmesi yalnızca bu kişiye görünür."},
+  kargo:            {l:"Günlük kargo girişi",               i:"📦", tab:"kargo",   d:"Kargo sekmesindeki çıkan kargo ve sorunlu (başarısız/iade/iptal) sayılarını yalnızca bu kişi girer."},
+  mesaj_toplam:     {l:"Mesaj kanalı toplamları girişi",    i:"✉️", tab:"kargo",   d:"Kargo sekmesindeki WhatsApp/Instagram/Mail toplamlarını yalnızca bu kişi girer."},
   mesaj_kontrol:    {l:"Mesaj kontrolü",                    i:"💬", tab:"denetim", d:"Herkesin günlük mesaj sayılarını görür ve kontrol eder."},
   temizlik_kontrol: {l:"Temizlik kontrolü",                 i:"🧹", tab:"denetim", d:"Nöbetçilerin temizlik tiklerini görür ve denetler."},
   mesaj_kanali:     {l:"Mesaj kanalı temizleme (sabah/akşam)", i:"📨", tab:"kontrol", d:"Kontrol sekmesindeki WhatsApp/Instagram/Mail temizleme maddeleri yalnızca bu kişide görünür."},
@@ -1845,12 +1903,15 @@ const ROLES = {
 const roleHolder = k=>{ const a=S.assign.find(x=>x.role_key===k); return a?.member_id ? memById(a.member_id) : null; };
 const holdsRole  = k=>{ const h=roleHolder(k); return !!(h && S.me && h.id===S.me.id); };
 const canTab     = k=>isAdmin() || !roleHolder(k) || holdsRole(k) || (k==="stok" && isPuanci());      // atanmamışsa herkes; puan+stok yetkilisi stoğu her zaman görür
+const canEditSec = k=>isAdmin() || !roleHolder(k) || holdsRole(k);   // bölüm bazlı yazma yetkisi
+const canKargoTab = ()=>canTab("kargo") || canTab("mesaj_toplam");
 const canDenetim = ()=>isAdmin() || holdsRole("mesaj_kontrol") || holdsRole("temizlik_kontrol");
 const myRoles    = m=>Object.keys(ROLES).filter(k=>roleHolder(k)?.id===m?.id);
 const checkOf    = (day,item)=>S.checks.find(c=>c.day===day && c.item===item);
 function roleStatus(k, day){ // o gün sorumluluk yerine getirildi mi
   if(k==="stok")  return S.stock.some(s=>s.day===day);
   if(k==="kargo") return S.team.some(t=>t.day===day && t.cargo_total!=null);
+  if(k==="mesaj_toplam") return S.team.some(t=>t.day===day && (t.wp_total!=null||t.ig_total!=null||t.mail_total!=null));
   if(k==="mesaj_kanali") return CHECK_GROUPS.filter(g=>/^mesaj/.test(g.k)).every(g=>g.items.every(i=>checkOf(day,i[0])));
   return !!checkOf(day,k);
 }
@@ -1984,7 +2045,7 @@ function bindRoles(root, rerender){
   root.querySelectorAll("[data-role]").forEach(b=>b.onclick=()=>{
     const k=b.dataset.role; const h=roleHolder(k);
     modal(`<h3>${ROLES[k].i} ${esc(ROLES[k].l)}</h3><div class="sub">${esc(ROLES[k].d)}</div>
-      <select id="rl_m">${opt("","— herkes —",h?.id||"")}${(k==="stok"?allActive():actives()).map(m=>opt(m.id,m.name,h?.id||"")).join("")}</select>
+      <select id="rl_m">${opt("","— herkes —",h?.id||"")}${(["stok","kargo","mesaj_toplam"].includes(k)?allActive():actives()).map(m=>opt(m.id,m.name,h?.id||"")).join("")}</select>
       <button class="btn" id="rlSave">Kaydet</button>`);
     $("rlSave").onclick=async ()=>{ const row={role_key:k, member_id:$("rl_m").value||null, updated_at:nowIso()};
       try{ if(!DEMO){ const {error}=await sb.from("ops_assignments").upsert(row,{onConflict:"role_key"}); if(error) throw error; }
@@ -2298,6 +2359,7 @@ function guessTags(t){
 function demoData(){
   S.members=[["sait","Sait","#2F5DFF","Planlama, görev dağılımı, barkod, stok"],["halil","Halil İbrahim","#FF8A00","Kargo, iade-iptal"],["melek","Melek","#EC4899","Instagram + Mail"],["rabia","Rabia","#A855F7","Arama, WhatsApp"],["furkan","Furkan","#22C55E","Arama, bakmadı"],["anil","Anıl","#FFC53D","Anlık aramalar"]]
     .map((m,i)=>({id:"m_"+m[0],key:m[0],name:m[1],color:m[2],tasks:m[3],active:true,sort:i+1,user_id:null}));
+  S.members.push({id:"m_ugur",key:"ugur",name:"Uğur abi",color:"#64748B",tasks:"Puan + stok + kargo",active:true,sort:99,user_id:null,kind:"puanci"});
   S.brands=[{key:"uzbionik",name:"uzbionik",sort:1,active:true}];
   S.products=[["uz_cilek","uzbionik Çilek"],["uz_ananas","uzbionik Ananaslı"]].map((p,i)=>({key:p[0],name:p[1],brand:"uzbionik",sort:i+1,active:true,min_qty:0}));
   const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
@@ -2307,7 +2369,7 @@ function demoData(){
     ALL_ITEMS.forEach(it=>{ if(Math.random()<.7) S.checks.push({id:uid(),day:d,item:it,done_by:S.members[rnd(0,5)].id,done_at:d+"T09:30:00"}); });
     const h=rnd(80,200),y=rnd(300,700),dh=rnd(0,20); S.team.push({day:d,hepsijet:h,yurtici:y,dhl:dh,cargo_total:h+y+dh,failed:rnd(0,10),returns:rnd(0,5),cancels:rnd(0,5),wp_total:rnd(50,200),ig_total:rnd(100,400),mail_total:rnd(5,40),note:null});
   }
-  S.assign=[{role_key:"stok",member_id:"m_sait"},{role_key:"kargo",member_id:"m_halil"},{role_key:"mesaj_kontrol",member_id:"m_melek"},{role_key:"temizlik_kontrol",member_id:"m_rabia"},{role_key:"mesaj_kanali",member_id:"m_melek"}];
+  S.assign=[{role_key:"stok",member_id:"m_sait"},{role_key:"kargo",member_id:"m_ugur"},{role_key:"mesaj_toplam",member_id:"m_halil"},{role_key:"mesaj_kontrol",member_id:"m_melek"},{role_key:"temizlik_kontrol",member_id:"m_rabia"},{role_key:"mesaj_kanali",member_id:"m_melek"}];
   S.tasks=[{id:uid(),title:"Stoğa bak, eksikleri yaz",detail:"Ozvenia ve çilek öncelikli",member_id:"m_melek",due:today(),done:false,created_at:nowIso()},{id:uid(),title:"İade kargoları say",member_id:"m_halil",due:addDays(today(),-1),done:true,done_at:nowIso(),done_note:"12 iade, 3'ü hasarlı",created_at:nowIso()}];
   S.voice=[{id:uid(),day:addDays(today(),-1),kind:"sikayet",brand:"uzbionik",tags:["erimis"],text:"3 müşteri ürün erimiş geldi dedi",by_id:"m_melek"},{id:uid(),day:addDays(today(),-2),kind:"soru",brand:"uzbionik",tags:["kullanim","icerik"],text:"Kaç yaş için uygun, günde kaç tane?",by_id:"m_melek"}];
   [10,5,1].forEach(i=>S.products.forEach(p=>S.stock.push({id:uid(),day:addDays(today(),-i),product:p.key,qty:rnd(100,5000)})));
