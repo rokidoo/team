@@ -679,7 +679,7 @@ const LATE_MIN = 9*60+10;
 
 /* ---------- durum ---------- */
 const S = {
-  profile:null, me:null, members:[], products:[], daily:[], scores:[], checks:[], duty:[], team:[], voice:[], stock:[], rets:[], retDays:[],
+  profile:null, me:null, members:[], products:[], daily:[], scores:[], checks:[], duty:[], team:[], voice:[], stock:[], rets:[], retDays:[], grants:[],
   tab:"gun", day:null, gunMember:null, puanDay:null, kontrolDay:null, kargoDay:null, stokDay:null,
   panoPeriod:"hafta", panoRef:null, birMonth:null, birWeek:null, awards:[], weights:null, assign:[], tasks:[], denetimDay:null, brands:[], checkItems:[], voiceFilter:{kind:"", brand:"", tag:""}, dbOk:true, dbErr:"",
 };
@@ -694,9 +694,12 @@ const iso = d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const today = ()=>iso(new Date());
 // GÜN KİLİDİ: ekip üyesi günlük kayıtları yalnızca o gün (Türkiye saati, 23:59'a kadar) girer/değiştirir; yönetici + ortaklar her zaman
 const trToday = ()=>new Date().toLocaleDateString("sv-SE",{timeZone:"Europe/Istanbul"});
-const dayLocked = d=>!isAdmin() && d!==trToday();
+// yöneticinin verdiği tek seferlik izin (ops_day_grants): o kişi, o gün için, süre bitene kadar kendi kaydını girebilir
+const grantOf = d=>S.me ? (S.grants||[]).find(g=>g.member_id===S.me.id && g.day===d && new Date(g.expires_at)>new Date()) : null;
+const dayLocked = d=>!isAdmin() && d!==trToday() && !grantOf(d);
+const teamLocked = d=>!isAdmin() && d!==trToday();   // kargo & mesaj toplamları: izin kapsamı dışında
 const LOCK_MSG = "🔒 Bu günün kaydı kapandı. Düzeltme gerekiyorsa yöneticine söyle.";
-const lockNote = d=>dayLocked(d)?`<div class="lockbar">🔒 ${d<trToday()?"Bu gün kapandı":"Bu gün henüz gelmedi"} — kayıtlar yalnızca kendi gününde, gece 23:59'a kadar girilip değiştirilebilir. Düzeltme gerekiyorsa yöneticine söyle, o düzeltir.</div>`:"";
+const lockNote = d=>(!isAdmin()&&d!==trToday()&&grantOf(d))?`<div class="lockbar" style="background:var(--green-s)">🔓 Yöneticin bu gün için izin verdi — ${new Date(grantOf(d).expires_at).toLocaleString("tr-TR",{day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"})}'e kadar kaydını girebilirsin.</div>`:dayLocked(d)?`<div class="lockbar">🔒 ${d<trToday()?"Bu gün kapandı":"Bu gün henüz gelmedi"} — kayıtlar yalnızca kendi gününde, gece 23:59'a kadar girilip değiştirilebilir. Düzeltme gerekiyorsa yöneticine söyle, o düzeltir.</div>`:"";
 const errMsg = e=>String(e?.message||"").startsWith("🔒") ? e.message : /row-level security|violates|permission denied/i.test(e?.message||"") ? LOCK_MSG : "Hata: "+(e?.message||e);
 const addDays = (s,n)=>{ const d=new Date(s+"T00:00:00"); d.setDate(d.getDate()+n); return iso(d); };
 const dow = s=>new Date(s+"T00:00:00").getDay();           // 0 = Pazar
@@ -815,6 +818,7 @@ async function loadAll(){
     try{ const {data:dx}=await sb.from("ops_settings").select("*").eq("key","duty_exempt").maybeSingle(); S.dutyExempt=Array.isArray(dx?.value)?dx.value:[]; }catch(e){}
     try{ const [asg,tk,ta]=await Promise.all([fetchAll("ops_assignments"), fetchAll("tasks",q=>q.order("created_at",{ascending:false})), fetchAll("task_assignees")]); S.assign=asg||[]; S.tasks=unifyTasks(tk||[], ta||[]); }catch(e){}
     try{ const {data:br}=await sb.from("ops_brands").select("*").order("sort"); S.brands=br||[]; }catch(e){}
+    try{ const {data:gr}=await sb.from("ops_day_grants").select("*").gte("expires_at", nowIso()); S.grants=gr||[]; }catch(e){ S.grants=[]; }
     try{ const [rt,rd]=await Promise.all([fetchAll("ops_returns",q=>q.gte("day",since)), fetchAll("ops_return_days",q=>q.gte("day",since))]); S.rets=rt||[]; S.retDays=rd||[]; S.retOk=true; }catch(e){ S.rets=[]; S.retDays=[]; S.retOk=false; }
     try{ const {data:ci}=await sb.from("ops_check_items").select("*"); S.checkItems=ci||[]; applyCheckItems(S.checkItems); }catch(e){}
   }catch(e){
@@ -1290,6 +1294,7 @@ function renderGun(){
   el.innerHTML = `
     <h2>Günüm</h2>
     <div class="sub">Akşam çıkmadan 2 dakikada doldur. Boş alan = 0 sayılmaz, "girilmedi" sayılır.</div>
+    ${!isAdmin()?(S.grants||[]).filter(g=>S.me&&g.member_id===S.me.id&&g.day!==day&&g.day!==trToday()&&new Date(g.expires_at)>new Date()).map(g=>`<div class="lockbar" style="background:var(--green-s)">🔓 Yöneticin <b>${trDateW(g.day)}</b> için izin verdi; o günün kaydını girmen gerekiyor. <button class="btn sm" data-grantgo="${g.day}" style="width:auto;margin:6px 0 0">O güne git →</button></div>`).join(""):""}
     ${dayNav("gunDay", day, memSel)}
     ${taskList(m, day)}
     ${WC.card([m.name, m.id===S.me?.id?S.profile?.name:null], day, isAdmin())}
@@ -1325,6 +1330,7 @@ function renderGun(){
     </table></div></div>`:""}
   `;
   bindDayNav(el,"day",renderGun); bindTaskList(el, renderGun); WC.bind(el, renderGun);
+  el.querySelectorAll("[data-grantgo]").forEach(b=>b.onclick=()=>{ S.day=b.dataset.grantgo; S.puanDay=b.dataset.grantgo; S.kontrolDay=b.dataset.grantgo; renderGun(); window.scrollTo(0,0); });
   if(isAdmin()){ $("gunMember").onchange=e=>{ S.gunMember=e.target.value; renderGun(); }; $("gunTask").onclick=()=>openTaskModal(m.id, renderGun); }
   const otLive=()=>{ const c=otCalc({day, in_time:$("g_in_time").value, out_time:$("g_out_time").value, leave_min:numOrNull($("g_leave_min").value)});
     $("g_otlive").innerHTML = c.kind==="eksik" ? `<span style="color:var(--mut)">saatleri gir</span>` : c.kind==="hata" ? "⚠ saatleri kontrol et" : `<span class="${otCls(c.min)}">${otTxt(c.min)}</span>${c.kind==="pazar"?" <small>pazar ×1,5</small>":""}`; };
@@ -1613,8 +1619,8 @@ function renderKargo(){
     <h2>Kargo & Mesaj Toplamları</h2>
     <div class="sub">Günün ekip toplamları: kargo firması bazlı çıkışlar ve mesaj kanalı toplamları.${!eK&&roleHolder("kargo")?` Kargo sayılarını <b>${esc(roleHolder("kargo").name)}</b> girer.`:""}${!eM&&roleHolder("mesaj_toplam")?` Mesaj toplamlarını <b>${esc(roleHolder("mesaj_toplam").name)}</b> girer.`:""}</div>
     ${dayNav("kargoDay",day)}
-    ${lockNote(day)}
-    <div class="card ${dayLocked(day)?"locked":""}" id="kargoForm" style="margin-bottom:16px">
+    ${teamLocked(day)?`<div class="lockbar">🔒 Bu günün kaydı kapandı. Düzeltme gerekiyorsa yöneticine söyle.</div>`:""}
+    <div class="card ${teamLocked(day)?"locked":""}" id="kargoForm" style="margin-bottom:16px">
       <div class="sect" id="secK"><h3>📦 Çıkan kargo ${by("kargo")}</h3><div class="fgrid">
         ${num("hepsijet","Hepsijet")}${num("yurtici","Yurtiçi")}${num("dhl","DHL")}
         <div><div class="flabel">Toplam</div><input type="number" id="k_cargo_total" value="${v("cargo_total")}" placeholder="otomatik"></div>
@@ -1646,12 +1652,12 @@ function renderKargo(){
   `;
   bindDayNav(el,"kargoDay",renderKargo);
   ["hepsijet","yurtici","dhl"].forEach(k=>$("k_"+k).oninput=()=>{ $("k_cargo_total").value=(numOrNull($("k_hepsijet").value)||0)+(numOrNull($("k_yurtici").value)||0)+(numOrNull($("k_dhl").value)||0); });
-  if(dayLocked(day)) $("kargoForm").querySelectorAll("input,textarea,button").forEach(x=>x.disabled=true);
+  if(teamLocked(day)) $("kargoForm").querySelectorAll("input,textarea,button").forEach(x=>x.disabled=true);
   if(!eK) ["secK","secK2"].forEach(id=>$(id).querySelectorAll("input").forEach(x=>x.disabled=true));
   if(!eM) $("secM").querySelectorAll("input").forEach(x=>x.disabled=true);
   $("kargoSave").onclick=async ()=>{
     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
-    if(dayLocked(day)){ toast(LOCK_MSG); return; }
+    if(teamLocked(day)){ toast(LOCK_MSG); return; }
     // sadece yetkili olduğu bölümün alanları gönderilir; diğerinin girdiği sayılar silinmez
     const row={day, updated_by:S.me?.id||null, updated_at:nowIso(), note:$("k_note").value.trim()||null};
     [...(eK?["hepsijet","yurtici","dhl","cargo_total","failed","returns","cancels"]:[]), ...(eM?["wp_total","ig_total","mail_total"]:[])].forEach(k=>row[k]=numOrNull($("k_"+k).value));
@@ -2359,6 +2365,7 @@ function guessTags(t){
 function demoData(){
   S.members=[["sait","Sait","#2F5DFF","Planlama, görev dağılımı, barkod, stok"],["halil","Halil İbrahim","#FF8A00","Kargo, iade-iptal"],["melek","Melek","#EC4899","Instagram + Mail"],["rabia","Rabia","#A855F7","Arama, WhatsApp"],["furkan","Furkan","#22C55E","Arama, bakmadı"],["anil","Anıl","#FFC53D","Anlık aramalar"]]
     .map((m,i)=>({id:"m_"+m[0],key:m[0],name:m[1],color:m[2],tasks:m[3],active:true,sort:i+1,user_id:null}));
+  S.grants=[{member_id:"m_halil", day:addDays(today(),-1), expires_at:new Date(Date.now()+864e5).toISOString()}];
   S.members.push({id:"m_ugur",key:"ugur",name:"Uğur abi",color:"#64748B",tasks:"Puan + stok + kargo",active:true,sort:99,user_id:null,kind:"puanci"});
   S.brands=[{key:"uzbionik",name:"uzbionik",sort:1,active:true}];
   S.products=[["uz_cilek","uzbionik Çilek"],["uz_ananas","uzbionik Ananaslı"]].map((p,i)=>({key:p[0],name:p[1],brand:"uzbionik",sort:i+1,active:true,min_qty:0}));
