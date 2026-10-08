@@ -2102,7 +2102,9 @@ function winnerCard(kind,start,end,rows){
     body = who ? `<div class="winner">${av(who,"big")}<div><div class="wname">🏆 ${esc(who.name)}</div><div class="wsub">${title} · ${esc(label)}${ov?` · <span class="pill">elle</span>`:""}${isAdmin()&&top&&!ov?` · ${nf1.format(top.total)} puan`:""}</div>${ov?.note?`<div class="wsub">${esc(ov.note)}</div>`:""}</div></div>`
                : `<div class="empty" style="padding:14px">${esc(label)} · veri yok</div>`;
   }else{
-    body = `<div class="winner soft">${who?av(who,"big"):""}<div><div class="wname">${esc(label)}</div><div class="wsub">devam ediyor${isAdmin()&&top?` · şu an önde: <b>${esc(top.name)}</b> (${nf1.format(top.total)})`:""}</div></div></div>`;
+    body = isAdmin()
+      ? `<div class="winner soft">${who?av(who,"big"):""}<div><div class="wname">${esc(label)}</div><div class="wsub">devam ediyor${top?` · şu an önde: <b>${esc(top.name)}</b> (${nf1.format(top.total)})`:""}</div></div></div>`
+      : `<div class="winner soft"><div><div class="wname">🔒 ${esc(label)}</div><div class="wsub">Ayın birincisi ay sonunda açıklanır.</div></div></div>`;
   }
   return `<div class="card wcard ${done&&who?"gold":""}">${ctl}${body}</div>`;
 }
@@ -2121,24 +2123,24 @@ async function renderBirinci(){
   let mRows=[], wRows=[], pastRows=[];
   try{
     [mRows, wRows, pastRows] = await Promise.all([
-      ranking(first,last),
-      Promise.all(weeks.map(([a,b])=>ranking(a,b))),
-      Promise.all(months.map(m=>ranking(m,monthEnd(m)))),
+      (isAdmin()||today()>last) ? ranking(first,last) : Promise.resolve([]),
+      isAdmin() ? Promise.all(weeks.map(([a,b])=>ranking(a,b))) : Promise.resolve(weeks.map(()=>[])),
+      Promise.all(months.map(m=>(isAdmin()||today()>monthEnd(m)) ? ranking(m,monthEnd(m)) : Promise.resolve([]))),
     ]);
   }catch(e){ el.innerHTML=`<h2>Birinci</h2><div class="empty">${esc(e.message)}</div>`; return; }
   if(S.birMonth!==first) return;
   const w=weights();
   const wins={}; weeks.forEach(([a],i)=>{ if(today()<addDays(a,7)) return; const ov=awardOf("hafta",a); const id=ov?ov.member_id:wRows[i][0]?.member_id; if(id) wins[id]=(wins[id]||0)+1; });
-  const past=months.map((m,i)=>{ const ov=awardOf("ay",m); const id=ov?ov.member_id:pastRows[i][0]?.member_id; return {m, who:id?memById(id):null}; }).filter(x=>x.who);
+  const past=months.filter(m=>isAdmin()||today()>monthEnd(m)).map(m=>[m,months.indexOf(m)]).map(([m,i])=>{ const ov=awardOf("ay",m); const id=ov?ov.member_id:pastRows[i][0]?.member_id; return {m, who:id?memById(id):null}; }).filter(x=>x.who);
   el.innerHTML=`
     <h2>Birinci</h2>
-    <div class="sub">Her hafta bitince haftanın, ay bitince ayın birincisi otomatik belli olur.${isAdmin()?" Formül: "+Object.entries(w).flatMap(([k,v])=>k==="puan"&&wRank()?[`${RANK_L[k]} %${Math.max(0,v-wRank())}`,`Erdem %${wRank()}`]:[`${RANK_L[k]} %${v}`]).join(" · "):""}</div>
+    <div class="sub">${isAdmin()?"Her hafta bitince haftanın, ay bitince ayın birincisi otomatik belli olur. Ekip sadece kapanmış ayların birincisini görür; haftalık birincileri ve devam eden ayı yalnızca yönetim ve ortaklar görür.":"Ayın birincisi ay bitince burada açıklanır."}${isAdmin()?" Formül: "+Object.entries(w).flatMap(([k,v])=>k==="puan"&&wRank()?[`${RANK_L[k]} %${Math.max(0,v-wRank())}`,`Erdem %${wRank()}`]:[`${RANK_L[k]} %${v}`]).join(" · "):""}</div>
     <div class="dayrow"><button class="nb" data-bm="-1">‹</button><span class="dl">${trMonth(first)}</span><button class="nb" data-bm="1">›</button>${isAdmin()?`<button class="btn ghost sm" id="wEdit">⚙️ Ağırlıklar</button>`:""}</div>
     <div class="sect"><h3>🏆 Ayın birincisi</h3>${winnerCard("ay",first,last,mRows)}${rankTable(mRows)}</div>
-    <div class="sect"><h3>📅 Haftalar</h3>
+    ${isAdmin()?`<div class="sect"><h3>📅 Haftalar <span class="pill">sadece yönetim</span></h3>
       ${weeks.map(([a,b],i)=>winnerCard("hafta",a,b,wRows[i])).join("")}
       ${Object.keys(wins).length?`<div class="note">Bu ay haftalık birincilik: ${Object.entries(wins).sort((x,y)=>y[1]-x[1]).map(([id,n])=>`<b>${esc(memName(id))}</b> ${n}`).join(" · ")}</div>`:""}
-    </div>
+    </div>`:""}
     ${isAdmin()&&weeks.length?`<div class="sect"><h3>🔎 Hafta detayı</h3><div class="filters">${weeks.map(([a],i)=>`<button class="fchip ${i===(S.birWeek??weeks.length-1)?"on":""}" data-bw="${i}">${trShort(a)}</button>`).join("")}</div><div id="wDetail">${rankTable(wRows[S.birWeek??weeks.length-1]||[])}</div></div>`:""}
     ${past.length?`<div class="sect"><h3>🏛 Önceki aylar</h3><div class="card" style="padding:6px 14px">${past.map(p=>`<div class="crow">${av(p.who)}<b>${esc(p.who.name)}</b><span class="ct">${trMonth(p.m)}</span></div>`).join("")}</div></div>`:""}
   `;
