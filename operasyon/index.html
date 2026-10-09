@@ -724,6 +724,8 @@ const wRank = ()=>!S.sw ? 0 : S.sw.rank!=null ? +S.sw.rank||0 : Math.round((+S.s
 const wEff  = ()=>{ const P=+weights().puan||0; return P>0 ? Math.min(1, wRank()/P) : 0; };
 // puan dışı üye (ör. Furkan): puan vermez, puan almaz, birinci sıralamasına girmez — ops_settings.no_score
 const noScore = m=>(S.noScore||[]).includes(m?.id||m);
+// ops_settings.extra_scale = {day, raters:[id], ratee:id, values:[…]} → o gün o kişilere ek puan düğmeleri
+const extraFor = (rateeId, day)=>{ const e=S.extraScale; return e && e.day===day && S.me && (e.raters||[]).includes(S.me.id) && e.ratee===rateeId ? (e.values||[]) : []; };
 // o gün işe gelen (günlük dolduran) aktif ekip üyelerinin hepsini puanlamayanın o günkü puanları sayılmaz
 function requiredRatees(raterId, day){ return S.members.filter(m=>m.active && (m.kind||"ekip")==="ekip" && m.id!==raterId && !noScore(m) && S.daily.some(d=>d.member_id===m.id&&d.day===day)); }
 const _rdo={}; let _rdoKey="";
@@ -827,6 +829,7 @@ async function loadAll(){
     try{ const [{data:aw},{data:st}]=await Promise.all([sb.from("ops_awards").select("*"), sb.from("ops_settings").select("*").eq("key","rank_weights").maybeSingle()]); S.awards=aw||[]; S.weights=st?.value||null; }catch(e){}
     try{ const {data:dx}=await sb.from("ops_settings").select("*").eq("key","duty_exempt").maybeSingle(); S.dutyExempt=Array.isArray(dx?.value)?dx.value:[]; }catch(e){}
     try{ const {data:nx}=await sb.from("ops_settings").select("*").eq("key","no_score").maybeSingle(); S.noScore=Array.isArray(nx?.value)?nx.value:[]; }catch(e){}
+    try{ const {data:ex}=await sb.from("ops_settings").select("*").eq("key","extra_scale").maybeSingle(); S.extraScale=ex?.value||null; }catch(e){ S.extraScale=null; }
     try{ const [asg,tk,ta]=await Promise.all([fetchAll("ops_assignments"), fetchAll("tasks",q=>q.order("created_at",{ascending:false})), fetchAll("task_assignees")]); S.assign=asg||[]; S.tasks=unifyTasks(tk||[], ta||[]); }catch(e){}
     try{ const {data:br}=await sb.from("ops_brands").select("*").order("sort"); S.brands=br||[]; }catch(e){}
     try{ const {data:gr}=await sb.from("ops_day_grants").select("*").gte("expires_at", nowIso()); S.grants=gr||[]; }catch(e){ S.grants=[]; }
@@ -1385,7 +1388,7 @@ function renderPuan(){
     ${others.map(x=>{ const s=mine(x.id); return `
       <div class="card" style="margin-bottom:12px">
         <div class="mcard">${av(x,"big")}<div><div class="nm">${esc(x.name)}</div><div class="tk">${esc(x.tasks||"")}</div></div></div>
-        <div class="scrow" data-ratee="${x.id}">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="scbtn ${s.score===n?"on":""}" data-n="${n}">${n}</button>`).join("")}</div>
+        <div class="scrow" data-ratee="${x.id}">${[...extraFor(x.id,day),1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="scbtn ${(s.display_score??s.score)===n?"on":""}" data-n="${n}" ${n<1?`style="background:var(--red-s)"`:""}>${n}</button>`).join("")}</div>
         <textarea id="pc_${x.id}" rows="2" placeholder="Bugün nasıl çalıştı? Ne yaptı, ne aksadı? En az ${NOTE_MIN} karakter." style="margin-bottom:0">${esc(s.comment||"")}</textarea>
         <div class="pcnt" id="pn_${x.id}"></div>
       </div>`; }).join("")}
@@ -1394,7 +1397,7 @@ function renderPuan(){
     ${myDays.length?`<div class="note">Puanladığın son günler: ${myDays.map(trShort).join(" · ")}</div>`:""}
   `;
   bindDayNav(el,"puanDay",renderPuan);
-  const picked = {}; others.forEach(x=>{ const s=mine(x.id); if(s.score!=null) picked[x.id]=s.score; });
+  const picked = {}; others.forEach(x=>{ const s=mine(x.id); if(s.score!=null) picked[x.id]=s.display_score??s.score; });
   const noteOf = id=>$("pc_"+id).value.trim();
   const noteCnt = id=>{ const n=noteOf(id).length, el2=$("pn_"+id);
     el2.textContent = n>=NOTE_MIN ? `${n} karakter ✓` : `${n}/${NOTE_MIN} — en az ${NOTE_MIN} karakter yaz`;
@@ -1411,7 +1414,11 @@ function renderPuan(){
     if(!sel.length){ toast("Önce puan seç."); return; }
     const eksik = sel.filter(x=>noteOf(x.id).length<NOTE_MIN);
     if(eksik.length){ const x=eksik[0]; toast(`${x.name} için not en az ${NOTE_MIN} karakter olmalı (şu an ${noteOf(x.id).length}).`); $("pc_"+x.id).focus(); noteCnt(x.id); return; }
-    const rows = sel.map(x=>({day, rater_id:S.me.id, ratee_id:x.id, score:picked[x.id], comment:noteOf(x.id), updated_at:nowIso()}));
+    const base = sel.filter(x=>picked[x.id]>=1&&picked[x.id]<=10).map(x=>picked[x.id]);
+    const prevMine = S.scores.filter(s=>s.rater_id===S.me.id&&s.score!=null&&s.display_score==null).map(s=>s.score);
+    const avgGiven = Math.min(10,Math.max(1,Math.round(avg(base.length?base:prevMine)||8)));
+    const rows = sel.map(x=>{ const v=picked[x.id], ex=v<1||v>10;
+      return {day, rater_id:S.me.id, ratee_id:x.id, score:ex?avgGiven:v, display_score:ex?v:null, comment:noteOf(x.id), updated_at:nowIso()}; });
     $("puanSave").disabled=true;
     try{
       if(DEMO){ rows.forEach(r=>{ const i=S.scores.findIndex(s=>s.day===r.day&&s.rater_id===r.rater_id&&s.ratee_id===r.ratee_id); if(i>=0) S.scores[i]={...S.scores[i],...r}; else S.scores.unshift({id:uid(),...r}); }); }
@@ -2389,6 +2396,7 @@ function demoData(){
   S.members=[["sait","Sait","#2F5DFF","Planlama, görev dağılımı, barkod, stok"],["halil","Halil İbrahim","#FF8A00","Kargo, iade-iptal"],["melek","Melek","#EC4899","Instagram + Mail"],["rabia","Rabia","#A855F7","Arama, WhatsApp"],["furkan","Furkan","#22C55E","Arama, bakmadı"],["anil","Anıl","#FFC53D","Anlık aramalar"]]
     .map((m,i)=>({id:"m_"+m[0],key:m[0],name:m[1],color:m[2],tasks:m[3],active:true,sort:i+1,user_id:null}));
   S.noScore=["m_furkan"];
+  S.extraScale={day:today(), raters:["m_rabia"], ratee:"m_halil", values:[-1,-2,-3,-20,-40,-70,-80,-90]};
   S.grants=[{member_id:"m_halil", day:addDays(today(),-1), expires_at:new Date(Date.now()+864e5).toISOString()}];
   S.members.push({id:"m_ugur",key:"ugur",name:"Uğur abi",color:"#64748B",tasks:"Puan + stok + kargo",active:true,sort:99,user_id:null,kind:"puanci"});
   S.brands=[{key:"uzbionik",name:"uzbionik",sort:1,active:true}];
