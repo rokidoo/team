@@ -1164,7 +1164,21 @@ const isWR=(t,r)=>!!S.sw&&(S.sw[t==="o"?"ops":"kre"]||[]).includes(r);
 const swRank=()=>!S.sw?0:S.sw.rank!=null?+S.sw.rank||0:Math.round((+S.sw.w||0)*100);
 const swPuanW=()=>+(S.o.rankW?.puan ?? 40)||0;
 const swEff=()=>{ const P=swPuanW(); return P>0?Math.min(1,swRank()/P):0; };
-function recvAvgT(t,rows){ const v=rows.filter(s=>s.score!=null); if(!v.length) return null; const rk=s=>t==="o"?s.rater_id:s.rater;
+// o gün işe gelen (günlük dolduran) ekip arkadaşlarının hepsini puanlamayanın o günkü puanları sayılmaz (operasyon + kreatif)
+const _rdok={}; let _rdokKey="";
+function raterDayOkT(t, rater, day){
+  const k=S.o.scores.length+"|"+S.o.daily.length+"|"+S.k.scores.length+"|"+S.k.daily.length; if(k!==_rdokKey){ for(const x in _rdok) delete _rdok[x]; _rdokKey=k; }
+  const kk=t+rater+"|"+day; if(kk in _rdok) return _rdok[kk];
+  let ok;
+  if(t==="o"){ const ns=new Set(S.o.noScore||[]);
+    ok=S.o.members.filter(m=>m.active&&m.id!==rater&&!ns.has(m.id)&&S.o.daily.some(d=>d.member_id===m.id&&d.day===day))
+      .every(m=>S.o.scores.some(s=>s.rater_id===rater&&s.ratee_id===m.id&&s.day===day&&s.score!=null)); }
+  else{ const un=new Set(S.k.unrated||[]);
+    ok=S.k.team.map(x=>x.initial).filter(i=>i!==rater&&!un.has(i)&&S.k.daily.some(d=>d.initial===i&&d.day===day))
+      .every(i=>S.k.scores.some(s=>s.rater===rater&&s.ratee===i&&s.day===day&&s.score!=null)); }
+  return _rdok[kk]=ok;
+}
+function recvAvgT(t,rows){ const rk0=s=>t==="o"?s.rater_id:s.rater; const v=rows.filter(s=>s.score!=null&&raterDayOkT(t,rk0(s),s.day)); if(!v.length) return null; const rk=s=>t==="o"?s.rater_id:s.rater;
   const p=v.filter(s=>isWR(t,rk(s))).map(s=>s.score), o=v.filter(s=>!isWR(t,rk(s))).map(s=>s.score);
   if(!p.length||!o.length) return avg(v.map(s=>s.score)); const w=t==="k"?kreW():swEff(); return avg(o)*(1-w)+avg(p)*w; }
 // Kreatif: ağırlıklı puan veren ortak (Çağdaş, score_weights.kre) kişinin aldığı ortalamada kre_w oranında sayılır (ekip %90 + Çağdaş %10).
@@ -1232,6 +1246,7 @@ async function loadAll(){
   // analiz dosyaları (tablo yoksa sessizce: Verimlilik sekmesi uyarı gösterir)
   { const {data,error}=await sb.from("analyses").select("*"); S.analyses=data||[]; S.anErr=error?error.message:null; }
   S.sw=null; if(isAdmin()) try{ const [{data:sw},{data:rw}]=await Promise.all([sb.from("shared_settings").select("value").eq("key","score_weights").maybeSingle(), sb.from("ops_settings").select("value").eq("key","rank_weights").maybeSingle()]); S.sw=sw?.value||null; S.o.rankW=rw?.value||null; }catch(e){}
+  try{ const [{data:ns},{data:kr}]=await Promise.all([sb.from("ops_settings").select("value").eq("key","no_score").maybeSingle(), sb.from("kre_settings").select("value").eq("key","roles").maybeSingle()]); S.o.noScore=Array.isArray(ns?.value)?ns.value:[]; S.k.unrated=kr?.value?.unrated||[]; }catch(e){ S.o.noScore=[]; S.k.unrated=[]; }
   // ortakların "günün yorumu": operasyon (erdem → pv_log.ops_note) + kreatif (cagdas → pv_log.kre_note); sadece yönetici okur
   S.oDayNotes={}; S.kDayNotes={}; if(isAdmin()) try{
     const {data:pp}=await sb.from("shared_settings").select("value").eq("key","private_pages").maybeSingle();
