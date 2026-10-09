@@ -722,7 +722,17 @@ const NOTE_MIN = 30;   // puan notu en az bu kadar karakter
 const isWRater = id=>!!S.sw && (S.sw.ops||[]).includes(id);
 const wRank = ()=>!S.sw ? 0 : S.sw.rank!=null ? +S.sw.rank||0 : Math.round((+S.sw.w||0)*100);
 const wEff  = ()=>{ const P=+weights().puan||0; return P>0 ? Math.min(1, wRank()/P) : 0; };
-function recvAvg(rows){ const v=rows.filter(s=>s.score!=null); if(!v.length) return null;
+// puan dışı üye (ör. Furkan): puan vermez, puan almaz, birinci sıralamasına girmez — ops_settings.no_score
+const noScore = m=>(S.noScore||[]).includes(m?.id||m);
+// o gün işe gelen (günlük dolduran) aktif ekip üyelerinin hepsini puanlamayanın o günkü puanları sayılmaz
+function requiredRatees(raterId, day){ return S.members.filter(m=>m.active && (m.kind||"ekip")==="ekip" && m.id!==raterId && !noScore(m) && S.daily.some(d=>d.member_id===m.id&&d.day===day)); }
+const _rdo={}; let _rdoKey="";
+function raterDayOk(raterId, day){
+  const k=S.scores.length+"|"+S.daily.length; if(k!==_rdoKey){ for(const x in _rdo) delete _rdo[x]; _rdoKey=k; }
+  const kk=raterId+"|"+day; if(kk in _rdo) return _rdo[kk];
+  return _rdo[kk]=requiredRatees(raterId,day).every(m=>S.scores.some(s=>s.rater_id===raterId&&s.ratee_id===m.id&&s.day===day&&s.score!=null));
+}
+function recvAvg(rows){ const v=rows.filter(s=>s.score!=null && raterDayOk(s.rater_id,s.day)); if(!v.length) return null;
   const p=v.filter(s=>isWRater(s.rater_id)).map(s=>s.score), o=v.filter(s=>!isWRater(s.rater_id)).map(s=>s.score);
   if(!p.length||!o.length) return avg(v.map(s=>s.score)); const w=wEff(); return avg(o)*(1-w)+avg(p)*w; }
 const wPct = ()=>wRank();
@@ -816,6 +826,7 @@ async function loadAll(){
     if(isAdmin()) await loadRates();
     try{ const [{data:aw},{data:st}]=await Promise.all([sb.from("ops_awards").select("*"), sb.from("ops_settings").select("*").eq("key","rank_weights").maybeSingle()]); S.awards=aw||[]; S.weights=st?.value||null; }catch(e){}
     try{ const {data:dx}=await sb.from("ops_settings").select("*").eq("key","duty_exempt").maybeSingle(); S.dutyExempt=Array.isArray(dx?.value)?dx.value:[]; }catch(e){}
+    try{ const {data:nx}=await sb.from("ops_settings").select("*").eq("key","no_score").maybeSingle(); S.noScore=Array.isArray(nx?.value)?nx.value:[]; }catch(e){}
     try{ const [asg,tk,ta]=await Promise.all([fetchAll("ops_assignments"), fetchAll("tasks",q=>q.order("created_at",{ascending:false})), fetchAll("task_assignees")]); S.assign=asg||[]; S.tasks=unifyTasks(tk||[], ta||[]); }catch(e){}
     try{ const {data:br}=await sb.from("ops_brands").select("*").order("sort"); S.brands=br||[]; }catch(e){}
     try{ const {data:gr}=await sb.from("ops_day_grants").select("*").gte("expires_at", nowIso()); S.grants=gr||[]; }catch(e){ S.grants=[]; }
@@ -1359,12 +1370,15 @@ function renderGun(){
 function renderPuan(){
   const el=$("tabPuan"); const day=S.puanDay;
   if(!S.me){ el.innerHTML=`<h2>Ekip Puanı</h2><div class="empty">${isAdmin()?"Yönetici hesabı bir ekip üyesine bağlı değil; puanlama ekip üyeleri içindir. Puan raporu Pano'da.":"Hesabın bir ekip üyesine bağlı değil."}</div>`; return; }
-  const others = actives().filter(x=>x.id!==S.me.id);
+  if(noScore(S.me)){ el.innerHTML=`<h2>Ekip Puanı</h2><div class="empty">Uzaktan çalıştığın için puan vermiyorsun ve sana puan verilmiyor.</div>`; return; }
+  const others = actives().filter(x=>x.id!==S.me.id && !noScore(x));
   const mine = id=>S.scores.find(s=>s.day===day && s.rater_id===S.me.id && s.ratee_id===id) || {};
+  const need = requiredRatees(S.me.id, day), miss = need.filter(m=>mine(m.id).score==null);
   const myDays = [...new Set(S.scores.filter(s=>s.rater_id===S.me.id).map(s=>s.day))].sort().reverse().slice(0,7);
   el.innerHTML = `
     <h2>Ekip Puanı</h2>
     <div class="sub">Her akşam ekip arkadaşlarını 1–10 arası puanla. Puanlar <b>yalnızca yöneticiye</b> görünür; puanladığın kişi ne puan verdiğini göremez.</div>
+    <div class="lockbar" style="background:${miss.length?"var(--orange-s)":"var(--green-s)"}">${miss.length?`⚠️ O gün işe gelen <b>herkese</b> puan vermezsen o günkü puanlarının <b>hiçbiri sayılmaz</b>. Eksik: <b>${miss.map(m=>esc(m.name)).join(", ")}</b>`:need.length?"✅ O gün işe gelen herkesi puanladın; puanların sayılıyor.":"Bu gün henüz günlüğünü dolduran ekip arkadaşın yok."}</div>
     ${dayNav("puanDay", day)}
     ${lockNote(day)}
     <div id="puanForm" class="${dayLocked(day)?"locked":""}">
@@ -1799,7 +1813,7 @@ function renderEkip(){
   const d14=[...Array(14)].map((_,i)=>addDays(today(),-i)).filter(d=>dow(d)!==0);
   const card=m=>{ const n=d14.filter(d=>dailyOf(m.id,d)).length; return `
     <div class="card"><div class="mcard">${av(m,"big")}<div style="flex:1"><div class="nm">${esc(m.name)}</div><div class="tk">${esc(m.tasks||"—")}</div>
-      <div class="mrow">${myRoles(m).map(k=>`<span class="pill">${ROLES[k].i} ${esc(ROLES[k].l)}</span>`).join("")}<span class="m">Son 14 gün doldurma <b>${n}/${d14.length}</b></span><span class="m">${m.user_id?"🔗 hesap bağlı":"⚠️ hesap bağlı değil"}</span>${dutyExempt(m)?`<span class="m">🧹 temizlik nöbeti yok</span>`:""}${m.active?"":chip("pasif","var(--gray-s)")}</div></div>
+      <div class="mrow">${myRoles(m).map(k=>`<span class="pill">${ROLES[k].i} ${esc(ROLES[k].l)}</span>`).join("")}<span class="m">Son 14 gün doldurma <b>${n}/${d14.length}</b></span><span class="m">${m.user_id?"🔗 hesap bağlı":"⚠️ hesap bağlı değil"}</span>${dutyExempt(m)?`<span class="m">🧹 temizlik nöbeti yok</span>`:""}${noScore(m)?`<span class="m">⭐ puan dışı</span>`:""}${m.active?"":chip("pasif","var(--gray-s)")}</div></div>
       ${isAdmin()?`<button class="editbtn" data-medit="${m.id}">✏️</button>`:""}</div></div>`; };
   el.innerHTML=`
     <h2>Ekip</h2>
@@ -1829,6 +1843,7 @@ async function openMemberModal(id){
     <div class="flabel">Bağlı hesap</div><select id="m_user">${opt("","— bağlı değil —",m.user_id||"")}${profiles.map(p=>opt(p.id,`${p.name} (${p.role})`,m.user_id||"")).join("")}</select>
     <label style="font-weight:800;font-size:.85rem;display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="checkbox" id="m_active" ${m.active?"checked":""} style="width:auto;margin:0">Aktif (ekipte)</label>
     <label style="font-weight:800;font-size:.85rem;display:flex;align-items:center;gap:8px;margin-bottom:14px"><input type="checkbox" id="m_duty" ${id&&dutyExempt(m)?"":"checked"} style="width:auto;margin:0">Temizlik nöbetine girer</label>
+    ${isAdmin()?`<label style="font-weight:800;font-size:.85rem;display:flex;align-items:center;gap:8px;margin-bottom:14px"><input type="checkbox" id="m_noscore" ${id&&noScore(m)?"checked":""} style="width:auto;margin:0">Puan dışı (puan vermez, puan almaz, birinci sıralamasına girmez)</label>`:""}
     <button class="btn" id="mSave">Kaydet</button>`);
   $("mSave").onclick=async ()=>{
     const row={key:(id?m.key:$("m_key").value.trim().toLowerCase()), name:$("m_name").value.trim(), tasks:$("m_tasks").value.trim()||null, color:$("m_color").value, sort:numOrNull($("m_sort").value)||0, active:$("m_active").checked, user_id:$("m_user").value||null};
@@ -1840,6 +1855,12 @@ async function openMemberModal(id){
         const i=S.members.findIndex(x=>x.key===row.key); if(i>=0) S.members[i]=data; else S.members.push(data); }
       S.me = S.members.find(x=>x.user_id===S.profile?.id) || S.me;
       const saved=S.members.find(x=>x.key===row.key); const ex=!$("m_duty").checked;
+      const ns=$("m_noscore")?.checked;
+      if(saved && ns!=null && ns!==noScore(saved)){
+        const next=(S.noScore||[]).filter(x=>x!==saved.id).concat(ns?[saved.id]:[]);
+        if(!DEMO){ const {error}=await sb.from("ops_settings").upsert({key:"no_score",value:next,updated_at:nowIso()},{onConflict:"key"}); if(error) throw error; }
+        S.noScore=next;
+      }
       if(saved && ex!==dutyExempt(saved)){
         const next=(S.dutyExempt||[]).filter(x=>x!==saved.id).concat(ex?[saved.id]:[]);
         if(!DEMO){ const {error}=await sb.from("ops_settings").upsert({key:"duty_exempt",value:next,updated_at:nowIso()},{onConflict:"key"}); if(error) throw error; }
@@ -2071,7 +2092,7 @@ function monthWeeks(first){ // pazartesi'si bu ayda olan haftalar
 function rankLocal(from,to){ // DEMO: sunucudaki ops_ranking ile aynı formül
   const w=weights(); const toC=to<today()?to:today(); let wdays=0;
   for(let d=from; d<=toC; d=addDays(d,1)) if(dow(d)!==0) wdays++;
-  const rows=actives().map(m=>{
+  const rows=actives().filter(m=>!noScore(m)).map(m=>{
     const D=S.daily.filter(x=>x.member_id===m.id&&inRange(x.day,[from,to]));
     const ins=D.map(x=>mins(x.in_time)).filter(x=>x!=null);
     const scR=S.scores.filter(s=>s.ratee_id===m.id&&inRange(s.day,[from,to])&&s.score!=null), sc=scR.map(s=>s.score);
@@ -2367,6 +2388,7 @@ function guessTags(t){
 function demoData(){
   S.members=[["sait","Sait","#2F5DFF","Planlama, görev dağılımı, barkod, stok"],["halil","Halil İbrahim","#FF8A00","Kargo, iade-iptal"],["melek","Melek","#EC4899","Instagram + Mail"],["rabia","Rabia","#A855F7","Arama, WhatsApp"],["furkan","Furkan","#22C55E","Arama, bakmadı"],["anil","Anıl","#FFC53D","Anlık aramalar"]]
     .map((m,i)=>({id:"m_"+m[0],key:m[0],name:m[1],color:m[2],tasks:m[3],active:true,sort:i+1,user_id:null}));
+  S.noScore=["m_furkan"];
   S.grants=[{member_id:"m_halil", day:addDays(today(),-1), expires_at:new Date(Date.now()+864e5).toISOString()}];
   S.members.push({id:"m_ugur",key:"ugur",name:"Uğur abi",color:"#64748B",tasks:"Puan + stok + kargo",active:true,sort:99,user_id:null,kind:"puanci"});
   S.brands=[{key:"uzbionik",name:"uzbionik",sort:1,active:true}];
