@@ -1213,19 +1213,43 @@ function aylikVideoSiralama(ym){
   }).filter(r=>r.teslim>0 || r.eski>0);
   const maxT = Math.max(1,...rows.map(r=>r.teslim));
   const maxR = Math.max(0.0001,...rows.map(r=>r.rate||0));
+  // Puan = Winner oranı %50 + Ekip puanı %30 + İş hacmi (teslim) %10 + Doldurma %5 + Zamanında %5
+  // Ekip puanı olmayan (puanlanmayan ortaklar) ya da henüz hesaplanamayan bileşen, ağırlığı diğerlerine dağıtılarak çıkarılır.
+  const first=ym+"-01", last=monthEnd(first), upto=last<today()?last:today();
+  let wd=0; for(let d=first; d<=upto; d=addDays(d,1)) if(dow(d)!==0) wd++;
+  const un=new Set(S.kreRoles?.unrated||[]); const KR=S.krank?.[ym];
   rows.forEach(r=>{
+    const D=S.kdaily.filter(x=>x.initial===r.o&&x.day>=first&&x.day<=upto);
+    const ins=D.map(x=>mins(x.in_time)).filter(x=>x!=null);
     r.pUretim = (r.teslim/maxT)*100;
     r.pOran   = ((r.rate||0)/maxR)*100;
-    r.puan    = 0.5*r.pUretim + 0.5*r.pOran;
+    r.pDold   = Math.min(100, D.length/Math.max(wd,1)*100);
+    r.pZam    = ins.length ? ins.filter(x=>x<=LATE_MIN).length/ins.length*100 : 0;
+    const ek  = un.has(r.o) ? null : (KR && KR!=="err" ? (KR[r.o]!=null ? KR[r.o]*10 : 0) : null);
+    r.pEkip   = ek;
+    const parts=[[0.5,r.pOran],[0.3,ek],[0.1,r.pUretim],[0.05,r.pDold],[0.05,r.pZam]].filter(([,v])=>v!=null);
+    const ws=parts.reduce((a,[w])=>a+w,0);
+    r.puan    = ws ? parts.reduce((a,[w,v])=>a+w*v,0)/ws : 0;
     r.yeterli = r.dec >= 4;
   });
   const sirali = rows.filter(r=>r.yeterli).sort((a,b)=>b.puan-a.puan);
   const onSinyal = rows.filter(r=>!r.yeterli).sort((a,b)=>b.teslim-a.teslim);
   return {wks, sirali, onSinyal};
 }
+// ayın ekip puanı ortalamaları (geçerli puanlarla, sunucuda hesaplanır: kre_rank_scores)
+async function loadKrank(ym){
+  S.krank=S.krank||{}; if(!ym || ym in S.krank) return;
+  S.krank[ym]=null;
+  try{
+    if(DEMO){ const f=ym+"-01", l=monthEnd(f); const m={}; KRE_INIS().forEach(k=>{ const v=recvAvgK(S.kscores.filter(s=>s.ratee===k&&s.day>=f&&s.day<=l)); if(v!=null) m[k]=v; }); S.krank[ym]=m; }
+    else{ const f=ym+"-01"; const {data,error}=await sb.rpc("kre_rank_scores",{p_from:f,p_to:monthEnd(f)}); if(error) throw error; const m={}; (data||[]).forEach(r=>m[r.initial]=+r.avg_score); S.krank[ym]=m; }
+  }catch(e){ S.krank[ym]="err"; }
+  if(S.teamView==="ay" && S.teamMonth===ym) renderTeam();
+}
 function renderAylik(){
   const aylar = [...new Set(S.weeks.map(w=>String(w.week).slice(0,7)))].sort().reverse();
   if(!S.teamMonth || !aylar.includes(S.teamMonth)) S.teamMonth = aylar[0] || "";
+  loadKrank(S.teamMonth);
   const {wks, sirali, onSinyal} = aylikVideoSiralama(S.teamMonth);
   const achips = aylar.map(a=>`<button class="fchip ${S.teamMonth===a?"on":""}" data-tm="${a}">${ayAdi(a)}</button>`).join("");
   const madalya = i => ["🥇","🥈","🥉"][i] || `${i+1}.`;
@@ -1248,13 +1272,16 @@ function renderAylik(){
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         <span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">📦 Üretim puanı <b class="mono">${nf1.format(r.pUretim)}</b></span>
         <span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">🎯 Oran puanı <b class="mono">${nf1.format(r.pOran)}</b></span>
+        ${kreAdmin()?`<span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">⭐ Ekip puanı <b class="mono">${r.pEkip==null?"—":nf1.format(r.pEkip)}</b></span>`:""}
+        <span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">📝 Doldurma <b class="mono">%${Math.round(r.pDold)}</b></span>
+        <span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">⏰ Zamanında <b class="mono">%${Math.round(r.pZam)}</b></span>
         ${r.eski?`<span style="background:var(--green-s);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">♻️ Önceki aylardan +${r.eski} video hâlâ winner (puana girmez)</span>`:""}
       </div>
     </div>`;
   };
   return `
     <div class="filters">${achips}</div>
-    <div class="demo" style="margin-bottom:14px">Sadece <b>bu ay ilk kez teslim edilen videolar</b> sayılır — önceki aylardan yayında kalanlar ve görseller puana girmez. Puan = üretim hacmi %50 + winner oranı %50 (ayın en iyisi her bileşende 100 puan). Ortak videolar iki kişiye de sayılır. ${wks.length} hafta.</div>
+    <div class="demo" style="margin-bottom:14px">Sadece <b>bu ay ilk kez teslim edilen videolar</b> sayılır — önceki aylardan yayında kalanlar ve görseller puana girmez. Puan = <b>winner oranı %50 + ekip puanı %30 + iş hacmi (teslim edilen video) %10 + doldurma %5 + zamanında geliş %5</b>. Winner oranı ve iş hacminde ayın en iyisi 100 alır; ekip puanı ortalama × 10. Puan almayan ortakların ekip puanı payı diğer bileşenlere dağıtılır. Ortak videolar iki kişiye de sayılır. ${wks.length} hafta.</div>
     <div class="cards">${sirali.length? sirali.map(kart).join("") : `<div class="empty">Bu ayda sıralanabilir video yok</div>`}</div>
     ${onSinyal.length?`<div class="sect" style="margin-top:22px"><h3>Ön Sinyal <span class="cnt">${onSinyal.length}</span></h3>
       <div class="sub" style="margin-bottom:10px">4 değerlendirilebilir videonun altında kaldı — sıralamaya girmiyor</div>
@@ -1805,7 +1832,16 @@ const avg = arr=>arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : null;
 // Ortağın (Çağdaş) verdiği puan, kişinin aldığı ortalamayı %w etkiler: ekip ort. × (1−w) + ortak ort. × w.
 // Ayar shared_settings.score_weights'te ve yalnız yönetici (admin) okuyabilir; okunamazsa düz ortalama.
 const isWRaterK = r=>!!S.sw && (S.sw.kre||[]).includes(r);
-function recvAvgK(rows){ const v=rows.filter(s=>s.score!=null); if(!v.length) return null;
+// o gün günlüğü olan (işe gelen) ekip arkadaşlarının hepsini puanlamayanın o günkü puanları sayılmaz.
+// Puanlanmayanlar (kre_settings.roles.unrated: Çağdaş, Erdem, Remaks) listede yoktur; Çağdaş da puan verdiyse aynı kurala tabidir.
+function kreRequired(rater, day){ const un=new Set(S.kreRoles?.unrated||[]); return KRE_INIS().filter(k=>k!==rater && !un.has(k) && S.kdaily.some(d=>d.initial===k&&d.day===day)); }
+const _kro={}; let _kroKey="";
+function kreRaterDayOk(rater, day){
+  const k=S.kscores.length+"|"+S.kdaily.length; if(k!==_kroKey){ for(const x in _kro) delete _kro[x]; _kroKey=k; }
+  const kk=rater+"|"+day; if(kk in _kro) return _kro[kk];
+  return _kro[kk]=kreRequired(rater,day).every(t=>S.kscores.some(s=>s.rater===rater&&s.ratee===t&&s.day===day&&s.score!=null));
+}
+function recvAvgK(rows){ const v=rows.filter(s=>s.score!=null && kreRaterDayOk(s.rater,s.day)); if(!v.length) return null;
   const p=v.filter(s=>isWRaterK(s.rater)).map(s=>s.score), o=v.filter(s=>!isWRaterK(s.rater)).map(s=>s.score);
   if(!p.length||!o.length) return avg(v.map(s=>s.score)); const w=kreW(); return avg(o)*(1-w)+avg(p)*w; }
 // kreatifte ağırlıklı puan verenin (Çağdaş) oranı: score_weights.kre_w (eski ayarlarda w)
@@ -2394,7 +2430,9 @@ function renderPuan(){
   const unrated=new Set(S.kreRoles?.unrated||[]);
   const others=KRE_INIS().filter(k=>k!==me && !unrated.has(k));
   const mine=k=>S.kscores.find(s=>s.day===day&&s.rater===me&&s.ratee===k)||{};
+  const need=kreRequired(me,day), miss=need.filter(k=>mine(k).score==null);
   el.innerHTML=`<h2>Ekip Puanı</h2><div class="sub">Her akşam ekip arkadaşlarını 1–10 arası puanla. Puanlar <b>yalnızca yöneticiye</b> görünür.</div>
+    <div class="lockbar" style="background:${miss.length?"var(--orange-s)":"var(--green-s)"}">${miss.length?`⚠️ O gün işe gelen <b>herkese</b> puan vermezsen o günkü puanlarının <b>hiçbiri sayılmaz</b>. Eksik: <b>${miss.map(k=>esc(OWNERS[k]?.name||k)).join(", ")}</b>`:need.length?"✅ O gün işe gelen herkesi puanladın; puanların sayılıyor.":"Bu gün henüz günlüğünü dolduran ekip arkadaşın yok."}</div>
     ${dayNav("puanDay",day)}
     ${lockNote(day)}
     <div id="puanForm" class="${dayLocked(day)?"locked":""}">
