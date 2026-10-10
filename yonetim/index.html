@@ -1170,8 +1170,9 @@ function raterDayOkT(t, rater, day){
   const k=S.o.scores.length+"|"+S.o.daily.length+"|"+S.k.scores.length+"|"+S.k.daily.length; if(k!==_rdokKey){ for(const x in _rdok) delete _rdok[x]; _rdokKey=k; }
   const kk=t+rater+"|"+day; if(kk in _rdok) return _rdok[kk];
   let ok;
-  if(t==="o"){ const ns=new Set(S.o.noScore||[]);
-    ok=S.o.members.filter(m=>m.active&&m.id!==rater&&!ns.has(m.id)&&S.o.daily.some(d=>d.member_id===m.id&&d.day===day))
+  if(t==="o"){ const ns=new Set(S.o.noScore||[]), sc=(S.o.scope||{})[rater];
+    const can=m=>!ns.has(m.id)&&!ns.has(rater)&&!(S.o.noGive||[]).includes(rater)&&(!sc||sc.includes(m.id))&&(!(S.o.onlyFrom||{})[m.id]||S.o.onlyFrom[m.id].includes(rater));
+    ok=S.o.members.filter(m=>m.active&&m.id!==rater&&can(m)&&S.o.daily.some(d=>d.member_id===m.id&&d.day===day))
       .every(m=>S.o.scores.some(s=>s.rater_id===rater&&s.ratee_id===m.id&&s.day===day&&s.score!=null)); }
   else{ const un=new Set(S.k.unrated||[]);
     ok=S.k.team.map(x=>x.initial).filter(i=>i!==rater&&!un.has(i)&&S.k.daily.some(d=>d.initial===i&&d.day===day))
@@ -1246,7 +1247,10 @@ async function loadAll(){
   // analiz dosyaları (tablo yoksa sessizce: Verimlilik sekmesi uyarı gösterir)
   { const {data,error}=await sb.from("analyses").select("*"); S.analyses=data||[]; S.anErr=error?error.message:null; }
   S.sw=null; if(isAdmin()) try{ const [{data:sw},{data:rw}]=await Promise.all([sb.from("shared_settings").select("value").eq("key","score_weights").maybeSingle(), sb.from("ops_settings").select("value").eq("key","rank_weights").maybeSingle()]); S.sw=sw?.value||null; S.o.rankW=rw?.value||null; }catch(e){}
-  try{ const [{data:ns},{data:kr}]=await Promise.all([sb.from("ops_settings").select("value").eq("key","no_score").maybeSingle(), sb.from("kre_settings").select("value").eq("key","roles").maybeSingle()]); S.o.noScore=Array.isArray(ns?.value)?ns.value:[]; S.k.unrated=kr?.value?.unrated||[]; }catch(e){ S.o.noScore=[]; S.k.unrated=[]; }
+  try{ const [{data:os},{data:kr}]=await Promise.all([sb.from("ops_settings").select("key,value").in("key",["no_score","no_give","only_from","rater_scope"]), sb.from("kre_settings").select("value").eq("key","roles").maybeSingle()]);
+    const g=k=>(os||[]).find(x=>x.key===k)?.value;
+    S.o.noScore=g("no_score")||[]; S.o.noGive=g("no_give")||[]; S.o.onlyFrom=g("only_from")||{}; S.o.scope=g("rater_scope")||{}; S.k.unrated=kr?.value?.unrated||[]; }
+  catch(e){ S.o.noScore=[]; S.o.noGive=[]; S.o.onlyFrom={}; S.o.scope={}; S.k.unrated=[]; }
   // ortakların "günün yorumu": operasyon (erdem → pv_log.ops_note) + kreatif (cagdas → pv_log.kre_note); sadece yönetici okur
   S.oDayNotes={}; S.kDayNotes={}; if(isAdmin()) try{
     const {data:pp}=await sb.from("shared_settings").select("value").eq("key","private_pages").maybeSingle();
