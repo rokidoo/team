@@ -614,7 +614,7 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 /* Aynı dosya /erdem ve /cagdas için kullanılır; sadece PAGE farklıdır.
    key  : shared_settings.private_pages anahtarı (alt: eski anahtarlar)
    team : "ops" → operasyona puan (ops_scores, pv_log.ops_note) · "kre" → kreatife puan (kre_scores, pv_log.kre_note) */
-const PAGE = /*PAGE*/{ key:"erdem", alt:["erdem-kus"], name:"Erdem Kuş", short:"Erdem", gen:"Erdem'in", team:"ops", match:"erdem" }/*/PAGE*/;
+const PAGE = /*PAGE*/{ key:"erdem", alt:["erdem-kus"], name:"Erdem Kuş", short:"Erdem", gen:"Erdem'in", team:"ops", match:"erdem", opsKey:"ortak-erdem" }/*/PAGE*/;
 const PAGE_KEY = PAGE.key;
 const TEAM = PAGE.team==="kre"
   ? { note:"kre_note", l:"kreatif", h:"🎬 Kreatif ekibi", tag:"🎬 Kreatif" }
@@ -804,13 +804,29 @@ function renderIsler(){
    team "ops" (Erdem): operasyon ekibi + Uğur abi (puanci; ona yalnız Erdem puan verebilir). Puanlar "ortak-erdem" kaydı adına.
    team "kre" (Çağdaş): kreatif ekip (kre_settings.roles.unrated hariç). Puanlar sahibin kreatif harfi adına (kre_scores.rater).
    Sadece sayfa sahibi yazar; yönetici görüntüler. */
-const OPS_RATER_KEY = "ortak-erdem";
+const OPS_RATER_KEY = PAGE.opsKey || "ortak-erdem";
+// operasyon puan kuralları (ops_settings): no_score = puan dışı · no_give = puan veremez ·
+// only_from = {kişi: [yalnız bunlar puanlar]} · rater_scope = {puan veren: [yalnız bunları puanlar]}
+let OR = {noScore:[], noGive:[], onlyFrom:{}, scope:{}};
+function canRateOps(raterId, m, raterKind){
+  if(!raterId || !m) return false;
+  if(OR.noScore.includes(raterId) || OR.noScore.includes(m.id) || OR.noGive.includes(raterId)) return false;
+  if(OR.scope[raterId] && !OR.scope[raterId].includes(m.id)) return false;
+  if(OR.onlyFrom[m.id]) return OR.onlyFrom[m.id].includes(raterId);
+  if((m.kind||"ekip")==="puanci") return raterKind==="ortak";
+  return (m.kind||"ekip")==="ekip";
+}
+async function loadOpsRules(){
+  try{ const {data}=await sb.from("ops_settings").select("key,value").in("key",["no_score","no_give","only_from","rater_scope"]);
+    const g=k=>(data||[]).find(x=>x.key===k)?.value;
+    OR={noScore:g("no_score")||[], noGive:g("no_give")||[], onlyFrom:g("only_from")||{}, scope:g("rater_scope")||{}}; }catch(e){}
+}
 const NOTE_MIN = 30;
 const trNorm = s=>String(s||"").toLocaleLowerCase("tr").replace(/ç/g,"c").replace(/ğ/g,"g").replace(/ı/g,"i").replace(/ö/g,"o").replace(/ş/g,"s").replace(/ü/g,"u").trim();
 async function loadPuan(){
   if(DEMO){
     S.P = PAGE.team==="kre"
-      ? { opsRater:null, ini:"C", loaded:new Set(), draft:{}, ops:[], sw:{kre:["C"],kre_w:0.1},
+      ? { opsRater:"m_cagdas", ini:"C", loaded:new Set(), draft:{}, ops:[{id:"m_rabia",name:"Rabia"}], sw:{kre:["C"],kre_w:0.1},
           kre:[{initial:"İ",name:"İmkan"},{initial:"M",name:"Mustafa"},{initial:"R",name:"Rabia"}], os:[],
           ks:[{id:"s1",day:trToday(),rater:"C",ratee:"İ",score:8,comment:"Yeni video fikirlerini zamanında çekti, kurguda da iyiydi."}] }
       : { opsRater:"m_erdem", ini:null, loaded:new Set(), draft:{}, sw:{rank:10},
@@ -829,14 +845,20 @@ async function loadPuan(){
     const unrated=new Set(rs.data?.value?.unrated||[]);
     const pi=op.data?.initial;
     const ini = pi && tm.some(m=>m.initial===pi) ? pi : (tm.find(m=>trNorm(m.name).startsWith(PAGE.match))?.initial || null);
-    S.P={ opsRater:null, ini, loaded:new Set(), draft:{}, sw, ops:[],
+    // kreatif ortağın operasyonda puanlayabildikleri (rater_scope, ör. Çağdaş → Rabia)
+    let opsRater=null, ops=[];
+    try{ const om=await fetchAll("ops_members", q=>q.order("sort")); await loadOpsRules();
+      const me=om.find(m=>m.key===OPS_RATER_KEY); opsRater=me?.id||null;
+      if(opsRater && OR.scope[opsRater]) ops=om.filter(m=>m.active && canRateOps(opsRater,m,me.kind)); }catch(e){}
+    S.P={ opsRater, ini, loaded:new Set(), draft:{}, sw, ops,
       kre:tm.filter(m=>m.initial!==ini && !unrated.has(m.initial)).map(m=>({initial:m.initial, name:m.name})), os:[], ks:[] };
     return;
   }
-  const om = await fetchAll("ops_members", q=>q.order("sort"));
+  const om = await fetchAll("ops_members", q=>q.order("sort")); await loadOpsRules();
+  const meRec = om.find(m=>m.key===OPS_RATER_KEY);
   const kindOrd = k=>k==="puanci"?1:0;   // ekip önce, Uğur abi sonda
   S.P={ opsRater:om.find(m=>m.key===OPS_RATER_KEY)?.id||null, ini:null, loaded:new Set(), draft:{}, sw,
-    ops:om.filter(m=>m.active && ["ekip","puanci"].includes(m.kind||"ekip")).sort((a,b)=>kindOrd(a.kind||"ekip")-kindOrd(b.kind||"ekip")||(a.sort||0)-(b.sort||0)),
+    ops:om.filter(m=>m.active && ["ekip","puanci"].includes(m.kind||"ekip") && (!meRec || canRateOps(meRec.id,m,meRec.kind))).sort((a,b)=>kindOrd(a.kind||"ekip")-kindOrd(b.kind||"ekip")||(a.sort||0)-(b.sort||0)),
     kre:[], os:[], ks:[] };
 }
 async function loadPuanDay(day){
@@ -893,6 +915,7 @@ async function renderPuan(){
       <textarea id="pNote" rows="3" placeholder="${own?(PAGE.team==="kre"?"Bugün kreatifte genel olarak ne gördün? Üretim nasıldı, ne iyi gitti, ne aksadı…":"Bugün operasyonda genel olarak ne gördün? Ekip nasıldı, ne iyi gitti, ne aksadı…"):`${esc(PAGE.short)} bu gün için henüz yorum yazmadı.`}" ${own?"":"disabled"}>${esc(nd)}</textarea>
       ${own?`<div class="note" style="margin:4px 0 0">İsteğe bağlı · puan vermesen de tek başına kaydedebilirsin.</div>`:""}</div>
     <div class="sect"><h3>${TEAM.h}</h3>${listHtml}</div>
+    ${PAGE.team==="kre"&&S.P.ops.length?`<div class="sect"><h3>🏭 Operasyon</h3>${S.P.ops.map(m=>person("o:"+m.id,m.name,"🏭 Operasyon")).join("")}</div>`:""}
     ${own?`<div class="savebar ${changed?"stick":""}"><button class="btn" id="pSave" ${changed?"":"disabled"}>${changed?`Kaydet (${changed})`:"Değişiklik yok"}</button></div>`:""}`;
   const go=d=>{ S.pday=d; renderPuan(); };
   el.querySelectorAll("[data-pd]").forEach(b=>b.onclick=()=>{ const d=addDays(day,+b.dataset.pd); if(d<=t) go(d); });
