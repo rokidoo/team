@@ -726,8 +726,16 @@ const wEff  = ()=>{ const P=+weights().puan||0; return P>0 ? Math.min(1, wRank()
 const noScore = m=>(S.noScore||[]).includes(m?.id||m);
 // ops_settings.extra_scale = {day, raters:[id], ratee:id, values:[…]} → o gün o kişilere ek puan düğmeleri
 const extraFor = (rateeId, day)=>{ const e=S.extraScale; return e && e.day===day && S.me && (e.raters||[]).includes(S.me.id) && e.ratee===rateeId ? (e.values||[]) : []; };
-// o gün işe gelen (günlük dolduran) aktif ekip üyelerinin hepsini puanlamayanın o günkü puanları sayılmaz
-function requiredRatees(raterId, day){ return S.members.filter(m=>m.active && (m.kind||"ekip")==="ekip" && m.id!==raterId && !noScore(m) && S.daily.some(d=>d.member_id===m.id&&d.day===day)); }
+// puan kuralları (ops_settings): no_give = puan veremez · only_from = {kişi:[yalnız bunlar puanlar]} · rater_scope = {veren:[yalnız bunları puanlar]}
+const noGive = m=>(S.noGive||[]).includes(m?.id||m);
+function canRateL(raterId, m){
+  if(!raterId||!m||noScore(raterId)||noScore(m)||noGive(raterId)) return false;
+  const sc=(S.raterScope||{})[raterId]; if(sc && !sc.includes(m.id)) return false;
+  const of=(S.onlyFrom||{})[m.id]; if(of) return of.includes(raterId);
+  return (m.kind||"ekip")==="ekip";
+}
+// o gün işe gelen (günlük dolduran) ve puanlayabildiği tüm ekip üyelerini puanlamayanın o günkü puanları sayılmaz
+function requiredRatees(raterId, day){ return S.members.filter(m=>m.active && (m.kind||"ekip")==="ekip" && m.id!==raterId && canRateL(raterId,m) && S.daily.some(d=>d.member_id===m.id&&d.day===day)); }
 const _rdo={}; let _rdoKey="";
 function raterDayOk(raterId, day){
   const k=S.scores.length+"|"+S.daily.length; if(k!==_rdoKey){ for(const x in _rdo) delete _rdo[x]; _rdoKey=k; }
@@ -830,6 +838,8 @@ async function loadAll(){
     try{ const {data:dx}=await sb.from("ops_settings").select("*").eq("key","duty_exempt").maybeSingle(); S.dutyExempt=Array.isArray(dx?.value)?dx.value:[]; }catch(e){}
     try{ const {data:nx}=await sb.from("ops_settings").select("*").eq("key","no_score").maybeSingle(); S.noScore=Array.isArray(nx?.value)?nx.value:[]; }catch(e){}
     try{ const {data:ex}=await sb.from("ops_settings").select("*").eq("key","extra_scale").maybeSingle(); S.extraScale=ex?.value||null; }catch(e){ S.extraScale=null; }
+    try{ const {data:rr}=await sb.from("ops_settings").select("key,value").in("key",["no_give","only_from","rater_scope"]); const g=k=>(rr||[]).find(x=>x.key===k)?.value;
+      S.noGive=g("no_give")||[]; S.onlyFrom=g("only_from")||{}; S.raterScope=g("rater_scope")||{}; }catch(e){ S.noGive=[]; S.onlyFrom={}; S.raterScope={}; }
     try{ const [asg,tk,ta]=await Promise.all([fetchAll("ops_assignments"), fetchAll("tasks",q=>q.order("created_at",{ascending:false})), fetchAll("task_assignees")]); S.assign=asg||[]; S.tasks=unifyTasks(tk||[], ta||[]); }catch(e){}
     try{ const {data:br}=await sb.from("ops_brands").select("*").order("sort"); S.brands=br||[]; }catch(e){}
     try{ const {data:gr}=await sb.from("ops_day_grants").select("*").gte("expires_at", nowIso()); S.grants=gr||[]; }catch(e){ S.grants=[]; }
@@ -1374,7 +1384,8 @@ function renderPuan(){
   const el=$("tabPuan"); const day=S.puanDay;
   if(!S.me){ el.innerHTML=`<h2>Ekip Puanı</h2><div class="empty">${isAdmin()?"Yönetici hesabı bir ekip üyesine bağlı değil; puanlama ekip üyeleri içindir. Puan raporu Pano'da.":"Hesabın bir ekip üyesine bağlı değil."}</div>`; return; }
   if(noScore(S.me)){ el.innerHTML=`<h2>Ekip Puanı</h2><div class="empty">Uzaktan çalıştığın için puan vermiyorsun ve sana puan verilmiyor.</div>`; return; }
-  const others = actives().filter(x=>x.id!==S.me.id && !noScore(x));
+  if(noGive(S.me)){ el.innerHTML=`<h2>Ekip Puanı</h2><div class="empty">Şu an ekip puanı vermiyorsun.</div>`; return; }
+  const others = actives().filter(x=>x.id!==S.me.id && canRateL(S.me.id,x));
   const mine = id=>S.scores.find(s=>s.day===day && s.rater_id===S.me.id && s.ratee_id===id) || {};
   const need = requiredRatees(S.me.id, day), miss = need.filter(m=>mine(m.id).score==null);
   const myDays = [...new Set(S.scores.filter(s=>s.rater_id===S.me.id).map(s=>s.day))].sort().reverse().slice(0,7);
@@ -1820,7 +1831,7 @@ function renderEkip(){
   const d14=[...Array(14)].map((_,i)=>addDays(today(),-i)).filter(d=>dow(d)!==0);
   const card=m=>{ const n=d14.filter(d=>dailyOf(m.id,d)).length; return `
     <div class="card"><div class="mcard">${av(m,"big")}<div style="flex:1"><div class="nm">${esc(m.name)}</div><div class="tk">${esc(m.tasks||"—")}</div>
-      <div class="mrow">${myRoles(m).map(k=>`<span class="pill">${ROLES[k].i} ${esc(ROLES[k].l)}</span>`).join("")}<span class="m">Son 14 gün doldurma <b>${n}/${d14.length}</b></span><span class="m">${m.user_id?"🔗 hesap bağlı":"⚠️ hesap bağlı değil"}</span>${dutyExempt(m)?`<span class="m">🧹 temizlik nöbeti yok</span>`:""}${noScore(m)?`<span class="m">⭐ puan dışı</span>`:""}${m.active?"":chip("pasif","var(--gray-s)")}</div></div>
+      <div class="mrow">${myRoles(m).map(k=>`<span class="pill">${ROLES[k].i} ${esc(ROLES[k].l)}</span>`).join("")}<span class="m">Son 14 gün doldurma <b>${n}/${d14.length}</b></span><span class="m">${m.user_id?"🔗 hesap bağlı":"⚠️ hesap bağlı değil"}</span>${dutyExempt(m)?`<span class="m">🧹 temizlik nöbeti yok</span>`:""}${noScore(m)?`<span class="m">⭐ puan dışı</span>`:""}${noGive(m)?`<span class="m">⭐ puan vermez</span>`:""}${(S.onlyFrom||{})[m.id]?`<span class="m">⭐ puanını sadece ${esc(((S.onlyFrom||{})[m.id]||[]).map(id=>S.members.find(x=>x.id===id)?.name||"ortak").join(", "))} verir</span>`:""}${m.active?"":chip("pasif","var(--gray-s)")}</div></div>
       ${isAdmin()?`<button class="editbtn" data-medit="${m.id}">✏️</button>`:""}</div></div>`; };
   el.innerHTML=`
     <h2>Ekip</h2>
@@ -2396,6 +2407,7 @@ function demoData(){
   S.members=[["sait","Sait","#2F5DFF","Planlama, görev dağılımı, barkod, stok"],["halil","Halil İbrahim","#FF8A00","Kargo, iade-iptal"],["melek","Melek","#EC4899","Instagram + Mail"],["rabia","Rabia","#A855F7","Arama, WhatsApp"],["furkan","Furkan","#22C55E","Arama, bakmadı"],["anil","Anıl","#FFC53D","Anlık aramalar"]]
     .map((m,i)=>({id:"m_"+m[0],key:m[0],name:m[1],color:m[2],tasks:m[3],active:true,sort:i+1,user_id:null}));
   S.noScore=["m_furkan"];
+  S.noGive=["m_rabia"]; S.onlyFrom={m_rabia:["m_cagdas"]}; S.raterScope={m_cagdas:["m_rabia"]};
   S.extraScale={day:today(), raters:["m_rabia"], ratee:"m_halil", values:[-1,-2,-3,-20,-40,-70,-80,-90]};
   S.grants=[{member_id:"m_halil", day:addDays(today(),-1), expires_at:new Date(Date.now()+864e5).toISOString()}];
   S.members.push({id:"m_ugur",key:"ugur",name:"Uğur abi",color:"#64748B",tasks:"Puan + stok + kargo",active:true,sort:99,user_id:null,kind:"puanci"});
