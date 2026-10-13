@@ -1292,9 +1292,11 @@ function renderAylik(){
       }).join("")}</div></div>`:""}
   `;
 }
+const teamViews = () => [["tumu","🏛 Tüm Zamanlar"],["hafta","📅 Bu Hafta"]].concat(kreAdmin()?[["ay","🏆 Aylık Sıralama"]]:[]);
 function renderTeam(){
+  if(S.teamView==="ay" && !kreAdmin()) S.teamView="tumu";   // aylık sıralama sadece yönetici + ortaklar
   if(S.teamView==="ay"){
-    const chips=[["tumu","🏛 Tüm Zamanlar"],["hafta","📅 Bu Hafta"],["ay","🏆 Aylık Sıralama"]].map(([v,l])=>
+    const chips=teamViews().map(([v,l])=>
       `<button class="fchip ${S.teamView===v?"on":""}" data-tv="${v}">${l}</button>`).join("");
     $("tabTeam").innerHTML = `<h2>Aylık En İyi — Video</h2>
       <div class="sub">Ayın en iyisi: çok üreten ve isabet oranı yüksek olan</div>
@@ -1345,7 +1347,7 @@ function renderTeam(){
   const maxWin = Math.max(1,...rows.map(r=>r.win));
   const teamWarn = (isAdmin() && !DEMO && !S.teamTable)
     ? `<div class="demo" style="margin-bottom:14px">Ekip düzenleme için Supabase'de <b>team_members</b> tablosu gerekli — Claude'un verdiği SQL'i bir kez çalıştır.</div>` : "";
-  const tvchips = [["tumu","🏛 Tüm Zamanlar"],["hafta","📅 Bu Hafta"],["ay","🏆 Aylık Sıralama"]].map(([v,l])=>
+  const tvchips = teamViews().map(([v,l])=>
     `<button class="fchip ${S.teamView===v?"on":""}" data-tv="${v}">${l}</button>`).join("");
   const tfchips = [["","Görsel + Video"],["gorsel","🖼 Sadece Görsel"],["video","🎬 Sadece Video"]].map(([v,l])=>
     `<button class="fchip ${S.teamFmt===v?"on":""}" data-tf="${v}">${l}</button>`).join("");
