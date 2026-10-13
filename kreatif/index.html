@@ -1246,8 +1246,11 @@ async function loadKrank(ym){
   }catch(e){ S.krank[ym]="err"; }
   if(S.teamView==="ay" && S.teamMonth===ym) renderTeam();
 }
+/* aylık sıralama: yönetim tüm ayları, ekip sadece biten ayları görür */
+const ayAylar = () => [...new Set(S.weeks.map(w=>String(w.week).slice(0,7)))].sort().reverse()
+  .filter(a => kreAdmin() || a < trToday().slice(0,7));
 function renderAylik(){
-  const aylar = [...new Set(S.weeks.map(w=>String(w.week).slice(0,7)))].sort().reverse();
+  const aylar = ayAylar();
   if(!S.teamMonth || !aylar.includes(S.teamMonth)) S.teamMonth = aylar[0] || "";
   loadKrank(S.teamMonth);
   const {wks, sirali, onSinyal} = aylikVideoSiralama(S.teamMonth);
@@ -1292,14 +1295,14 @@ function renderAylik(){
       }).join("")}</div></div>`:""}
   `;
 }
-const teamViews = () => [["tumu","🏛 Tüm Zamanlar"],["hafta","📅 Bu Hafta"]].concat(kreAdmin()?[["ay","🏆 Aylık Sıralama"]]:[]);
+const teamViews = () => [["tumu","🏛 Tüm Zamanlar"],["hafta","📅 Bu Hafta"]].concat(ayAylar().length?[["ay","🏆 Aylık Sıralama"]]:[]);
 function renderTeam(){
-  if(S.teamView==="ay" && !kreAdmin()) S.teamView="tumu";   // aylık sıralama sadece yönetici + ortaklar
+  if(S.teamView==="ay" && !ayAylar().length) S.teamView="tumu";   // ekipte biten ay yoksa sekme yok
   if(S.teamView==="ay"){
     const chips=teamViews().map(([v,l])=>
       `<button class="fchip ${S.teamView===v?"on":""}" data-tv="${v}">${l}</button>`).join("");
     $("tabTeam").innerHTML = `<h2>Aylık En İyi — Video</h2>
-      <div class="sub">Ayın en iyisi: çok üreten ve isabet oranı yüksek olan</div>
+      <div class="sub">Ayın en iyisi: çok üreten ve isabet oranı yüksek olan${kreAdmin()?"":" · içinde bulunduğumuz ayın sıralaması ay bitince açılır"}</div>
       <div class="filters">${chips}</div>${renderAylik()}`;
     $("tabTeam").querySelectorAll("[data-tv]").forEach(b=>b.onclick=()=>{S.teamView=b.dataset.tv; renderTeam();});
     $("tabTeam").querySelectorAll("[data-tm]").forEach(b=>b.onclick=()=>{S.teamMonth=b.dataset.tm; renderTeam();});
