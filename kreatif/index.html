@@ -2494,7 +2494,7 @@ async function importKre(data, say){
 let REAL=null;
 const realAdmin=()=>(REAL?REAL.profile:S.profile)?.role==="admin";
 const VIEW=()=>!!REAL;
-const roleLbl=r=>r==="admin"?"Yönetici":r==="partner"?"Ortak":r==="ops"?"Operasyon":"Kreatif Ekip";
+const roleLbl=r=>({admin:"Yönetici",partner:"Ortak",ops:"Operasyon",creative:"Kreatif Ekip",ads:"Reklam",accounting:"Muhasebe",inf:"Influencer"})[r]||(r||"rol yok");
 function renderViewBar(){
   $("btnView").classList.toggle("hidden", !realAdmin());
   const vb=$("viewBar");
@@ -2511,9 +2511,9 @@ async function openViewModal(){
   let accs = [];
   if(DEMO) accs = [{id:"d_c",name:"Çağdaş",role:"partner",initial:"C"},{id:"d_i",name:"İmkan",role:"creative",initial:"İ"}];
   else{
-    const {data,error} = await sb.from("profiles").select("id,name,role,initial").order("name");
+    const {data,error} = await sb.from("profiles").select("*").order("name");
     if(error){ alert("Hesaplar okunamadı: "+error.message); return; }
-    accs = data||[];
+    accs = (data||[]).filter(a=>a.is_active!==false);   // pasif hesaplar listede görünmez
   }
   // kreatif ekip: team_members'taki her harf — hesabı olan gerçek kullanıcıyla, olmayan simüle edilir
   const team = Object.keys(OWNERS).map(k=>{
