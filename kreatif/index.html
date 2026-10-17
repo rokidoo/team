@@ -3264,6 +3264,7 @@ async function boot(){
     prof = ins;
   }
   if(prof.is_active === false){ showAuth("Hesabın kapatıldı. Erişimin yönetici tarafından pasife alındı.", true); await sb.auth.signOut(); return; }
+  if(prof.is_approved === false && !["admin","partner"].includes(prof.role)){ showAuth("Hesabın onay bekliyor. Yönetici onayladıktan sonra giriş yapabilirsin.", true); await sb.auth.signOut(); return; }
   S.profile=prof;
   await loadAll();
   await showApp();
