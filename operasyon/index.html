@@ -1461,7 +1461,7 @@ function autoDuty(day){
 function dutyFor(day){
   const o=S.duty.find(d=>d.day===day);
   if(o) return [memById(o.a_id), memById(o.b_id)].filter(Boolean);
-  return autoDuty(day)||[];
+  return [];   // liste girilmemiş gün: herkes aynı şeyi görsün diye otomatik hesap YOK
 }
 function renderKontrol(){
   const el=$("tabKontrol"); const day=S.kontrolDay;
@@ -1475,7 +1475,7 @@ function renderKontrol(){
   const mDays = []; for(let d=mFirst; d<=mLast; d=addDays(d,1)) if(dow(d)!==0) mDays.push(d);
   const mine = d=>!!(S.me && dutyFor(d).some(m=>m.id===S.me.id));
   const myDays = mDays.filter(mine);
-  const rosterRows = mDays.map(d=>{ const o=S.duty.find(x=>x.day===d); const p=dutyFor(d); const bg=mine(d)?"background:var(--green-s)":d===today()?"background:var(--mustard-s)":""; return `<tr style="${bg}"><td>${d===today()?"▶ ":""}${trDateW(d)}</td><td style="font-family:var(--fb);font-weight:700">${p.map(m=>`<span class="${S.me&&m.id===S.me.id?"up":""}">${esc(m.name)}</span>`).join(" + ")||"—"}</td><td>${o?"listeden":"<span style='color:var(--mut)'>otomatik</span>"}</td></tr>`; }).join("");
+  const rosterRows = mDays.map(d=>{ const o=S.duty.find(x=>x.day===d); const p=dutyFor(d); const bg=mine(d)?"background:var(--green-s)":d===today()?"background:var(--mustard-s)":""; return `<tr style="${bg}"><td>${d===today()?"▶ ":""}${trDateW(d)}</td><td style="font-family:var(--fb);font-weight:700">${p.map(m=>`<span class="${S.me&&m.id===S.me.id?"up":""}">${esc(m.name)}</span>`).join(" + ")||"—"}</td><td>${o?"listeden":"<span style='color:var(--red)'>liste yok</span>"}</td></tr>`; }).join("");
   const myDaysHtml = S.me ? `<div class="note" style="margin:0 0 12px">${myDays.length?`🧹 Bu ay nöbet günlerin: <b>${myDays.map(d=>trShort(d)).join(" · ")}</b>`:"Bu ay nöbetin yok."}${onDuty?" — <b>bugün nöbetçisin</b>, temizlik listesi aşağıda.":""}</div>` : "";
   el.innerHTML = `
     <h2>Nöbet & Kontrol</h2>
@@ -1487,10 +1487,10 @@ function renderKontrol(){
       <div class="sect" style="margin-bottom:0"><h3>Bugünün nöbetçileri</h3>
         ${dow(day)===0?`<div class="empty" style="padding:14px">Pazar — nöbet yok</div>`:`
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-          ${duty.map(m=>`<span class="w" style="display:inline-flex;align-items:center;gap:8px;border:var(--b2);border-radius:99px;padding:6px 12px 6px 6px;font-weight:800;background:var(--mustard-s)">${av(m)} ${esc(m.name)}</span>`).join("")||"<span class='note'>Aktif üye yok</span>"}
-          <button class="btn ghost sm" id="dutyEdit">Değiştir</button>
+          ${duty.map(m=>`<span class="w" style="display:inline-flex;align-items:center;gap:8px;border:var(--b2);border-radius:99px;padding:6px 12px 6px 6px;font-weight:800;background:var(--mustard-s)">${av(m)} ${esc(m.name)}</span>`).join("")||`<span class='note'>${dow(day)===0?"Pazar · nöbet yok":"Bu gün için nöbet listesi girilmemiş"}</span>`}
+          ${isAdmin()?`<button class="btn ghost sm" id="dutyEdit">Değiştir</button>`:""}
           ${isAdmin()?`<button class="btn ghost sm" id="dutyMonth">📅 Aylık liste</button>`:""}
-          ${S.duty.find(d=>d.day===day)?`<span class="pill">listeden</span>`:`<span class="pill">otomatik sıra</span>`}
+          ${S.duty.find(d=>d.day===day)?`<span class="pill">listeden</span>`:dow(day)===0?"":`<span class="pill" style="background:var(--red-s)">bu gün için liste girilmemiş</span>`}
         </div>`}
       </div>
     </div>
@@ -1504,7 +1504,7 @@ function renderKontrol(){
       <tr><td>Nöbet</td>${days.map(d=>`<td style="font-family:var(--fb);font-size:.66rem">${dutyFor(d).map(m=>initials(m.name)).join("+")||"—"}</td>`).join("")}</tr>
     </table></div></div>
     <div class="sect"><h3>📅 Nöbet listesi · ${trMonth(mFirst)} <button class="editbtn" data-km="-1">‹</button><button class="editbtn" data-km="1">›</button></h3><div class="note" style="margin:0 0 10px">Yeşil: senin günlerin · Sarı: bugün</div><div class="tblwrap"><table class="compact"><tr><th>Gün</th><th>Nöbetçiler</th><th>Kaynak</th></tr>${rosterRows}</table></div>
-      ${isAdmin()&&S.duty.some(x=>inRange(x.day,[mFirst,mLast]))?`<div class="btnrow"><button class="btn ghost sm" id="dutyClear">Bu ayın listesini sil (otomatiğe dön)</button></div>`:""}</div>
+      ${isAdmin()&&S.duty.some(x=>inRange(x.day,[mFirst,mLast]))?`<div class="btnrow"><button class="btn ghost sm" id="dutyClear">Bu ayın listesini sil</button></div>`:""}</div>
   `;
   bindDayNav(el,"kontrolDay",renderKontrol);
   el.querySelectorAll("[data-km]").forEach(b=>b.onclick=()=>{ const d=new Date(mFirst+"T00:00:00"); d.setMonth(d.getMonth()+ +b.dataset.km); S.kontrolDay=iso(d).slice(0,8)+"01"; renderKontrol(); });
@@ -1613,15 +1613,15 @@ function renderKontrol(){
     };
   }
   const dc=$("dutyClear"); if(dc) dc.onclick=async ()=>{
-    if(!confirm(trMonth(mFirst)+" nöbet listesi silinsin mi? Otomatik sıraya dönülür.")) return;
+    if(!confirm(trMonth(mFirst)+" nöbet listesi silinsin mi? Liste silinince o günlerde nöbetçi görünmez.")) return;
     try{ if(!DEMO){ const {error}=await sb.from("ops_duty").delete().gte("day",mFirst).lte("day",mLast); if(error) throw error; } S.duty=S.duty.filter(x=>!inRange(x.day,[mFirst,mLast])); renderKontrol(); }catch(e){ toast(errMsg(e)); }
   };
-  const de=$("dutyEdit"); if(de) de.onclick=()=>{
+  const de=$("dutyEdit"); if(de && isAdmin()) de.onclick=()=>{
     const cur=dutyFor(day);
     modal(`<h3>Nöbetçiler · ${trDate(day)}</h3>
       <div class="flabel">1. kişi</div><select id="dA">${actives().map(m=>opt(m.id,m.name,cur[0]?.id)).join("")}</select>
       <div class="flabel">2. kişi</div><select id="dB">${actives().map(m=>opt(m.id,m.name,cur[1]?.id)).join("")}</select>
-      <div class="btnrow"><button class="btn ghost" id="dAuto">Otomatiğe dön</button><button class="btn" id="dSave">Kaydet</button></div>`);
+      <div class="btnrow"><button class="btn ghost" id="dAuto">Bu günü boşalt</button><button class="btn" id="dSave">Kaydet</button></div>`);
     $("dSave").onclick=async ()=>{
       const row={day,a_id:$("dA").value,b_id:$("dB").value,updated_at:nowIso()};
       try{ if(!DEMO){ const {error}=await sb.from("ops_duty").upsert(row,{onConflict:"day"}); if(error) throw error; }
