@@ -735,7 +735,7 @@ function canRateL(raterId, m){
   return (m.kind||"ekip")==="ekip";
 }
 // o gün işe gelen (günlük dolduran) ve puanlayabildiği tüm ekip üyelerini puanlamayanın o günkü puanları sayılmaz
-function requiredRatees(raterId, day){ return S.members.filter(m=>m.active && (m.kind||"ekip")==="ekip" && m.id!==raterId && canRateL(raterId,m) && S.daily.some(d=>d.member_id===m.id&&d.day===day)); }
+function requiredRatees(raterId, day){ return S.members.filter(m=>workedOn(m,day) && (m.kind||"ekip")==="ekip" && m.id!==raterId && canRateL(raterId,m) && S.daily.some(d=>d.member_id===m.id&&d.day===day)); }
 const _rdo={}; let _rdoKey="";
 function raterDayOk(raterId, day){
   const k=S.scores.length+"|"+S.daily.length; if(k!==_rdoKey){ for(const x in _rdo) delete _rdo[x]; _rdoKey=k; }
@@ -756,6 +756,9 @@ const memName = id=>memById(id)?.name || "—";
 const isPuanciM = m=>m?.kind==="puanci" || m?.kind==="ortak";
 const allActive = ()=>S.members.filter(m=>m.active).sort((a,b)=>(a.sort||0)-(b.sort||0));
 const actives = ()=>allActive().filter(m=>!isPuanciM(m));
+// ayrılan üye: ops_members.left_on (son çalıştığı gün) — o güne kadar puanda/sıralamada sayılır
+const workedOn = (m,day)=>!!m && (m.active || (!!m.left_on && day<=m.left_on));
+const workedIn = (m,from)=>!!m && (m.active || (!!m.left_on && m.left_on>=from));
 const isPuanci = ()=>!isAdmin() && isPuanciM(S.me);
 const initials = n=>String(n||"?").trim().split(/\s+/).map(x=>x[0]).join("").slice(0,2).toUpperCase();
 const av = (m,cls="")=>`<span class="own ${cls}" style="background:${(m?.color||"#ECEAE4")}40;border-color:${m?.color||"#121212"}">${esc(initials(m?.name))}</span>`;
@@ -1385,7 +1388,7 @@ function renderPuan(){
   if(!S.me){ el.innerHTML=`<h2>Ekip Puanı</h2><div class="empty">${isAdmin()?"Yönetici hesabı bir ekip üyesine bağlı değil; puanlama ekip üyeleri içindir. Puan raporu Pano'da.":"Hesabın bir ekip üyesine bağlı değil."}</div>`; return; }
   if(noScore(S.me)){ el.innerHTML=`<h2>Ekip Puanı</h2><div class="empty">Uzaktan çalıştığın için puan vermiyorsun ve sana puan verilmiyor.</div>`; return; }
   if(noGive(S.me)){ el.innerHTML=`<h2>Ekip Puanı</h2><div class="empty">Şu an ekip puanı vermiyorsun.</div>`; return; }
-  const others = actives().filter(x=>x.id!==S.me.id && canRateL(S.me.id,x));
+  const others = S.members.filter(m=>workedOn(m,day) && !isPuanciM(m)).sort((a,b)=>(a.sort||0)-(b.sort||0)).filter(x=>x.id!==S.me.id && canRateL(S.me.id,x));
   const mine = id=>S.scores.find(s=>s.day===day && s.rater_id===S.me.id && s.ratee_id===id) || {};
   const need = requiredRatees(S.me.id, day), miss = need.filter(m=>mine(m.id).score==null);
   const myDays = [...new Set(S.scores.filter(s=>s.rater_id===S.me.id).map(s=>s.day))].sort().reverse().slice(0,7);
@@ -2110,7 +2113,7 @@ function monthWeeks(first){ // pazartesi'si bu ayda olan haftalar
 function rankLocal(from,to){ // DEMO: sunucudaki ops_ranking ile aynı formül
   const w=weights(); const toC=to<today()?to:today(); let wdays=0;
   for(let d=from; d<=toC; d=addDays(d,1)) if(dow(d)!==0) wdays++;
-  const rows=actives().filter(m=>!noScore(m)).map(m=>{
+  const rows=S.members.filter(m=>workedIn(m,from) && !isPuanciM(m)).filter(m=>!noScore(m)).map(m=>{
     const D=S.daily.filter(x=>x.member_id===m.id&&inRange(x.day,[from,to]));
     const ins=D.map(x=>mins(x.in_time)).filter(x=>x!=null);
     const scR=S.scores.filter(s=>s.ratee_id===m.id&&inRange(s.day,[from,to])&&s.score!=null), sc=scR.map(s=>s.score);
