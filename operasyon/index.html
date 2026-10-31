@@ -876,7 +876,7 @@ function renderNav(){
   if(canKargoTab()) tabs.push(["kargo","📦","Kargo"]);
   tabs.push(["ses","💬","Müşteri"]);
   if(canTab("stok")) tabs.push(["stok","📊","Stok"]);
-  tabs.push(["mesai","⏱","Mesai"],["birinci","🏆","Birinci"],["ekip","👥","Ekip"],["analiz","📊","DM Analizi"]);
+  tabs.push(["mesai","⏱","Mesai"]); if(isAdmin()) tabs.push(["birinci","🏆","Birinci"]); tabs.push(["ekip","👥","Ekip"],["analiz","📊","DM Analizi"]);   // Birinci şimdilik sadece yönetim + ortaklar
   if(isAdmin()) tabs.push(["pano","📈","Pano"],["import","📥","Aktar"]);
   $("nav").innerHTML = tabs.map(([id,ic,l])=>`<button data-tab="${id}" class="${S.tab===id?"on":""}"><span class="ic">${ic}</span>${l}</button>`).join("");
   $("sideNav").innerHTML = tabs.map(([id,ic,l])=>`<button data-tab="${id}" class="navbtn ${S.tab===id?"on":""}"><span class="ic">${ic}</span><span class="lbl">${l}</span></button>`).join("");
@@ -2160,7 +2160,8 @@ function rankTable(rows){
   </table><div class="note" style="margin-top:6px">Ekip puanı verenin kendi ortalamasına göre düzeltilir; kollama listesindeki çiftlerin ve gelmediği güne verilen puanlar sayılmaz. Kontrol: kişiye düşen maddelerin yüzde kaçı işaretlendi. Hacim: her iş türü kendi içinde karşılaştırılır. Muaf olunan bileşenin ağırlığı diğerlerine dağılır.</div></div>`;
 }
 async function renderBirinci(){
-  const el=$("tabBirinci"); const first=S.birMonth; const last=monthEnd(first);
+  const el=$("tabBirinci");
+  if(!isAdmin()){ el.innerHTML=`<h2>Birinci</h2><div class="empty">Bu bölüm şu an sadece yönetimde.</div>`; return; } const first=S.birMonth; const last=monthEnd(first);
   el.innerHTML=`<h2>Birinci</h2><div class="sub">Hesaplanıyor…</div>`;
   const weeks=monthWeeks(first);
   const months=[]; for(let i=1;i<=6;i++){ const d=new Date(first+"T00:00:00"); d.setMonth(d.getMonth()-i); months.push(iso(d).slice(0,8)+"01"); }
