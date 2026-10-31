@@ -876,7 +876,7 @@ function renderNav(){
   if(canKargoTab()) tabs.push(["kargo","📦","Kargo"]);
   tabs.push(["ses","💬","Müşteri"]);
   if(canTab("stok")) tabs.push(["stok","📊","Stok"]);
-  tabs.push(["mesai","⏱","Mesai"]); if(isAdmin()) tabs.push(["birinci","🏆","Birinci"]); tabs.push(["ekip","👥","Ekip"],["analiz","📊","DM Analizi"]);   // Birinci şimdilik sadece yönetim + ortaklar
+  tabs.push(["mesai","⏱","Mesai"],["birinci","🏆","Birinci"],["ekip","👥","Ekip"],["analiz","📊","DM Analizi"]);
   if(isAdmin()) tabs.push(["pano","📈","Pano"],["import","📥","Aktar"]);
   $("nav").innerHTML = tabs.map(([id,ic,l])=>`<button data-tab="${id}" class="${S.tab===id?"on":""}"><span class="ic">${ic}</span>${l}</button>`).join("");
   $("sideNav").innerHTML = tabs.map(([id,ic,l])=>`<button data-tab="${id}" class="navbtn ${S.tab===id?"on":""}"><span class="ic">${ic}</span><span class="lbl">${l}</span></button>`).join("");
@@ -2161,7 +2161,14 @@ function rankTable(rows){
 }
 async function renderBirinci(){
   const el=$("tabBirinci");
-  if(!isAdmin()){ el.innerHTML=`<h2>Birinci</h2><div class="empty">Bu bölüm şu an sadece yönetimde.</div>`; return; } const first=S.birMonth; const last=monthEnd(first);
+  if(!isAdmin()){   // ekip: sadece yönetimin açıkladığı (elle atanan) bitmiş ay birincileri — hesaplanan sıralama yok
+    const aw=(S.awards||[]).filter(a=>a.kind==="ay" && today()>monthEnd(a.period_start)).sort((x,y)=>x.period_start<y.period_start?1:-1);
+    const card=a=>{ const ids=Array.isArray(a.ranks)&&a.ranks.length?a.ranks:[a.member_id]; const ms=ids.map(memById).filter(Boolean); if(!ms.length) return "";
+      return `<div class="card wcard gold"><div class="winner">${av(ms[0],"big")}<div><div class="wname">🏆 ${esc(trMonth(a.period_start))}</div>${a.note?`<div class="wsub">${esc(a.note)}</div>`:""}
+        <div class="podium" style="display:flex;flex-direction:column;gap:6px;margin-top:10px">${ms.map((m,i)=>`<div style="display:flex;align-items:center;gap:8px;font-weight:800">${["🥇","🥈","🥉"][i]||(i+1)+"."} ${av(m)} ${esc(m.name)}</div>`).join("")}</div></div></div></div>`; };
+    el.innerHTML=`<h2>Birinci</h2><div class="sub">Ayın birincileri ay bitince yönetim tarafından açıklanır.</div>${aw.map(card).join("")||`<div class="empty">Henüz açıklanan birincilik yok.</div>`}`;
+    return;
+  } const first=S.birMonth; const last=monthEnd(first);
   el.innerHTML=`<h2>Birinci</h2><div class="sub">Hesaplanıyor…</div>`;
   const weeks=monthWeeks(first);
   const months=[]; for(let i=1;i<=6;i++){ const d=new Date(first+"T00:00:00"); d.setMonth(d.getMonth()-i); months.push(iso(d).slice(0,8)+"01"); }
