@@ -849,7 +849,7 @@ async function loadPuan(){
     let opsRater=null, ops=[];
     try{ const om=await fetchAll("ops_members", q=>q.order("sort")); await loadOpsRules();
       const me=om.find(m=>m.key===OPS_RATER_KEY); opsRater=me?.id||null;
-      if(opsRater && OR.scope[opsRater]) ops=om.filter(m=>m.active && canRateOps(opsRater,m,me.kind)); }catch(e){}
+      if(opsRater && OR.scope[opsRater]) ops=om.filter(m=>(m.active||(m.left_on&&trToday()<=m.left_on)) && canRateOps(opsRater,m,me.kind)); }catch(e){}
     S.P={ opsRater, ini, loaded:new Set(), draft:{}, sw, ops,
       kre:tm.filter(m=>m.initial!==ini && !unrated.has(m.initial)).map(m=>({initial:m.initial, name:m.name})), os:[], ks:[] };
     return;
@@ -858,7 +858,7 @@ async function loadPuan(){
   const meRec = om.find(m=>m.key===OPS_RATER_KEY);
   const kindOrd = k=>k==="puanci"?1:0;   // ekip önce, Uğur abi sonda
   S.P={ opsRater:om.find(m=>m.key===OPS_RATER_KEY)?.id||null, ini:null, loaded:new Set(), draft:{}, sw,
-    ops:om.filter(m=>m.active && ["ekip","puanci"].includes(m.kind||"ekip") && (!meRec || canRateOps(meRec.id,m,meRec.kind))).sort((a,b)=>kindOrd(a.kind||"ekip")-kindOrd(b.kind||"ekip")||(a.sort||0)-(b.sort||0)),
+    ops:om.filter(m=>(m.active||(m.left_on&&trToday()<=m.left_on)) && ["ekip","puanci"].includes(m.kind||"ekip") && (!meRec || canRateOps(meRec.id,m,meRec.kind))).sort((a,b)=>kindOrd(a.kind||"ekip")-kindOrd(b.kind||"ekip")||(a.sort||0)-(b.sort||0)),
     kre:[], os:[], ks:[] };
 }
 async function loadPuanDay(day){
