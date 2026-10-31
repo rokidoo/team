@@ -1172,7 +1172,7 @@ function raterDayOkT(t, rater, day){
   let ok;
   if(t==="o"){ const ns=new Set(S.o.noScore||[]), sc=(S.o.scope||{})[rater];
     const can=m=>!ns.has(m.id)&&!ns.has(rater)&&!(S.o.noGive||[]).includes(rater)&&(!sc||sc.includes(m.id))&&(!(S.o.onlyFrom||{})[m.id]||S.o.onlyFrom[m.id].includes(rater));
-    ok=S.o.members.filter(m=>m.active&&m.id!==rater&&can(m)&&S.o.daily.some(d=>d.member_id===m.id&&d.day===day))
+    ok=S.o.members.filter(m=>(m.active||(m.left_on&&day<=m.left_on))&&m.id!==rater&&can(m)&&S.o.daily.some(d=>d.member_id===m.id&&d.day===day))
       .every(m=>S.o.scores.some(s=>s.rater_id===rater&&s.ratee_id===m.id&&s.day===day&&s.score!=null)); }
   else{ const un=new Set(S.k.unrated||[]);
     ok=S.k.team.map(x=>x.initial).filter(i=>i!==rater&&!un.has(i)&&S.k.daily.some(d=>d.initial===i&&d.day===day))
@@ -1278,7 +1278,7 @@ const taskUpd = upd=>({status: upd.done?"done":"todo", done_at: upd.done_at||nul
 async function ranking(from,to){
   const k=`${from}|${to}`; if(Array.isArray(S.rank[k])) return S.rank[k];
   if(DEMO){ // basit yerel: puan ort + doldurma
-    const rows=S.o.members.filter(m=>m.active).map(m=>{ const D=S.o.daily.filter(x=>x.member_id===m.id&&inRange(x.day,[from,to])); const sc=S.o.scores.filter(s=>s.ratee_id===m.id&&inRange(s.day,[from,to])&&s.score!=null).map(s=>s.score); return {member_id:m.id,name:m.name,total:Math.round(((avg(sc)||0)*10*0.6+Math.min(100,D.length/Math.max(workdays([from,to]),1)*100)*0.4)*10)/10,puan:(avg(sc)||0)*10,n_puan:sc.length}; }).filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
+    const rows=S.o.members.filter(m=>m.active||(m.left_on&&m.left_on>=from)).map(m=>{ const D=S.o.daily.filter(x=>x.member_id===m.id&&inRange(x.day,[from,to])); const sc=S.o.scores.filter(s=>s.ratee_id===m.id&&inRange(s.day,[from,to])&&s.score!=null).map(s=>s.score); return {member_id:m.id,name:m.name,total:Math.round(((avg(sc)||0)*10*0.6+Math.min(100,D.length/Math.max(workdays([from,to]),1)*100)*0.4)*10)/10,puan:(avg(sc)||0)*10,n_puan:sc.length}; }).filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
     S.rank[k]=rows; return rows;
   }
   const {data,error}=await sb.rpc("ops_ranking",{p_from:from,p_to:to,p_full:true});
@@ -1313,7 +1313,7 @@ function renderOzet(){
   // operasyon
   const OD=S.o.daily.filter(x=>inRange(x.day,range)); const OT=S.o.team.filter(x=>inRange(x.day,range));
   const cargo=OT.length?sum(OT,x=>x.cargo_total):sum(OD,x=>x.cargo);
-  const act=S.o.members.filter(m=>m.active); const wd=workdays(range);
+  const act=S.o.members.filter(m=>m.active||(m.left_on&&m.left_on>=range[0])); const wd=workdays(range);
   const fillPct=act.length&&wd?Math.round(OD.length/(act.length*wd)*100):null;
   const OC=S.o.checks.filter(c=>inRange(c.day,range)); const oOpen=S.o.tasks.filter(t=>!t.done);
   const tagC={}; S.o.voice.filter(v=>inRange(v.day,range)).forEach(v=>(v.tags||[]).forEach(t=>tagC[t]=(tagC[t]||0)+1));
