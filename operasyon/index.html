@@ -2154,8 +2154,8 @@ function rankTable(rows){
   if(!isAdmin()||!rows.length) return "";
   return `<div class="tblwrap" style="margin-top:10px"><table class="compact">
     <tr><th>#</th><th>Kişi</th><th>Toplam</th><th>Ekip puanı</th><th>Doldurma</th><th>Zamanında</th><th>Kontrol</th><th>Hacim</th></tr>
-    ${rows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.name)}</td><td><b>${nf1.format(r.total)}</b></td><td>${nf1.format(r.puan/10)} <small>(${r.n_puan})</small></td><td>${nf1.format(r.disiplin)}%</td><td>${nf1.format(r.devam)}%</td><td>${nf1.format(r.kontrol)}</td><td>${nf1.format(r.hacim)}</td></tr>`).join("")}
-  </table></div>`;
+    ${rows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.name)}</td><td><b>${nf1.format(r.total)}</b></td><td>${nf1.format(r.puan/10)} <small>(${r.n_puan})</small></td><td>${nf1.format(r.disiplin)}%</td><td>${nf1.format(r.devam)}%</td><td>${r.kontrol==null?`<small title="Kontrol görevi yok, bu bileşenden muaf">muaf</small>`:nf1.format(r.kontrol)+"%"}</td><td>${r.hacim==null?`<small title="Sayılabilir işi yok, bu bileşenden muaf">muaf</small>`:nf1.format(r.hacim)}</td></tr>`).join("")}
+  </table><div class="note" style="margin-top:6px">Ekip puanı verenin kendi ortalamasına göre düzeltilir; kollama listesindeki çiftlerin ve gelmediği güne verilen puanlar sayılmaz. Kontrol: kişiye düşen maddelerin yüzde kaçı işaretlendi. Hacim: her iş türü kendi içinde karşılaştırılır. Muaf olunan bileşenin ağırlığı diğerlerine dağılır.</div></div>`;
 }
 async function renderBirinci(){
   const el=$("tabBirinci"); const first=S.birMonth; const last=monthEnd(first);
