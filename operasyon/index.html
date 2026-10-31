@@ -2139,13 +2139,15 @@ function winnerCard(kind,start,end,rows){
   const label = kind==="hafta" ? `${trDate(start)} – ${trDate(addDays(start,5))}` : trMonth(start);
   const title = kind==="hafta" ? "Haftanın Birincisi" : "Ayın Birincisi";
   const ctl = isAdmin()&&(done||kind==="ay") ? `<button class="editbtn" data-award="${kind}|${start}" title="Elle ata">✏️</button>` : "";
+  const podium = (ov && Array.isArray(ov.ranks) && ov.ranks.length>1)
+    ? `<div class="podium" style="display:flex;flex-direction:column;gap:6px;margin-top:10px">${ov.ranks.map((id,i)=>{ const m=memById(id); return m?`<div style="display:flex;align-items:center;gap:8px;font-weight:800">${["🥇","🥈","🥉"][i]||(i+1)+"."} ${av(m)} ${esc(m.name)}</div>`:""; }).join("")}</div>` : "";
   let body;
   if(done){
-    body = who ? `<div class="winner">${av(who,"big")}<div><div class="wname">🏆 ${esc(who.name)}</div><div class="wsub">${title} · ${esc(label)}${ov?` · <span class="pill">elle</span>`:""}${isAdmin()&&top&&!ov?` · ${nf1.format(top.total)} puan`:""}</div>${ov?.note?`<div class="wsub">${esc(ov.note)}</div>`:""}</div></div>`
+    body = who ? `<div class="winner">${av(who,"big")}<div><div class="wname">🏆 ${esc(who.name)}</div><div class="wsub">${title} · ${esc(label)}${ov?` · <span class="pill">elle</span>`:""}${isAdmin()&&top&&!ov?` · ${nf1.format(top.total)} puan`:""}</div>${ov?.note?`<div class="wsub">${esc(ov.note)}</div>`:""}${podium}</div></div>`
                : `<div class="empty" style="padding:14px">${esc(label)} · veri yok</div>`;
   }else{
     body = isAdmin()
-      ? `<div class="winner soft">${who?av(who,"big"):""}<div><div class="wname">${esc(label)}</div><div class="wsub">devam ediyor${top?` · şu an önde: <b>${esc(top.name)}</b> (${nf1.format(top.total)})`:""}</div></div></div>`
+      ? `<div class="winner soft">${who?av(who,"big"):""}<div><div class="wname">${esc(label)}</div><div class="wsub">devam ediyor${top?` · şu an önde: <b>${esc(top.name)}</b> (${nf1.format(top.total)})`:""}${ov?` · <span class="pill">elle atandı, ay bitince açıklanır</span>`:""}</div>${podium}</div></div>`
       : `<div class="winner soft"><div><div class="wname">🔒 ${esc(label)}</div><div class="wsub">Ayın birincisi ay sonunda açıklanır.</div></div></div>`;
   }
   return `<div class="card wcard ${done&&who?"gold":""}">${ctl}${body}</div>`;
@@ -2190,12 +2192,17 @@ async function renderBirinci(){
   el.querySelectorAll("[data-bw]").forEach(b=>b.onclick=()=>{ S.birWeek=+b.dataset.bw; el.querySelectorAll("[data-bw]").forEach(x=>x.classList.toggle("on",x===b)); $("wDetail").innerHTML=rankTable(wRows[S.birWeek]||[]); });
   el.querySelectorAll("[data-award]").forEach(b=>b.onclick=()=>{
     const [kind,start]=b.dataset.award.split("|"); const ov=awardOf(kind,start);
-    modal(`<h3>${kind==="hafta"?"Haftanın":"Ayın"} birincisini elle ata</h3>
-      <select id="aw_m">${actives().map(m=>opt(m.id,m.name,ov?.member_id||"")).join("")}</select>
+    const cand=S.members.filter(m=>!isPuanciM(m) && workedIn(m,start)).sort((a,b)=>(a.sort||0)-(b.sort||0));
+    const cur=Array.isArray(ov?.ranks)&&ov.ranks.length ? ov.ranks : (ov?.member_id?[ov.member_id]:[]);
+    const sel=(i,req)=>`<div class="flabel">${["🥇 1.","🥈 2.","🥉 3."][i]}${req?"":" (isteğe bağlı)"}</div><select id="aw_${i}">${req?"":`<option value="">—</option>`}${cand.map(m=>opt(m.id,m.name,cur[i]||"")).join("")}</select>`;
+    modal(`<h3>${kind==="hafta"?"Haftanın":"Ayın"} birincilerini elle ata</h3>
+      ${sel(0,true)}${sel(1,false)}${sel(2,false)}
       <input id="aw_n" placeholder="Not (isteğe bağlı, herkes görür)" value="${esc(ov?.note||"")}">
       <div class="btnrow">${ov?`<button class="btn ghost" id="awAuto">Otomatiğe dön</button>`:""}<button class="btn" id="awSave">Kaydet</button></div>`);
-    $("awSave").onclick=async ()=>{ const row={kind,period_start:start,member_id:$("aw_m").value,note:$("aw_n").value.trim()||null,updated_at:nowIso()};
-      try{ if(!DEMO){ const {error}=await sb.from("ops_awards").upsert(row,{onConflict:"kind,period_start"}); if(error) throw error; }
+    $("awSave").onclick=async ()=>{ const ids=[0,1,2].map(i=>$("aw_"+i).value).filter(Boolean);
+      if(new Set(ids).size!==ids.length){ toast("Aynı kişi iki sırada olamaz."); return; }
+      const row={kind,period_start:start,member_id:ids[0],ranks:ids,note:$("aw_n").value.trim()||null,updated_at:nowIso()};
+      try{ if(!DEMO){ const {error}=await sb.from("ops_awards").upsert(row,{onConflict:"kind,period_start"}); if(error){ if(/ranks/.test(error.message)) throw new Error("Önce v4.5 SQL'ini çalıştır (ops_awards.ranks)."); throw error; } }
         S.awards=S.awards.filter(a=>!(a.kind===kind&&a.period_start===start)); S.awards.push(row); closeModal(); renderBirinci(); }catch(e){ toast(errMsg(e)); } };
     const aa=$("awAuto"); if(aa) aa.onclick=async ()=>{ try{ if(!DEMO){ const {error}=await sb.from("ops_awards").delete().eq("kind",kind).eq("period_start",start); if(error) throw error; }
         S.awards=S.awards.filter(a=>!(a.kind===kind&&a.period_start===start)); closeModal(); renderBirinci(); }catch(e){ toast(errMsg(e)); } };
