@@ -637,6 +637,7 @@ html,body{overflow-x:clip}
         <option value="admin">Yönetici</option>
         <option value="partner">Ortak</option>
         <option value="creative">Kreatif Ekip</option>
+        <option value="ozlem">Özlem (hibrit)</option>
       </select>
     </div>
 
@@ -780,6 +781,12 @@ const statusAtWeek = c => (resFor(c.code)?.status_at_week) || c.status;
 /* ================= DEMO VERİSİ ================= */
 function demoData(){
   const _t=today(); const _r=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+  // hibrit demo: Özlem (ana ekip kreatif) bazı günler öğleden sonra kargoda
+  OWNERS["Ö"]=mkOwner("Özlem","#D946EF"); const orows=[];
+  for(let i=1;i<=8;i++){ const d=addDays(_t,-i); if(dow(d)===0) continue; const opsH=[0,3,8][i%3];
+    S.kdaily.push({id:uid(),initial:"Ö",day:d,in_time:"09:00",out_time:"18:00",leave_min:0,hours:8-opsH,new_video:opsH===8?0:_r(0,2),new_image:0,var_video:_r(0,3),var_image:0,note:"demo"});
+    if(opsH) orows.push({id:uid(),member_id:"m_ozlem",day:d,hours:opsH,cargo:_r(20,80),note:"demo"}); }
+  HYB.setDemo([{user_id:"u_ozlem",name:"Özlem",home:"kre",hybrid:true,ops_member_id:"m_ozlem",kre_initial:"Ö"}], orows);
   for(let i=1;i<=8;i++){ const d=addDays(_t,-i); if(dow(d)===0) continue; ["İ","M","C","E"].forEach(k=>{ if(Math.random()<.2) return; S.kdaily.push({id:uid(),initial:k,day:d,in_time:`09:${pad(_r(0,20))}`,out_time:"18:00",leave_min:0,ot_min:Math.random()<.3?_r(15,60):0,new_video:_r(0,3),new_image:_r(0,4),var_video:_r(0,5),var_image:_r(0,6),note:"verimli gündü",wish:null}); });
     S.kscores.push({id:uid(),day:d,rater:"M",ratee:"İ",score:_r(8,10),comment:"yardımcı oldu"},{id:uid(),day:d,rater:"İ",ratee:"M",score:_r(7,10),comment:null}); }
   S.kreq=[{id:uid(),day:_t,kind:"talep",text:"kablosuz mouse, mouse pad",by_initial:"M",by_name:"Mustafa Kemal",done:false,approved:false},{id:uid(),day:addDays(_t,-3),kind:"alisveris",text:"yüzey temizleyici, kağıt havlu, çay",amount:2200,by_initial:"İ",by_name:"İmkan",done:true,done_note:"alındı"}];
@@ -1625,6 +1632,9 @@ function renderNav(){
   if(canFin()){
     $("nav").insertAdjacentHTML("beforeend", `<button onclick="location.href='/operasyon/'"><span class="ic">🏭</span>Operasyon</button><button onclick="location.href='/yonetim/'"><span class="ic">📋</span>Yönetim</button>`);
     $("sideNav").insertAdjacentHTML("beforeend", `<a class="navbtn" href="/operasyon/" style="text-decoration:none;margin-top:10px;border-style:dashed;border-color:var(--mut)"><span class="ic">🏭</span><span class="lbl">Operasyon paneline geç</span></a><a class="navbtn" href="/yonetim/" style="text-decoration:none;border-style:dashed;border-color:var(--mut)"><span class="ic">📋</span><span class="lbl">Yönetim paneli</span></a>`);
+  } else if(HYB.isHyb(HYB.byUser((REAL?REAL.profile:S.profile)?.id))){   // hibrit: tek hesapla iki panel
+    $("nav").insertAdjacentHTML("beforeend", `<button onclick="location.href='/operasyon/'"><span class="ic">🏭</span>Operasyon</button>`);
+    $("sideNav").insertAdjacentHTML("beforeend", `<a class="navbtn" href="/operasyon/" style="text-decoration:none;margin-top:10px;border-style:dashed;border-color:var(--mut)"><span class="ic">🏭</span><span class="lbl">Operasyon paneline geç</span></a>`);
   }
   addPageLinks();
   document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab; renderAll();});
@@ -1839,12 +1849,13 @@ const avg = arr=>arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : null;
 const isWRaterK = r=>!!S.sw && (S.sw.kre||[]).includes(r);
 // o gün günlüğü olan (işe gelen) ekip arkadaşlarının hepsini puanlamayanın o günkü puanları sayılmaz.
 // Puanlanmayanlar (kre_settings.roles.unrated: Çağdaş, Erdem, Remaks) listede yoktur; Çağdaş da puan verdiyse aynı kurala tabidir.
-function kreRequired(rater, day){ const un=new Set(S.kreRoles?.unrated||[]); return KRE_INIS().filter(k=>k!==rater && !un.has(k) && S.kdaily.some(d=>d.initial===k&&d.day===day)); }
+function kreRequired(rater, day){ const un=new Set(S.kreRoles?.unrated||[]); return KRE_INIS().filter(k=>k!==rater && !un.has(k) && S.kdaily.some(d=>d.initial===k&&d.day===day&&HYB.present(d))); }
 const _kro={}; let _kroKey="";
 function kreRaterDayOk(rater, day){
   const k=S.kscores.length+"|"+S.kdaily.length; if(k!==_kroKey){ for(const x in _kro) delete _kro[x]; _kroKey=k; }
   const kk=rater+"|"+day; if(kk in _kro) return _kro[kk];
-  return _kro[kk]=kreRequired(rater,day).every(t=>S.kscores.some(s=>s.rater===rater&&s.ratee===t&&s.day===day&&s.score!=null));
+  if(HYB.isHyb(HYB.byIni(rater)) && !HYB.present(kdOf(rater,day))) return _kro[kk]=false;   // hibrit o gün burada saat yazmadıysa puanları sayılmaz
+  return _kro[kk]=kreRequired(rater,day).every(t=>S.kscores.some(s=>s.rater===rater&&s.ratee===t&&s.day===day&&(s.score!=null||s.mark)));
 }
 function recvAvgK(rows){ const v=rows.filter(s=>s.score!=null && kreRaterDayOk(s.rater,s.day)); if(!v.length) return null;
   const p=v.filter(s=>isWRaterK(s.rater)).map(s=>s.score), o=v.filter(s=>!isWRaterK(s.rater)).map(s=>s.score);
@@ -1949,15 +1960,174 @@ const WC = (()=>{
   return {load, card, bind, who, matches, myNext};
 })();
 
+/*HYB*/
+/* ================= HİBRİT (operasyon + kreatif ortak kod · kaynak: operasyon/hibrit-ortak.js) =================
+   people: hesap → ana ekip (home ops|kre), hibrit mi, operasyon kaydı (ops_member_id), kreatif harfi (kre_initial).
+   Hibrit kişi tek formda iki tarafın saatini yazar; her taraf kendi günlük tablosunda tutulur:
+   giriş-çıkış-izin-mesai ana ekibin satırında, öbür tarafın satırında sadece saat + o tarafın alanları.
+   Bir tarafta "çalıştı" = o tarafta satırı var ve saati 0 değil (saat boşsa eski kayıt: çalıştı). */
+const HYB = (()=>{
+  const OPS_F=[["cargo","Kargoladığım sipariş"],["call_total","Arama · toplam"],["call_send","Arama · gönderilecek"],["call_nolook","Arama · bakmadı"],["wp_msg","WhatsApp · bakılan"],["ig_msg","Instagram · bakılan"],["mail_msg","Mail · bakılan"],["wp_order","WhatsApp · sipariş"],["ig_order","Instagram · sipariş"],["mail_order","Mail · sipariş"]];
+  const KRE_F=[["new_video","Sıfır video"],["new_image","Sıfır görsel"],["var_video","Varyasyon video"],["var_image","Varyasyon görsel"]];
+  const SIDE={ops:{t:"ops_daily",k:"member_id",lbl:"Operasyon",ic:"📦",f:OPS_F}, kre:{t:"kre_daily",k:"initial",lbl:"Kreatif",ic:"🎬",f:KRE_F}};
+  const TIMES=["in_time","out_time","leave_min","ot_min"], STAMP=["admin_edits","admin_by","admin_by_name","admin_at"];
+  let here="ops", own=()=>[], people=[], rows=[], ok=false;
+  const other=sd=>sd==="ops"?"kre":"ops";
+  const keyOf=(p,sd)=>sd==="ops"?p.ops_member_id:p.kre_initial;
+  const isHyb=p=>!!p && !!p.hybrid && !!p.ops_member_id && !!p.kre_initial;
+  const byOps=id=>people.find(p=>p.ops_member_id===id)||null;
+  const byIni=ini=>people.find(p=>p.kre_initial===ini)||null;
+  const byUser=u=>people.find(p=>p.user_id===u)||null;
+  const present=r=>!!r && (r.hours==null || +r.hours>0);
+  const rowOf=(sd,key,day)=>(sd===here?own():rows).find(r=>r[SIDE[sd].k]===key && r.day===day)||null;
+  const pad=n=>String(n).padStart(2,"0");
+  const addD=(s,n)=>{ const d=new Date(s+"T00:00:00"); d.setDate(d.getDate()+n); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+  const mn=t=>{ if(!t||!/^\d{1,2}:\d{2}/.test(t)) return null; const [h,m]=t.split(":").map(Number); return h*60+m; };
+  const hNum=v=>{ const s=String(v??"").trim().replace(",","."); if(s==="") return null; const n=parseFloat(s); return isNaN(n)?null:Math.max(0,Math.min(24,n)); };
+  const hTxt=h=>h==null?"—":String(Math.round(h*100)/100).replace(".",",");
+  const workedH=r=>{ const a=mn(r?.in_time), b=mn(r?.out_time); if(a==null||b==null||b<=a) return null; return Math.round((b-a-(+r.leave_min||0))/15)/4; };
+  const mean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+  const E=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+
+  function init(o){ here=o.here; own=o.own; }
+  async function load(){
+    if(DEMO){ ok=true; return; }
+    const {data,error}=await sb.from("people").select("*"); ok=!error; people=data||[];
+    const sd=other(here), keys=people.filter(isHyb).map(p=>keyOf(p,sd)); rows=[];
+    if(keys.length){ const {data:r}=await sb.from(SIDE[sd].t).select("*").in(SIDE[sd].k,keys).gte("day",addD(new Date().toLocaleDateString("sv-SE",{timeZone:"Europe/Istanbul"}),-120)); rows=r||[]; }
+  }
+  function setDemo(p,r){ people=p||[]; rows=r||[]; ok=true; }
+
+  // ana ekip satırındaki saatler + iki tarafın alanları tek nesnede (Günüm formu bunu gösterir)
+  function merged(p, day){
+    const ro=rowOf("ops",p.ops_member_id,day), rk=rowOf("kre",p.kre_initial,day), home=p.home==="ops"?ro:rk, any=home||ro||rk;
+    const m={...(ro||{}), ...(rk||{})};
+    TIMES.forEach(k=>m[k]=home?.[k]??null);
+    m.note=home?.note??ro?.note??rk?.note??null; m.wish=home?.wish??ro?.wish??rk?.wish??null;
+    m.id=any?.id||null; m.updated_at=[ro?.updated_at,rk?.updated_at].filter(Boolean).sort().pop()||null;
+    m.admin_edits=Math.max(ro?.admin_edits||0, rk?.admin_edits||0)||null;
+    const st=[ro,rk].filter(x=>x?.admin_at).sort((a,b)=>a.admin_at<b.admin_at?1:-1)[0]; m.admin_by_name=st?.admin_by_name||null; m.admin_at=st?.admin_at||null;
+    m.hy={ops:ro?.hours??null, kre:rk?.hours??null, ro, rk};
+    return m;
+  }
+  const num=(k,l,v)=>`<div><div class="flabel">${E(l)}</div><input type="number" inputmode="numeric" min="0" id="hy_${k}" value="${v??""}" placeholder="0"></div>`;
+  function hoursHtml(p, r){
+    const h=r.hy||{};
+    const inp=sd=>`<div><div class="flabel">${SIDE[sd].ic} ${SIDE[sd].lbl} (saat)${p.home===sd?" · ana ekibin":""}</div><input type="number" inputmode="decimal" step="0.5" min="0" max="24" id="hy_h_${sd}" value="${h[sd]??""}" placeholder="0"></div>`;
+    return `<div class="hyb"><div class="hyb-h">🔀 Hibrit gün · bugün hangi tarafta kaç saat çalıştın?</div>
+      <div class="fgrid c2">${inp("ops")}${inp("kre")}</div>
+      <div class="hyb-m" id="hy_msg"></div></div>`;
+  }
+  // öbür tarafın alanları (bu panelin kendi alanları host'ta, data-hyside ile sarılı)
+  function otherHtml(p, r){
+    const sd=other(here);
+    return `<div class="sect" data-hyside="${sd}"><h3>${SIDE[sd].ic} ${SIDE[sd].lbl} tarafı</h3>
+      <div class="fgrid ${sd==="ops"?"c3":""}">${SIDE[sd].f.map(([k,l])=>num(k,l,r[k])).join("")}</div></div>`;
+  }
+  function bind(root, p, timesOf){
+    const val=sd=>hNum(root.querySelector("#hy_h_"+sd)?.value);
+    const upd=()=>{
+      const h={ops:val("ops"), kre:val("kre")}, none=h.ops==null&&h.kre==null;
+      root.querySelectorAll("[data-hyside]").forEach(x=>{ const sd=x.dataset.hyside; x.classList.toggle("hidden", !((h[sd]||0)>0 || (none && sd===p.home))); });
+      const w=workedH(timesOf()), tot=(h.ops||0)+(h.kre||0), msg=root.querySelector("#hy_msg"); if(!msg) return;
+      msg.className="hyb-m"+(w!=null&&tot>w+0.25?" bad":"");
+      msg.innerHTML = none ? (w!=null?`Saat yazmazsan çalıştığın ${hTxt(w)} saatin tamamı ana ekibine (${SIDE[p.home].lbl.toLocaleLowerCase("tr")}) yazılır.`:"İki tarafın saatini yaz; sadece çalıştığın tarafın alanları açılır.")
+        : w!=null&&tot>w+0.25 ? `⚠ Toplam ${hTxt(tot)} saat, giriş-çıkışa göre çalıştığın ${hTxt(w)} saati aşıyor.`
+        : `Toplam ${hTxt(tot)} saat${w!=null?` · giriş-çıkışa göre ${hTxt(w)} saat`:""}`;
+    };
+    root.querySelectorAll("#hy_h_ops,#hy_h_kre,#g_in_time,#g_out_time,#g_leave_min").forEach(x=>x.addEventListener("input",upd)); upd();
+  }
+  // ownRow: host'un kendi tarafı için kurduğu satır (saatler, not, yönetici izi ve kendi alanları dahil)
+  async function saveDay(p, day, ownRow){
+    const val=sd=>hNum(document.getElementById("hy_h_"+sd)?.value);
+    const h={ops:val("ops"), kre:val("kre")}, w=workedH(ownRow);
+    if(h.ops==null && h.kre==null){ if(w==null) throw new Error("Hibrit gün: giriş-çıkışı ya da taraf saatlerini yaz."); h[p.home]=w; h[other(p.home)]=0; }
+    h.ops=h.ops||0; h.kre=h.kre||0;
+    if(h.ops+h.kre<=0) throw new Error("En az bir tarafa saat yaz.");
+    if(w!=null && h.ops+h.kre>w+0.25 && !confirm(`Saatlerin toplamı (${hTxt(h.ops+h.kre)}) giriş-çıkıştan (${hTxt(w)}) fazla. Yine de kaydedilsin mi?`)) return null;
+    const res={};
+    for(const sd of ["ops","kre"]){
+      const ex=rowOf(sd,keyOf(p,sd),day);
+      if(!(sd===p.home || h[sd]>0 || ex)) continue;
+      const row={[SIDE[sd].k]:keyOf(p,sd), day, hours:h[sd], note:ownRow.note??null, wish:ownRow.wish??null, updated_at:ownRow.updated_at||new Date().toISOString()};
+      TIMES.forEach(k=>row[k]=sd===p.home?(ownRow[k]??null):null);
+      SIDE[sd].f.forEach(([k])=>row[k]= sd===here ? (ownRow[k]??null) : (()=>{ const s=String(document.getElementById("hy_"+k)?.value??"").trim(); return s===""?null:(parseInt(s,10)||0); })());
+      if(sd===here && "undel_nolook" in ownRow) row.undel_nolook=ownRow.undel_nolook;
+      if("admin_edits" in ownRow){ row.admin_edits=(ex?.admin_edits||0)+1; row.admin_by=ownRow.admin_by; row.admin_by_name=ownRow.admin_by_name; row.admin_at=ownRow.admin_at; }
+      if(DEMO) res[sd]={...(ex||{id:"h"+Math.random().toString(36).slice(2,9)}), ...row};
+      else{ const {data,error}=await sb.from(SIDE[sd].t).upsert(row,{onConflict:SIDE[sd].k+",day"}).select().single(); if(error) throw error; res[sd]=data; }
+      if(sd!==here){ const i=rows.findIndex(x=>x[SIDE[sd].k]===keyOf(p,sd)&&x.day===day); if(i>=0) rows[i]=res[sd]; else rows.unshift(res[sd]); }
+    }
+    return res;   // host res[here]'i kendi listesine yazar
+  }
+  // puan kartındaki kısa bilgi: hibritse bugün bu tarafta kaç saat
+  function tag(p, day, r){
+    if(!isHyb(p)) return "";
+    const t = !r ? "henüz saat yazmadı" : r.hours==null ? "bu tarafta" : +r.hours>0 ? `bugün burada ${hTxt(+r.hours)} saat` : "bugün bu tarafta çalışmadı";
+    return `<span class="pill hyb-pill" title="İki tarafta çalışıyor (ana ekibi: ${SIDE[p.home].lbl})">🔀 hibrit · ${E(t)}</span>`;
+  }
+  const MARKS={gelmedi:"🚫 Gelmedi", yok:"↔ Bu tarafta değildi"};
+  function markRow(cur, hyb, id){ return `<div class="mkrow" data-ratee="${E(id)}">${Object.entries(MARKS).filter(([k])=>k==="gelmedi"||hyb).map(([k,l])=>`<button type="button" class="mkbtn ${cur===k?"on":""}" data-mk="${k}">${l}</button>`).join("")}</div>`; }
+
+  // yönetim kontrolü: işaret çelişkisi (14 gün) + kollama uyarısı (7 gün)
+  // scores: [{rater,ratee,day,score,mark,comment}] · presentOf(ratee,day) → saat (sayı) | true | false
+  function audit(scores, presentOf, nameOf, day){
+    const f14=addD(day,-13), f7=addD(day,-6);
+    const conf=scores.filter(s=>s.mark && s.day>=f14 && s.day<=day && presentOf(s.ratee,s.day)).sort((a,b)=>a.day<b.day?1:-1).slice(0,15);
+    const W=scores.filter(s=>s.score!=null && s.day>=f7 && s.day<=day), g={};
+    W.forEach(s=>{ ((g[s.rater] ||= {})[s.ratee] ||= []).push(+s.score); });
+    const toOthers=(a,ex)=>mean(Object.entries(g[a]||{}).filter(([b])=>b!==ex).flatMap(([,v])=>v));
+    const pairs=[];
+    Object.keys(g).forEach(a=>Object.keys(g[a]).forEach(b=>{ if(a>=b) return; const ab=g[a][b], ba=g[b]?.[a]; if(!ab||!ba||ab.length<3||ba.length<3) return;
+      const mab=mean(ab), mba=mean(ba), oa=toOthers(a,b), ob=toOthers(b,a);
+      if(mab>=9.5 && mba>=9.5 && ((oa!=null&&mab-oa>=1)||(ob!=null&&mba-ob>=1))) pairs.push({a,b,mab,mba,oa,ob}); }));
+    const same=Object.keys(g).map(a=>{ const v=Object.values(g[a]).flat(); return {a,n:v.length,u:[...new Set(v)]}; }).filter(x=>x.n>=8 && x.u.length===1);
+    const cc={}; scores.filter(s=>s.day>=f7 && s.day<=day && String(s.comment||"").trim().length>=10).forEach(s=>{
+      const k=s.rater+"|"+String(s.comment).toLocaleLowerCase("tr").replace(/\s+/g," ").replace(/[.!,]+$/,"").trim(); (cc[k] ||= {r:s.rater,t:String(s.comment).trim(),n:0}).n++; });
+    const copies=Object.values(cc).filter(x=>x.n>=3).sort((a,b)=>b.n-a.n);
+    const n=conf.length+pairs.length+same.length+copies.length, d2=s=>s.slice(8,10)+"."+s.slice(5,7), f1=x=>x==null?"—":String(Math.round(x*10)/10).replace(".",",");
+    const nm=x=>E(nameOf(x));
+    return `<details class="card hyb-audit" ${n?"open":""}><summary>🛡 Yönetim kontrolü <span class="pill" style="background:${n?"var(--orange-s)":"var(--green-s)"}">${n?n+" uyarı":"temiz"}</span> <small style="color:var(--mut)">sadece yönetim görür</small></summary>
+      <div class="hyb-ah">Çelişki · son 14 gün <small>(işaretlenen kişi o gün bu tarafta saat yazmış)</small></div>
+      ${conf.length?conf.map(s=>{ const p=presentOf(s.ratee,s.day); return `<div class="hyb-ar">${d2(s.day)} · <b>${nm(s.rater)}</b>, <b>${nm(s.ratee)}</b> için “${MARKS[s.mark]||s.mark}” dedi; ${nm(s.ratee)} o gün bu tarafta ${typeof p==="number"?hTxt(p)+" saat":"günlük"} yazmış.</div>`; }).join(""):`<div class="hyb-ar ok">Çelişki yok.</div>`}
+      <div class="hyb-ah">Kollama · son 7 gün</div>
+      ${pairs.map(x=>`<div class="hyb-ar">🔁 <b>${nm(x.a)}</b> ↔ <b>${nm(x.b)}</b> birbirine sürekli tam puan: ${f1(x.mab)} / ${f1(x.mba)} · başkalarına ortalama ${f1(x.oa)} / ${f1(x.ob)}</div>`).join("")}
+      ${same.map(x=>`<div class="hyb-ar">🟰 <b>${nm(x.a)}</b> herkese hep ${x.u[0]} verdi (${x.n} puan)</div>`).join("")}
+      ${copies.slice(0,8).map(x=>`<div class="hyb-ar">📋 <b>${nm(x.r)}</b> aynı yorumu ${x.n} kez yazdı: “${E(x.t.length>70?x.t.slice(0,70)+"…":x.t)}”</div>`).join("")}
+      ${pairs.length||same.length||copies.length?"":`<div class="hyb-ar ok">Karşılıklı tam puan, herkese aynı puan ya da kopya yorum yok.</div>`}
+    </details>`;
+  }
+  document.head.insertAdjacentHTML("beforeend", `<style>
+    .hyb{border:1.5px dashed var(--line,#ddd);border-radius:12px;padding:10px 12px;margin:10px 0 4px;background:var(--cobalt-s,#eef2ff)}
+    .hyb-h{font-weight:800;font-size:.9rem;margin-bottom:6px}
+    .hyb-m{font-size:.8rem;color:var(--mut,#777);margin-top:2px}.hyb-m.bad{color:#c2410c;font-weight:700}
+    .hyb-pill{background:var(--cobalt-s,#eef2ff)!important;font-size:.72rem}
+    .mkrow{display:flex;gap:6px;flex-wrap:wrap;margin:-2px 0 8px}
+    .mkbtn{border:1.5px solid var(--line,#ddd);background:var(--card,#fff);border-radius:999px;padding:4px 10px;font-size:.78rem;cursor:pointer;font-weight:700;color:inherit}
+    .mkbtn.on{background:var(--red-s,#fee2e2);border-color:#ef4444}
+    .hyb-audit{margin-bottom:14px}.hyb-audit summary{cursor:pointer;font-weight:800}
+    .hyb-ah{font-weight:800;font-size:.82rem;margin:10px 0 4px}.hyb-ah small{font-weight:600;color:var(--mut,#777)}
+    .hyb-ar{font-size:.82rem;padding:4px 0;border-bottom:1px dashed var(--line,#eee)}.hyb-ar.ok{color:var(--mut,#777)}
+    .hidden{display:none!important}
+  </style>`);
+  return {init, load, setDemo, isHyb, byOps, byIni, byUser, present, rowOf, merged, hoursHtml, otherHtml, bind, saveDay, tag, markRow, audit, MARKS,
+          get ok(){ return ok; }, get people(){ return people; }};
+})();
+/*HYB-END*/
+HYB.init({here:"kre", own:()=>S.kdaily});
+// ana ekibi operasyon olan, hibrit olmayan kişinin harfi kreatif günlük/puan listelerinde görünmez
+const kreHidden = ini=>{ const p=HYB.byIni(ini); return !!p && p.home==="ops" && !HYB.isHyb(p); };
+const kreAway = ini=>{ const p=HYB.byIni(ini); return !!p && p.home==="ops"; };
 function renderGun(){
   const el=$("tabGun"); if(!el) return;
   S.gunDay=S.gunDay||today(); const day=S.gunDay; const ini=gunIni();
   if(!DEMO && !S.kreTables){ el.innerHTML=`<h2>Günüm</h2><div class="empty">Supabase'de <b>schema-v1.7-gunum.sql</b> henüz çalıştırılmamış.</div>`; return; }
   if(!ini){ el.innerHTML=`<h2>Günüm</h2><div class="empty">Profilinde kreatif harfin (C/İ/E/M/R) yok. Yönetici Ekip sekmesinden atasın.</div>`; return; }
-  const r=kdOf(ini,day)||{}; const v=k=>r[k]==null?"":r[k];
+  const P=HYB.byIni(ini), hy=HYB.isHyb(P);   // hibrit: iki tarafın saati tek formda
+  const r=hy?HYB.merged(P,day):(kdOf(ini,day)||{}); const v=k=>r[k]==null?"":r[k];
   const num=(k,l)=>`<div><div class="flabel">${l}</div><input type="number" inputmode="numeric" min="0" id="g_${k}" value="${v(k)}" placeholder="0"></div>`;
   const sel = kreAdmin()?`<select id="gunIni">${KRE_INIS().map(k=>`<option value="${esc(k)}" ${k===ini?"selected":""}>${esc(k)} · ${esc(OWNERS[k].name)}</option>`).join("")}</select>`:"";
-  const filled = KRE_INIS().map(k=>{ const ok=!!kdOf(k,day); return `<span class="w ${ok?"ok":"no"}">${ok?"✓":"✗"} ${esc(OWNERS[k].name)}</span>`; }).join("");
+  const filled = KRE_INIS().filter(k=>!kreHidden(k) && (!kreAway(k) || HYB.present(kdOf(k,day)))).map(k=>{ const ok=HYB.present(kdOf(k,day)); return `<span class="w ${ok?"ok":"no"}">${ok?"✓":"✗"} ${esc(OWNERS[k].name)}</span>`; }).join("");
   const last7 = S.kdaily.filter(x=>x.initial===ini && x.day<day).sort((a,b)=>b.day<a.day?-1:1).slice(0,7);
   // talepler
   const open=S.kreq.filter(q=>!q.done); const done=S.kreq.filter(q=>q.done).slice(0,8);
@@ -1974,10 +2144,10 @@ function renderGun(){
         <div><div class="flabel">Giriş</div><input type="time" id="g_in_time" value="${v("in_time")}"></div>
         <div><div class="flabel">Çıkış</div><input type="time" id="g_out_time" value="${v("out_time")}"></div>
         ${num("leave_min","İzin (dk)")}<div><div class="flabel">Mesai (otomatik)</div><div class="otlive" id="g_otlive"></div></div>
-      </div></div>
-      <div class="sect"><h3>🎬 Bugün ürettiklerim</h3><div class="fgrid">
+      </div>${hy?HYB.hoursHtml(P,r):""}</div>
+      <div class="sect" ${hy?`data-hyside="kre"`:""}><h3>🎬 Bugün ürettiklerim</h3><div class="fgrid">
         ${num("new_video","Sıfır video")}${num("new_image","Sıfır görsel")}${num("var_video","Varyasyon video")}${num("var_image","Varyasyon görsel")}
-      </div></div>
+      </div></div>${hy?HYB.otherHtml(P,r):""}
       <div class="flabel">Bugün nasıl geçti / ne yaptım</div>
       <textarea id="g_note" rows="3" placeholder="Kısaca: ne yaptın, ne aksadı?">${esc(v("note"))}</textarea>
       <div class="flabel">Yapılmasını istediğim iş / ihtiyaç</div>
@@ -2009,6 +2179,7 @@ function renderGun(){
   const otLive=()=>{ const c=otCalc({day, in_time:$("g_in_time").value, out_time:$("g_out_time").value, leave_min:numOrNull($("g_leave_min").value)});
     $("g_otlive").innerHTML = c.kind==="eksik" ? `<span style="color:var(--mut)">saatleri gir</span>` : c.kind==="hata" ? "⚠ saatleri kontrol et" : `<span class="${otCls(c.min)}">${otTxt(c.min)}</span>${c.kind==="pazar"?" <small>pazar ×1,5</small>":""}`; };
   ["g_in_time","g_out_time","g_leave_min"].forEach(k=>$(k).addEventListener("input",otLive)); otLive();
+  if(hy) HYB.bind($("gunForm"), P, ()=>({in_time:$("g_in_time").value, out_time:$("g_out_time").value, leave_min:numOrNull($("g_leave_min").value)}));
   if(dayLocked(day)) $("gunForm").querySelectorAll("input,textarea,button").forEach(x=>x.disabled=true);
   $("gunSave").onclick=async ()=>{
     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
@@ -2020,6 +2191,9 @@ function renderGun(){
     if(stampCol() && adminEntry()){ row.admin_edits=(r.admin_edits||0)+1; row.admin_by=S.profile?.id||null; row.admin_by_name=S.profile?.name||null; row.admin_at=nowIso(); }
     $("gunSave").disabled=true;
     try{
+      if(hy){ const res=await HYB.saveDay(P, day, row); if(!res){ $("gunSave").disabled=false; return; }
+        if(res.kre){ const i=S.kdaily.findIndex(x=>x.initial===ini&&x.day===day); if(i>=0) S.kdaily[i]=res.kre; else S.kdaily.unshift(res.kre); }
+        toast("Kaydedildi ✓"); renderGun(); return; }
       if(DEMO){ const i=S.kdaily.findIndex(x=>x.initial===ini&&x.day===day); if(i>=0) S.kdaily[i]={...S.kdaily[i],...row}; else S.kdaily.unshift({id:uid(),...row}); }
       else{ const {data,error}=await sb.from("kre_daily").upsert(row,{onConflict:"initial,day"}).select().single(); if(error) throw error;
         const i=S.kdaily.findIndex(x=>x.initial===ini&&x.day===day); if(i>=0) S.kdaily[i]=data; else S.kdaily.unshift(data); }
@@ -2426,45 +2600,59 @@ function renderGeri(){
   FB.render(el,{teams:[{k:"k", l:"🎬 Kreatif", wr:isWRaterK, wv:kreW(), rows:()=>(S.kscores||[]).map(s=>({id:s.id, day:s.day, rater:s.rater, ratee:s.ratee, rn:nm(s.rater), en:nm(s.ratee), score:s.score, comment:s.comment||""})),
     del:async ids=>{ if(!DEMO){ const {error}=await sb.from("kre_scores").delete().in("id",ids); if(error) throw error; } S.kscores=S.kscores.filter(x=>!ids.includes(x.id)); }}]});
 }
+// işaret sütunu (v5.0 SQL'i): gelmedi / bu tarafta değildi
+const kMarkCol = ()=>DEMO || S.kscores.some(s=>"mark" in s);
+const kPresentOf = (ini,d)=>{ const r=kdOf(ini,d); return HYB.present(r) ? (r.hours!=null?+r.hours:true) : false; };
 function renderPuan(){
   const el=$("tabPuan"); if(!el) return;
   S.puanDay=S.puanDay||today(); const day=S.puanDay; const me=myIni();
+  const audit = kreAdmin() ? HYB.audit(S.kscores, kPresentOf, k=>OWNERS[k]?.name||k, day) : "";
   if(!DEMO && !S.kreTables){ el.innerHTML=`<h2>Ekip Puanı</h2><div class="empty">schema-v1.7-gunum.sql çalıştırılmamış.</div>`; return; }
-  if(!me||!OWNERS[me]){ el.innerHTML=`<h2>Ekip Puanı</h2><div class="empty">${kreAdmin()?"Puanlama kreatif ekip içindir; rapor Günüm altındaki Ekip özetinde.":"Profilinde kreatif harfin yok."}</div>`; return; }
+  if(!me||!OWNERS[me]){ el.innerHTML=`<h2>Ekip Puanı</h2>${audit}<div class="empty">${kreAdmin()?"Puanlama kreatif ekip içindir; rapor Günüm altındaki Ekip özetinde.":"Profilinde kreatif harfin yok."}</div>`; return; }
   // ortaklar (kre_settings.roles.unrated, ör. Çağdaş + Erdem) puanlanmaz ama kendileri puan verir
   const unrated=new Set(S.kreRoles?.unrated||[]);
-  const others=KRE_INIS().filter(k=>k!==me && !unrated.has(k));
+  const others=KRE_INIS().filter(k=>k!==me && !unrated.has(k) && !kreHidden(k));
   const mine=k=>S.kscores.find(s=>s.day===day&&s.rater===me&&s.ratee===k)||{};
-  const need=kreRequired(me,day), miss=need.filter(k=>mine(k).score==null);
-  el.innerHTML=`<h2>Ekip Puanı</h2><div class="sub">Her akşam ekip arkadaşlarını 1–10 arası puanla. Puanlar <b>yalnızca yöneticiye</b> görünür.</div>
+  const need=kreRequired(me,day), miss=need.filter(k=>mine(k).score==null && !mine(k).mark);
+  const meHy=HYB.isHyb(HYB.byIni(me)) && !HYB.present(kdOf(me,day)), mk=kMarkCol();
+  el.innerHTML=`<h2>Ekip Puanı</h2>${audit}<div class="sub">Her akşam ekip arkadaşlarını 1–10 arası puanla. Puanlar <b>yalnızca yöneticiye</b> görünür.${mk?` O gün hiç görmediğin kişiye puan verme: <b>🚫 Gelmedi</b>${HYB.people.some(HYB.isHyb)?` ya da hibrit arkadaşın için <b>↔ Bu tarafta değildi</b>`:""} de.`:""}</div>
+    ${meHy?`<div class="lockbar" style="background:var(--cobalt-s)">🔀 Bu gün kreatifte saat yazmadın. Kreatifte çalıştıysan önce <b>Günüm</b>'e kreatif saatini yaz; yazmazsan buradaki puanların sayılmaz.</div>`:""}
     <div class="lockbar" style="background:${miss.length?"var(--orange-s)":"var(--green-s)"}">${miss.length?`⚠️ O gün işe gelen <b>herkese</b> puan vermezsen o günkü puanlarının <b>hiçbiri sayılmaz</b>. Eksik: <b>${miss.map(k=>esc(OWNERS[k]?.name||k)).join(", ")}</b>`:need.length?"✅ O gün işe gelen herkesi puanladın; puanların sayılıyor.":"Bu gün henüz günlüğünü dolduran ekip arkadaşın yok."}</div>
     ${dayNav("puanDay",day)}
     ${lockNote(day)}
     <div id="puanForm" class="${dayLocked(day)?"locked":""}">
-    ${others.map(k=>{ const s=mine(k); return `<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:10px;align-items:center">${ownBadge(k)}<b style="font-family:var(--fh);font-size:1.05rem">${esc(OWNERS[k].name)}</b></div>
+    ${others.map(k=>{ const s=mine(k); return `<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">${ownBadge(k)}<b style="font-family:var(--fh);font-size:1.05rem">${esc(OWNERS[k].name)}</b>${HYB.tag(HYB.byIni(k), day, kdOf(k,day))}</div>
       <div class="scrow" data-ratee="${esc(k)}">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="scbtn ${s.score===n?"on":""}" data-n="${n}">${n}</button>`).join("")}</div>
+      ${mk?HYB.markRow(s.mark, HYB.isHyb(HYB.byIni(k)), k):""}
       <textarea id="pc_${esc(k)}" rows="2" placeholder="Bugün nasıl çalıştı? Ne yaptı, ne aksadı? En az ${NOTE_MIN} karakter." style="margin-bottom:0">${esc(s.comment||"")}</textarea><div class="pcnt" id="pn_${esc(k)}"></div></div>`; }).join("")}
     <button class="btn" id="puanSave">Puanları Kaydet</button></div>`;
   bindDayNav(el,"puanDay",renderPuan);
-  const picked={}; others.forEach(k=>{ const s=mine(k); if(s.score!=null) picked[k]=s.score; });
+  const picked={}; others.forEach(k=>{ const s=mine(k); if(s.score!=null) picked[k]=s.score; else if(s.mark) picked[k]=s.mark; });
+  const isMk=v=>typeof v==="string";
   const noteOf = k=>$("pc_"+k).value.trim();
   const noteCnt = k=>{ const n=noteOf(k).length, e2=$("pn_"+k);
     e2.textContent = n>=NOTE_MIN ? `${n} karakter ✓` : `${n}/${NOTE_MIN} — en az ${NOTE_MIN} karakter yaz`;
     e2.className = "pcnt"+(n>=NOTE_MIN?"":" bad"); };
   others.forEach(k=>{ const inp=$("pc_"+k); if(!inp) return; inp.addEventListener("input",()=>noteCnt(k)); noteCnt(k); });
-  el.querySelectorAll(".scrow").forEach(row=>row.querySelectorAll(".scbtn").forEach(b=>b.onclick=()=>{ row.querySelectorAll(".scbtn").forEach(z=>z.classList.remove("on")); b.classList.add("on"); picked[row.dataset.ratee]=+b.dataset.n; }));
+  el.querySelectorAll(".scrow").forEach(row=>row.querySelectorAll(".scbtn").forEach(b=>b.onclick=()=>{ row.parentElement.querySelectorAll(".scbtn,.mkbtn").forEach(z=>z.classList.remove("on")); b.classList.add("on"); picked[row.dataset.ratee]=+b.dataset.n; }));
+  el.querySelectorAll(".mkrow").forEach(row=>row.querySelectorAll(".mkbtn").forEach(b=>b.onclick=()=>{
+    const id=row.dataset.ratee, on=b.classList.contains("on");
+    row.parentElement.querySelectorAll(".scbtn,.mkbtn").forEach(z=>z.classList.remove("on"));
+    if(on) delete picked[id]; else { b.classList.add("on"); picked[id]=b.dataset.mk; }
+  }));
   if(dayLocked(day)) $("puanForm").querySelectorAll("input,button").forEach(x=>x.disabled=true);
   $("puanSave").onclick=async ()=>{
     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
     if(dayLocked(day)){ toast(LOCK_MSG); return; }
     const sel=others.filter(k=>picked[k]!=null);
     if(!sel.length){ toast("Önce puan seç."); return; }
-    const eksik=sel.filter(k=>noteOf(k).length<NOTE_MIN);
+    const eksik=sel.filter(k=>!isMk(picked[k]) && noteOf(k).length<NOTE_MIN);
     if(eksik.length){ const k=eksik[0]; toast(`${OWNERS[k]?.name||k} için not en az ${NOTE_MIN} karakter olmalı (şu an ${noteOf(k).length}).`); $("pc_"+k).focus(); noteCnt(k); return; }
-    const rows=sel.map(k=>({day,rater:me,ratee:k,score:picked[k],comment:noteOf(k),updated_at:nowIso()}));
+    const rows=sel.map(k=>isMk(picked[k]) ? {day,rater:me,ratee:k,score:null,mark:picked[k],comment:noteOf(k)||null,updated_at:nowIso()}
+      : {day,rater:me,ratee:k,score:picked[k],comment:noteOf(k),updated_at:nowIso(),...(mk?{mark:null}:{})});
     try{ if(DEMO){ rows.forEach(r=>{ const i=S.kscores.findIndex(s=>s.day===r.day&&s.rater===r.rater&&s.ratee===r.ratee); if(i>=0) S.kscores[i]={...S.kscores[i],...r}; else S.kscores.unshift({id:uid(),...r}); }); }
       else{ const {data,error}=await sb.from("kre_scores").upsert(rows,{onConflict:"day,rater,ratee"}).select(); if(error) throw error; data.forEach(r=>{ const i=S.kscores.findIndex(s=>s.id===r.id); if(i>=0) S.kscores[i]=r; else S.kscores.unshift(r); }); }
-      toast(`${rows.length} puan kaydedildi ✓`); renderPuan(); }catch(e){ toast(lockErr(e)); }
+      toast(`${rows.length} kayıt ✓`); renderPuan(); }catch(e){ toast(lockErr(e)); }
   };
 }
 async function importKre(data, say){
@@ -3246,6 +3434,7 @@ async function boot(){
       const r=e.target.value;
       S.profile = r==="admin" ? {name:"Demo Yönetici",role:"admin",initial:"Y"}
         : r==="partner" ? {name:"Demo Ortak",role:"partner",initial:"O"}
+        : r==="ozlem" ? {id:"u_ozlem",name:"Özlem",role:"creative",initial:"Ö"}
         : {name:"Demo Çağdaş",role:"creative",initial:"C"};
       S.tab="board"; renderAll();
     };
@@ -3266,6 +3455,7 @@ async function boot(){
   if(prof.is_active === false){ showAuth("Hesabın kapatıldı. Erişimin yönetici tarafından pasife alındı.", true); await sb.auth.signOut(); return; }
   if(prof.is_approved === false && !["admin","partner"].includes(prof.role)){ showAuth("Hesabın onay bekliyor. Yönetici onayladıktan sonra giriş yapabilirsin.", true); await sb.auth.signOut(); return; }
   S.profile=prof;
+  await HYB.load();
   await loadAll();
   await showApp();
 }
