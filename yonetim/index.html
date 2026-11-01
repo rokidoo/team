@@ -932,6 +932,28 @@ html,body{overflow-x:clip}
     </div>
   </div>
 
+  <!-- ===================== MODAL: Hibrit (iki ekipte çalışma) ===================== -->
+  <div class="overlay" id="hybOverlay">
+    <div class="modal" style="max-width:440px">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px">
+        <h3 style="margin:0" id="hybTitle">Hibrit</h3>
+        <button type="button" class="btn btn-icon" id="hybCloseX" style="width:32px; height:32px; flex-shrink:0">✕</button>
+      </div>
+      <div style="font-size:12px; color:var(--ink-soft); margin-bottom:12px">Hibrit kişi tek hesapla operasyon ve kreatif panellerine girer; Günüm'de iki tarafın saatini ayrı yazar, puanı o gün aynı tarafta çalıştıklarına verir.</div>
+      <div class="field"><label>Ana ekip</label><select id="hybHome"><option value="kre">Kreatif</option><option value="ops">Operasyon</option></select></div>
+      <div class="field" style="display:flex; align-items:center; gap:9px">
+        <input type="checkbox" id="hybOn" style="width:18px; height:18px; accent-color:var(--cobalt)" />
+        <label for="hybOn" style="margin:0; text-transform:none; font-weight:700; font-size:13px; color:var(--ink)">🔀 Hibrit (iki ekipte de çalışıyor)</label>
+      </div>
+      <div class="field"><label>Kreatif harfi</label><input type="text" id="hybIni" maxlength="3" placeholder="Örn. Ö" /></div>
+      <div id="hybInfo" style="font-size:11.5px; color:var(--ink-soft)"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="hybCancel">Vazgeç</button>
+        <button type="button" class="btn btn-primary" id="hybSave">Kaydet</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===================== MODAL: Görev Düzenle ===================== -->
   <div class="overlay" id="taskEditOverlay">
     <div class="modal" style="max-width:480px">
@@ -1067,6 +1089,7 @@ let me = null;
 let profile = null;
 let myPages = [];
 let profiles = {};
+let people = {};   // hibrit sistemi: hesap → ana ekip, hibrit, operasyon kaydı, kreatif harfi (people tablosu)
 let categories = [];
 let tasks = [];
 let inboxNotes = [];
@@ -1998,6 +2021,7 @@ async function reloadAll() {
     pageAll("task_assignees"),
   ]);
   profiles = {}; (p||[]).forEach(x => { x.is_admin = ["admin","partner"].includes(x.role); profiles[x.id] = x; });
+  people = {}; if (profile.is_realadmin) { const { data: pe } = await sb.from("people").select("*"); (pe||[]).forEach(x => people[x.user_id] = x); }
   categories = c || [];
   tasks = t || [];
   inboxNotes = ib || [];
@@ -2090,10 +2114,11 @@ function renderTeamList() {
         <span class="mini-avatar" style="background:${colorFor(id)}; flex-shrink:0">${esc(initials(p.name))}</span>
         <span class="cat-name" style="flex:1; min-width:0">
           ${esc(p.name)}
-          <br><span style="color:var(--ink-soft); font-weight:700; font-size:10px">${esc(ROLE_LABEL[p.role]||p.role||"")}${p.initial?" · "+esc(p.initial):""}</span>
+          <br><span style="color:var(--ink-soft); font-weight:700; font-size:10px">${esc(ROLE_LABEL[p.role]||p.role||"")}${p.initial?" · "+esc(p.initial):""}${people[id]?.hybrid?` · <b style="color:var(--cobalt)">🔀 hibrit</b>`:""}</span>
           ${durum}
         </span>
         ${profile.is_realadmin ? `<select data-role-user="${id}" style="font-size:10.5px; padding:3px 4px; border-radius:8px; border:1px solid var(--line); background:var(--card)">${["creative","ops","ads","accounting","inf","partner","admin"].map(r=>`<option value="${r}" ${p.role===r?"selected":""}>${ROLE_LABEL[r]}</option>`).join("")}</select>` : ""}
+        ${profile.is_realadmin && ["creative","ops"].includes(p.role) && !inactive ? `<button type="button" class="btn ${people[id]?.hybrid?"btn-primary":"btn-ghost"}" data-hyb-user="${id}" title="Hibrit: iki ekipte çalışma" style="padding:4px 8px; font-size:10.5px; flex-shrink:0">🔀</button>` : ""}
         ${pending ? `<button type="button" class="btn btn-mustard" data-approve-user="${id}" style="padding:4px 9px; font-size:10.5px; flex-shrink:0">Onayla</button>` : ""}
         ${profile.is_realadmin ? `<button type="button" class="btn btn-ghost" data-toggle-user="${id}" style="padding:4px 9px; font-size:10.5px; flex-shrink:0">${inactive?"Geri aç":"Pasife al"}</button>` : ""}
         ${profile.is_realadmin ? `<button type="button" class="cat-del" data-purge-user="${id}" title="Kalıcı sil (geri alınamaz)" style="opacity:.45">✕</button>` : ""}
@@ -2309,6 +2334,26 @@ async function changeRole(id, role) {
 document.addEventListener("change", e => {
   const r = e.target.closest("[data-role-user]"); if (r) changeRole(r.dataset.roleUser, r.value);
 });
+let hybUserId = null;
+function openHybrid(id) {
+  const p = profiles[id], pe = people[id] || {};
+  hybUserId = id;
+  $("#hybTitle").textContent = "🔀 " + (p?.name || "");
+  $("#hybHome").value = pe.home || (p?.role === "ops" ? "ops" : "kre");
+  $("#hybOn").checked = !!pe.hybrid;
+  $("#hybIni").value = pe.kre_initial || p?.initial || "";
+  $("#hybInfo").textContent = pe.user_id ? `Operasyon kaydı: ${pe.ops_member_id ? "bağlı" : "yok (hibrit açılınca oluşur)"} · kreatif harfi: ${pe.kre_initial || "yok"}` : "Kişi listesinde henüz yok; kaydedince eklenir.";
+  openM($("#hybOverlay"));
+}
+async function saveHybrid() {
+  if (!hybUserId) return;
+  const ini = $("#hybIni").value.trim();
+  const { error } = await sb.rpc("people_set", { p_user: hybUserId, p_home: $("#hybHome").value, p_hybrid: $("#hybOn").checked, p_initial: ini || null });
+  if (error) { toast("Kaydedilemedi: " + (/people_set|function/i.test(error.message) ? "önce v5.0 SQL'ini çalıştır" : error.message)); return; }
+  toast($("#hybOn").checked ? "Hibrit açıldı 🔀" : "Kaydedildi"); closeM($("#hybOverlay")); hybUserId = null; reloadAndRender();
+}
+$("#hybSave").addEventListener("click", saveHybrid);
+["#hybCancel", "#hybCloseX"].forEach(k => $(k).addEventListener("click", () => { closeM($("#hybOverlay")); hybUserId = null; }));
 async function toggleUserActive(id) {
   const p = profiles[id];
   const makeInactive = p.is_active !== false;
@@ -2798,6 +2843,7 @@ document.addEventListener("click", e => {
   const delNote = e.target.closest("[data-del-note]"); if (delNote) return deleteNote(delNote.dataset.delNote);
   const approve = e.target.closest("[data-approve-user]"); if (approve) return approveUser(approve.dataset.approveUser);
   const tgUser = e.target.closest("[data-toggle-user]"); if (tgUser) return toggleUserActive(tgUser.dataset.toggleUser);
+  const hyUser = e.target.closest("[data-hyb-user]"); if (hyUser) return openHybrid(hyUser.dataset.hybUser);
   const purge = e.target.closest("[data-purge-user]"); if (purge) return deleteUser(purge.dataset.purgeUser);
   if (e.target.closest("a")) return;
   const card = e.target.closest(".card"); if (card) return openTaskEdit(card.dataset.id);
