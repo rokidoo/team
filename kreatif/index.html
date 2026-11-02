@@ -1370,7 +1370,7 @@ function renderOzet(){
   const devRows=crew.map(k=>{
     const D=S.kdaily.filter(x=>x.initial===k&&inM(x)&&HYB.present(x)), ins=D.map(x=>mins(x.in_time)).filter(x=>x!=null), s=otSum(D);
     const avg=ins.length?Math.round(ins.reduce((a,b)=>a+b,0)/ins.length):null;
-    return {k, n:D.length, late:ins.filter(x=>x>LATE_MIN).length, avg:avg==null?"—":`${pad(Math.floor(avg/60))}:${pad(avg%60)}`, ot:s.normal+s.pazar, eksik:s.miss.length+s.bad.length};
+    return {k, n:D.length, rev:D.reduce((a,x)=>a+revOf(x),0), late:ins.filter(x=>x>LATE_MIN).length, avg:avg==null?"—":`${pad(Math.floor(avg/60))}:${pad(avg%60)}`, ot:s.normal+s.pazar, eksik:s.miss.length+s.bad.length};
   });
   const todayMissing = ym===cur ? crew.filter(k=>!HYB.present(kdOf(k,trToday()))) : [];
   // liderin kendi saatleri
@@ -1399,8 +1399,8 @@ function renderOzet(){
     <div class="sect"><h3>⏰ Devam + mesai</h3>
       <div class="sub" style="margin-bottom:8px">${wd} iş günü (pazar hariç) · geç = 09:10'dan sonra giriş · mesai geç gelme ve izin düşülmüş haliyle</div>
       ${todayMissing.length?`<div class="lockbar">Bugün günlüğünü henüz doldurmayan: <b>${todayMissing.map(k=>esc(OWNERS[k]?.name||k)).join(", ")}</b></div>`:""}
-      <div class="tblwrap"><table class="compact"><tr><th>Kişi</th><th>Doldurma</th><th>Geç</th><th>Ort. giriş</th><th>Mesai</th><th>Eksik saat</th></tr>
-        ${devRows.map(r=>`<tr><td>${nmCell(r.k)}</td><td><b>${r.n}/${wd}</b></td><td class="${r.late?"late":""}">${r.late}</td><td>${r.avg}</td><td class="${otCls(r.ot)}">${otTxt(r.ot)}</td><td>${r.eksik?`⚠ ${r.eksik} gün`:"—"}</td></tr>`).join("")}
+      <div class="tblwrap"><table class="compact"><tr><th>Kişi</th><th>Doldurma</th>${L?"<th>Denetim</th>":""}<th>Geç</th><th>Ort. giriş</th><th>Mesai</th><th>Eksik saat</th></tr>
+        ${devRows.map(r=>`<tr><td>${nmCell(r.k)}</td><td><b>${r.n}/${wd}</b></td>${L?`<td>${r.k===L?`<b>${fmtH(r.rev)} sa</b>`:"—"}</td>`:""}<td class="${r.late?"late":""}">${r.late}</td><td>${r.avg}</td><td class="${otCls(r.ot)}">${otTxt(r.ot)}</td><td>${r.eksik?`⚠ ${r.eksik} gün`:"—"}</td></tr>`).join("")}
       </table></div>
     </div>`;
   el.querySelectorAll("[data-oz]").forEach(b=>b.onclick=()=>{ S.ozMonth=b.dataset.oz; renderOzet(); });
@@ -2242,10 +2242,10 @@ function renderGun(){
   if(!ini){ el.innerHTML=`<h2>Günüm</h2><div class="empty">Profilinde kreatif harfin (C/İ/E/M/R) yok. Yönetici Ekip sekmesinden atasın.</div>`; return; }
   const P=HYB.byIni(ini), hy=HYB.isHyb(P);   // hibrit: iki tarafın saati tek formda
   const r=hy?HYB.merged(P,day):(kdOf(ini,day)||{}); const v=k=>r[k]==null?"":r[k];
-  const leadRow = !hy && ini===kreLead() && revCol();   // takım lideri: günün ne kadarı denetimdi
+  const leadRow = !hy && ini===kreLead(), revOk = revCol();   // takım lideri: günün ne kadarı denetimdi
   const leadBox = leadRow?`<div class="hyb" style="background:var(--lead-s,#CCEFE9)"><div class="hyb-h">👑 Takım lideri · denetim</div>
-      <div class="fgrid"><div><div class="flabel">Denetimde geçen saat</div><input type="text" inputmode="decimal" id="g_review_h" value="${r.review_h==null?"":String(r.review_h).replace(".",",")}" placeholder="0"></div></div>
-      <div class="hyb-m" id="g_revmsg"></div><div class="hyb-m">Boş bırakırsan bütün gün üretim sayılır.</div></div>`:"";
+      <div class="fgrid"><div><div class="flabel">Denetimde geçen saat</div><input type="text" inputmode="decimal" id="g_review_h" value="${r.review_h==null?"":String(r.review_h).replace(".",",")}" placeholder="0" ${revOk?"":"disabled"}></div></div>
+      <div class="hyb-m" id="g_revmsg"></div><div class="hyb-m">${revOk?"Boş bırakırsan bütün gün üretim sayılır.":"Denetim saati kaydı yönetimin veritabanı güncellemesinden sonra açılır."}</div></div>`:"";
   const num=(k,l)=>`<div><div class="flabel">${l}</div><input type="number" inputmode="numeric" min="0" id="g_${k}" value="${v(k)}" placeholder="0"></div>`;
   const sel = kreAdmin()?`<select id="gunIni">${KRE_INIS().map(k=>`<option value="${esc(k)}" ${k===ini?"selected":""}>${esc(k)} · ${esc(OWNERS[k].name)}</option>`).join("")}</select>`:"";
   const filled = KRE_INIS().filter(k=>!kreHidden(k) && (!kreAway(k) || HYB.present(kdOf(k,day)))).map(k=>{ const ok=HYB.present(kdOf(k,day)); return `<span class="w ${ok?"ok":"no"}">${ok?"✓":"✗"} ${esc(OWNERS[k].name)}</span>`; }).join("");
@@ -2280,8 +2280,8 @@ function renderGun(){
     </div>
     <div class="sect"><h3>👥 ${trDate(day)} · kim doldurdu</h3><div class="who">${filled}</div></div>
     ${last7.length?`<div class="sect"><h3>📅 Son günlerim</h3><div class="tblwrap"><table class="compact">
-      <tr><th>Gün</th><th>Giriş</th><th>Çıkış</th><th>Sıfır V</th><th>Sıfır G</th><th>Var V</th><th>Var G</th><th>Mesai</th></tr>
-      ${last7.map(x=>`<tr><td>${trShort(x.day)}</td><td class="${mins(x.in_time)>LATE_MIN?"late":""}">${esc(x.in_time||"—")}</td><td>${esc(x.out_time||"—")}</td><td>${x.new_video??"—"}</td><td>${x.new_image??"—"}</td><td>${x.var_video??"—"}</td><td>${x.var_image??"—"}</td><td>${(()=>{ const c=otCalc(x); return c.kind==="normal"||c.kind==="pazar"?`<span class="${otCls(c.min)}">${otTxt(c.min)}</span>`:"—"; })()}</td></tr>`).join("")}
+      <tr><th>Gün</th><th>Giriş</th><th>Çıkış</th>${leadRow?"<th>Denetim</th>":""}<th>Sıfır V</th><th>Sıfır G</th><th>Var V</th><th>Var G</th><th>Mesai</th></tr>
+      ${last7.map(x=>`<tr><td>${trShort(x.day)}</td><td class="${mins(x.in_time)>LATE_MIN?"late":""}">${esc(x.in_time||"—")}</td><td>${esc(x.out_time||"—")}</td>${leadRow?`<td>${x.review_h?fmtH(revOf(x))+" sa":"—"}</td>`:""}<td>${x.new_video??"—"}</td><td>${x.new_image??"—"}</td><td>${x.var_video??"—"}</td><td>${x.var_image??"—"}</td><td>${(()=>{ const c=otCalc(x); return c.kind==="normal"||c.kind==="pazar"?`<span class="${otCls(c.min)}">${otTxt(c.min)}</span>`:"—"; })()}</td></tr>`).join("")}
     </table></div></div>`:""}
     ${canTalep()?`<div class="sect"><h3>🛒 Talepler & ofis alışverişi <span class="cnt">${open.length} açık</span></h3>
       <div class="card" style="margin-bottom:12px"><div class="fgrid c2">
@@ -2315,7 +2315,7 @@ function renderGun(){
     const row={initial:ini, day, in_time:$("g_in_time").value||null, out_time:$("g_out_time").value||null, updated_at:nowIso()};
     ["leave_min","new_video","new_image","var_video","var_image"].forEach(k=>row[k]=numOrNull($("g_"+k).value));
     row.note=$("g_note").value.trim()||null; row.wish=$("g_wish").value.trim()||null;
-    if(leadRow) row.review_h=hNum($("g_review_h").value);
+    if(leadRow && revOk) row.review_h=hNum($("g_review_h").value);
     { const c=otCalc(row); row.ot_min=(c.kind==="normal"||c.kind==="pazar")?c.min:null; }
     if(stampCol() && adminEntry()){ row.admin_edits=(r.admin_edits||0)+1; row.admin_by=S.profile?.id||null; row.admin_by_name=S.profile?.name||null; row.admin_at=nowIso(); }
     $("gunSave").disabled=true;
