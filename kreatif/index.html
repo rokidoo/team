@@ -117,6 +117,17 @@
   nav.bottom button.on{color:var(--ink); background:var(--mustard); border:var(--b2); box-shadow:var(--sh-sm)}
   @media(min-width:960px){ nav.bottom{display:none} }
 
+  /* ================= TAKIM LİDERİ teması (lider girince panel bu renkte açılır) ================= */
+  html.lead{--cream:#E8F3F0; --cream2:#D6EAE5; --lead:#0F766E; --lead-s:#CCEFE9}
+  html.lead aside .navbtn.on, html.lead nav.bottom button.on{background:var(--lead); color:#fff}
+  html.lead .avatar{background:var(--lead); color:#fff}
+  html.lead aside .brand b, html.lead header .mlogo b{color:var(--lead)}
+  .leadtag{display:none; background:var(--lead,#0F766E); color:#fff; border:var(--b2); border-radius:999px; padding:5px 11px; font-size:.74rem; font-weight:800; white-space:nowrap; box-shadow:var(--sh-sm)}
+  html.lead .leadtag{display:inline-flex; align-items:center; gap:5px}
+  @media(max-width:420px){ .leadtag .lt-l{display:none} }
+  .leadhero{background:var(--lead-s,#CCEFE9); border:var(--b2); border-radius:var(--r); padding:12px 14px; margin-bottom:14px; font-weight:600; font-size:.88rem; box-shadow:var(--sh-sm)}
+  .leadhero b{color:var(--lead,#0F766E)}
+
   /* ================= GENEL ================= */
   main{padding:20px 16px; max-width:1060px; margin:0 auto}
   @media(min-width:960px){main{padding:28px 32px}}
@@ -622,6 +633,7 @@ html,body{overflow-x:clip}
 
   <header>
     <div class="mlogo">uzbionik <b>kreatif</b></div>
+    <span class="leadtag" title="Takım lideri olarak giriş yaptın">👑 <span class="lt-l">Takım lideri</span></span>
     <div class="sp"></div>
     <select id="weekPick" class="weekpick"></select>
     <button class="eye hidden" id="btnView" title="Birinin gözünden gör">👁</button>
@@ -638,6 +650,7 @@ html,body{overflow-x:clip}
         <option value="partner">Ortak</option>
         <option value="creative">Kreatif Ekip</option>
         <option value="ozlem">Özlem (hibrit)</option>
+        <option value="lead">İmkan (takım lideri)</option>
       </select>
     </div>
 
@@ -651,6 +664,7 @@ html,body{overflow-x:clip}
     <div id="tabProd" class="hidden"></div>
     <div id="tabLinks" class="hidden"></div>
     <div id="tabTeam" class="hidden"></div>
+    <div id="tabOzet" class="hidden"></div>
     <div id="tabFinance" class="hidden"></div>
     <div id="tabImport" class="hidden"></div>
     <div id="tabAnaliz" class="hidden"></div>
@@ -711,7 +725,7 @@ const S = {
   profile:null, weeks:[], week:null,
   creatives:[], results:[], fins:[], hooks:[],
   tab:"board", galFilter:{owner:"", status:"", format:""},
-  gunDay:null, puanDay:null, gunIni:null, gunPeriod:"hafta", kdaily:[], kscores:[], kreq:[], kreTables:true, kreRoles:{talep:"İ"}, profiles:[], ktasks:[], kassign:[],
+  gunDay:null, puanDay:null, gunIni:null, gunPeriod:"hafta", kdaily:[], kscores:[], kreq:[], kreTables:true, kreRoles:{talep:"İ", lead:"İ"}, profiles:[], ktasks:[], kassign:[],
   boardFmt:"", boardOwner:"", boardView:"hafta", teamView:"tumu", teamFmt:"", teamMonth:"", hookFilter:{format:"", status:""}, teamTable:true,
   pipeline:[], ideas:[], prodView:"akis", prodTables:true,
   links:[], linksTable:true, waLast:null, importsTable:true, linkFilter:{durum:"acik", kat:"", plat:"", q:""},
@@ -787,7 +801,7 @@ function demoData(){
     S.kdaily.push({id:uid(),initial:"Ö",day:d,in_time:"09:00",out_time:"18:00",leave_min:0,hours:8-opsH,new_video:opsH===8?0:_r(0,2),new_image:0,var_video:_r(0,3),var_image:0,note:"demo"});
     if(opsH) orows.push({id:uid(),member_id:"m_ozlem",day:d,hours:opsH,cargo:_r(20,80),note:"demo"}); }
   HYB.setDemo([{user_id:"u_ozlem",name:"Özlem",home:"kre",hybrid:true,ops_member_id:"m_ozlem",kre_initial:"Ö"}], orows);
-  for(let i=1;i<=8;i++){ const d=addDays(_t,-i); if(dow(d)===0) continue; ["İ","M","C","E"].forEach(k=>{ if(Math.random()<.2) return; S.kdaily.push({id:uid(),initial:k,day:d,in_time:`09:${pad(_r(0,20))}`,out_time:"18:00",leave_min:0,ot_min:Math.random()<.3?_r(15,60):0,new_video:_r(0,3),new_image:_r(0,4),var_video:_r(0,5),var_image:_r(0,6),note:"verimli gündü",wish:null}); });
+  for(let i=1;i<=8;i++){ const d=addDays(_t,-i); if(dow(d)===0) continue; ["İ","M","C","E"].forEach(k=>{ if(Math.random()<.2) return; S.kdaily.push({id:uid(),initial:k,day:d,in_time:`09:${pad(_r(0,20))}`,out_time:"18:00",leave_min:0,ot_min:Math.random()<.3?_r(15,60):0,review_h:k==="İ"?_r(3,6):null,new_video:_r(0,3),new_image:_r(0,4),var_video:_r(0,5),var_image:_r(0,6),note:"verimli gündü",wish:null}); });
     S.kscores.push({id:uid(),day:d,rater:"M",ratee:"İ",score:_r(8,10),comment:"yardımcı oldu"},{id:uid(),day:d,rater:"İ",ratee:"M",score:_r(7,10),comment:null}); }
   S.kreq=[{id:uid(),day:_t,kind:"talep",text:"kablosuz mouse, mouse pad",by_initial:"M",by_name:"Mustafa Kemal",done:false,approved:false},{id:uid(),day:addDays(_t,-3),kind:"alisveris",text:"yüzey temizleyici, kağıt havlu, çay",amount:2200,by_initial:"İ",by_name:"İmkan",done:true,done_note:"alındı"}];
   const w1="2026-08-03", w2="2026-08-10";
@@ -1214,21 +1228,36 @@ function aylikVideoSiralama(ym){
       if(WIN.includes(r.status_at_week))    per[o].win.add(c.code);
     });
   });
+  const first=ym+"-01", last=monthEnd(first), upto=last<today()?last:today();
+  // takım lideri: denetimde geçen saat payı kadar ekibin (kendi videoları hariç) winner oranı sayılır,
+  // kendi oranı az videoda ekip oranına çekilir; iş hacmi üretimde geçen saate göre büyütülür
+  const L=kreLead(); let LD=null;
+  if(L && per[L]){
+    const D=S.kdaily.filter(x=>x.initial===L&&x.day>=first&&x.day<=upto);
+    const tot=D.reduce((a,x)=>a+(workH(x)||0),0), rev=D.reduce((a,x)=>a+revOf(x),0);
+    if(rev>0 && tot>0){
+      const tDec=new Set(), tWin=new Set();
+      Object.keys(per).forEach(o=>{ if(o===L) return;
+        per[o].dec.forEach(c=>{ if(!per[L].kod.has(c)) tDec.add(c); }); per[o].win.forEach(c=>{ if(!per[L].kod.has(c)) tWin.add(c); }); });
+      if(tDec.size) LD={tot, rev, u:(tot-rev)/tot, tDec:tDec.size, tWin:tWin.size, tRate:tWin.size/tDec.size};
+    }
+  }
   let rows = Object.keys(per).map(o=>{
     const t=per[o].kod.size, d=per[o].dec.size, w=per[o].win.size;
-    return {o, teslim:t, dec:d, win:w, rate: d? w/d : null, eski:per[o].eski.size};
-  }).filter(r=>r.teslim>0 || r.eski>0);
-  const maxT = Math.max(1,...rows.map(r=>r.teslim));
+    const r={o, teslim:t, dec:d, win:w, rate: d? w/d : null, eski:per[o].eski.size};
+    if(o===L && LD){ r.lead={...LD, own: d? w/d : null}; r.rate = LD.u*((w + LEAD_K*LD.tRate)/(d + LEAD_K)) + (1-LD.u)*LD.tRate; }
+    return r;
+  }).filter(r=>r.teslim>0 || r.eski>0 || r.lead);
+  const maxT = Math.max(1,...rows.filter(r=>!r.lead).map(r=>r.teslim));
   const maxR = Math.max(0.0001,...rows.map(r=>r.rate||0));
   // Puan = Winner oranı %50 + Ekip puanı %30 + İş hacmi (teslim) %10 + Doldurma %5 + Zamanında %5
   // Ekip puanı olmayan (puanlanmayan ortaklar) ya da henüz hesaplanamayan bileşen, ağırlığı diğerlerine dağıtılarak çıkarılır.
-  const first=ym+"-01", last=monthEnd(first), upto=last<today()?last:today();
   let wd=0; for(let d=first; d<=upto; d=addDays(d,1)) if(dow(d)!==0) wd++;
   const un=new Set(S.kreRoles?.unrated||[]); const KR=S.krank?.[ym];
   rows.forEach(r=>{
     const D=S.kdaily.filter(x=>x.initial===r.o&&x.day>=first&&x.day<=upto);
     const ins=D.map(x=>mins(x.in_time)).filter(x=>x!=null);
-    r.pUretim = (r.teslim/maxT)*100;
+    r.pUretim = !r.lead ? (r.teslim/maxT)*100 : r.lead.u<0.1 ? null : Math.min(100, (r.teslim/r.lead.u)/maxT*100);
     r.pOran   = ((r.rate||0)/maxR)*100;
     r.pDold   = Math.min(100, D.length/Math.max(wd,1)*100);
     r.pZam    = ins.length ? ins.filter(x=>x<=LATE_MIN).length/ins.length*100 : 0;
@@ -1237,7 +1266,7 @@ function aylikVideoSiralama(ym){
     const parts=[[0.5,r.pOran],[0.3,ek],[0.1,r.pUretim],[0.05,r.pDold],[0.05,r.pZam]].filter(([,v])=>v!=null);
     const ws=parts.reduce((a,[w])=>a+w,0);
     r.puan    = ws ? parts.reduce((a,[w,v])=>a+w*v,0)/ws : 0;
-    r.yeterli = r.dec >= 4;
+    r.yeterli = r.dec >= 4 || (!!r.lead && r.lead.tDec >= 4);
   });
   const sirali = rows.filter(r=>r.yeterli).sort((a,b)=>b.puan-a.puan);
   const onSinyal = rows.filter(r=>!r.yeterli).sort((a,b)=>b.teslim-a.teslim);
@@ -1280,18 +1309,19 @@ function renderAylik(){
         <div class="tstat"><b>${nf1.format(r.puan)}</b><span>Puan</span></div>
       </div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        <span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">📦 Üretim puanı <b class="mono">${nf1.format(r.pUretim)}</b></span>
+        <span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">📦 Üretim puanı <b class="mono">${r.pUretim==null?"—":nf1.format(r.pUretim)}</b></span>
         <span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">🎯 Oran puanı <b class="mono">${nf1.format(r.pOran)}</b></span>
         ${kreAdmin()?`<span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">⭐ Ekip puanı <b class="mono">${r.pEkip==null?"—":nf1.format(r.pEkip)}</b></span>`:""}
         <span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">📝 Doldurma <b class="mono">%${Math.round(r.pDold)}</b></span>
         <span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">⏰ Zamanında <b class="mono">%${Math.round(r.pZam)}</b></span>
+        ${r.lead?`<span style="background:var(--lead-s,#CCEFE9);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">👑 Takım lideri · üretim ${fmtH(r.lead.tot-r.lead.rev)} sa / denetim ${fmtH(r.lead.rev)} sa · oran = kendi ${pct(r.lead.own)} × %${Math.round(r.lead.u*100)} + ekibin ${pct(r.lead.tRate)} × %${100-Math.round(r.lead.u*100)}</span>`:""}
         ${r.eski?`<span style="background:var(--green-s);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">♻️ Önceki aylardan +${r.eski} video hâlâ winner (puana girmez)</span>`:""}
       </div>
     </div>`;
   };
   return `
     <div class="filters">${achips}</div>
-    <div class="demo" style="margin-bottom:14px">Sadece <b>bu ay ilk kez teslim edilen videolar</b> sayılır — önceki aylardan yayında kalanlar ve görseller puana girmez. Puan = <b>winner oranı %50 + ekip puanı %30 + iş hacmi (teslim edilen video) %10 + doldurma %5 + zamanında geliş %5</b>. Winner oranı ve iş hacminde ayın en iyisi 100 alır; ekip puanı ortalama × 10. Puan almayan ortakların ekip puanı payı diğer bileşenlere dağıtılır. Ortak videolar iki kişiye de sayılır. ${wks.length} hafta.</div>
+    <div class="demo" style="margin-bottom:14px">Sadece <b>bu ay ilk kez teslim edilen videolar</b> sayılır — önceki aylardan yayında kalanlar ve görseller puana girmez. Puan = <b>winner oranı %50 + ekip puanı %30 + iş hacmi (teslim edilen video) %10 + doldurma %5 + zamanında geliş %5</b>. Winner oranı ve iş hacminde ayın en iyisi 100 alır; ekip puanı ortalama × 10. Puan almayan ortakların ekip puanı payı diğer bileşenlere dağıtılır. Ortak videolar iki kişiye de sayılır. Takım liderinin denetimde geçen saati kadar payında ekibin winner oranı sayılır, iş hacmi üretimde geçen saatine göre hesaplanır. ${wks.length} hafta.</div>
     <div class="cards">${sirali.length? sirali.map(kart).join("") : `<div class="empty">Bu ayda sıralanabilir video yok</div>`}</div>
     ${onSinyal.length?`<div class="sect" style="margin-top:22px"><h3>Ön Sinyal <span class="cnt">${onSinyal.length}</span></h3>
       <div class="sub" style="margin-bottom:10px">4 değerlendirilebilir videonun altında kaldı — sıralamaya girmiyor</div>
@@ -1301,6 +1331,76 @@ function renderAylik(){
           <span style="flex:1"></span><span class="mono" style="font-size:.78rem">${r.teslim} teslim · ${r.win}/${r.dec} winner</span></div></div>`;
       }).join("")}</div></div>`:""}
   `;
+}
+/* ================= AYLIK ÖZET · takım lideri + yönetim =================
+   Lider ekibin ayını görür: üretim + winner, devam + mesai. Harcama, ciro, ekip puanı ve gizli yorumlar burada yok. */
+function renderOzet(){
+  const el=$("tabOzet"); if(!el) return;
+  if(!canOzet()){ el.innerHTML=""; return; }
+  const cur=trToday().slice(0,7);
+  const months=[...new Set([cur, ...S.weeks.map(w=>String(w.week).slice(0,7)), ...S.kdaily.map(x=>String(x.day).slice(0,7))])].filter(Boolean).sort().reverse().slice(0,6);
+  if(!S.ozMonth || !months.includes(S.ozMonth)) S.ozMonth=cur;
+  const ym=S.ozMonth, first=ym+"-01", last=monthEnd(first), upto=last<trToday()?last:trToday();
+  let wd=0; for(let d=first; d<=upto; d=addDays(d,1)) if(dow(d)!==0) wd++;
+  const L=kreLead(), un=new Set(S.kreRoles?.unrated||[]);
+  const bosses=new Set((S.profiles||[]).filter(p=>["admin","partner"].includes(p.role)&&p.initial).map(p=>p.initial));
+  const team=KRE_INIS().filter(k=>!kreHidden(k));
+  const inM=x=>x.day>=first && x.day<=upto;
+  // üretim + winner: bu ay ilk kez teslim edilenler (aylık sıralamayla aynı kural), video ve görsel ayrı
+  const WIN=["onayli_winner","winner_adayi"], UNDEC=["yeni","testte","yetersiz_veri"];
+  const wks=S.weeks.filter(w=>String(w.week).slice(0,7)===ym).map(w=>w.week), fs=firstSeenMap();
+  const box=()=>({t:new Set(), d:new Set(), w:new Set(), l:new Set()});
+  const P={}; team.forEach(k=>P[k]={v:box(), g:box()}); const T={v:box(), g:box()};
+  S.results.filter(r=>wks.includes(r.week)).forEach(r=>{
+    const c=S.creatives.find(x=>x.code===r.creative_code); if(!c || !wks.includes(fs[c.code])) return;
+    const f=(c.format||"video")==="video"?"v":"g", st=r.status_at_week;
+    const add=b=>{ b.t.add(c.code); if(!UNDEC.includes(st)) b.d.add(c.code); if(WIN.includes(st)) b.w.add(c.code); if(st==="loser") b.l.add(c.code); };
+    add(T[f]); ownersOf(c).forEach(o=>{ if(P[o]) add(P[o][f]); });
+  });
+  const gsum=(k,a,b)=>S.kdaily.filter(x=>x.initial===k&&inM(x)).reduce((s,x)=>s+(+x[a]||0)+(+x[b]||0),0);
+  const prodRows=team.map(k=>({k, v:P[k].v, g:P[k].g, gv:gsum(k,"new_video","var_video"), gg:gsum(k,"new_image","var_image")}))
+    .filter(r=>r.v.t.size||r.g.t.size||r.gv||r.gg);
+  const rt=b=>b.d.size?pct(b.w.size/b.d.size):"—";
+  const nmCell=k=>`<span style="display:inline-flex;gap:6px;align-items:center">${ownBadge(k)}${esc(OWNERS[k]?.name||k)}${k===L?" 👑":""}</span>`;
+  // devam + mesai (ortaklar ve yönetim hariç)
+  const crew=team.filter(k=>!un.has(k) && !bosses.has(k));
+  const devRows=crew.map(k=>{
+    const D=S.kdaily.filter(x=>x.initial===k&&inM(x)&&HYB.present(x)), ins=D.map(x=>mins(x.in_time)).filter(x=>x!=null), s=otSum(D);
+    const avg=ins.length?Math.round(ins.reduce((a,b)=>a+b,0)/ins.length):null;
+    return {k, n:D.length, late:ins.filter(x=>x>LATE_MIN).length, avg:avg==null?"—":`${pad(Math.floor(avg/60))}:${pad(avg%60)}`, ot:s.normal+s.pazar, eksik:s.miss.length+s.bad.length};
+  });
+  const todayMissing = ym===cur ? crew.filter(k=>!HYB.present(kdOf(k,trToday()))) : [];
+  // liderin kendi saatleri
+  const LDays = L ? S.kdaily.filter(x=>x.initial===L&&inM(x)) : [];
+  const lTot=LDays.reduce((a,x)=>a+(workH(x)||0),0), lRev=LDays.reduce((a,x)=>a+revOf(x),0);
+  const chips=months.map(m=>`<button class="fchip ${m===ym?"on":""}" data-oz="${m}">${ayAdi(m)}${m===cur?" · bu ay":""}</button>`).join("");
+  el.innerHTML=`
+    <h2>Aylık Özet</h2>
+    <div class="sub">Ekibin ${ayAdi(ym)} ayı: üretim, winner'lar, devam ve mesai. ${ym===cur?"Ay sürüyor, rakamlar her gün güncellenir.":""}</div>
+    <div class="filters">${chips}</div>
+    ${isKreLead()?`<div class="leadhero">👑 <b>Takım lideri</b> özeti · bu ay ${fmtH(lTot)} sa çalıştın: <b>${fmtH(lRev)} sa denetim</b>, ${fmtH(lTot-lRev)} sa üretim. Denetim saatini her gün Günüm'e yaz; sıralamada o kadar payında ekibin winner oranı sayılır.</div>`
+      :L&&lTot?`<div class="leadhero">👑 ${esc(OWNERS[L]?.name||L)} (takım lideri) bu ay ${fmtH(lTot)} sa çalıştı: <b>${fmtH(lRev)} sa denetim</b>, ${fmtH(lTot-lRev)} sa üretim.</div>`:""}
+    <div class="kpis">
+      <div class="kpi"><b>${T.v.t.size}</b><span>Teslim video</span></div>
+      <div class="kpi"><b>${T.v.w.size}/${T.v.d.size}</b><span>Video winner / karar</span></div>
+      <div class="kpi"><b>${rt(T.v)}</b><span>Ekip video winner oranı</span></div>
+      <div class="kpi"><b>${T.g.t.size}</b><span>Teslim görsel</span></div>
+      <div class="kpi"><b>${rt(T.g)}</b><span>Görsel winner oranı</span></div>
+    </div>
+    <div class="sect"><h3>🎬 Üretim + winner</h3>
+      <div class="sub" style="margin-bottom:8px">Bu ay ilk kez teslim edilenler · "karar" = sonucu belli olan · testtekiler orana girmez · günlük = Günüm'e yazılan sıfır + varyasyon</div>
+      ${prodRows.length?`<div class="tblwrap"><table class="compact"><tr><th>Kişi</th><th>Video</th><th>Winner / karar</th><th>Oran</th><th>Testte</th><th>Loser</th><th>Görsel</th><th>Görsel winner</th><th>Günlük video / görsel</th></tr>
+        ${prodRows.map(r=>`<tr><td>${nmCell(r.k)}</td><td><b>${r.v.t.size}</b></td><td>${r.v.w.size}/${r.v.d.size}</td><td><b>${rt(r.v)}</b></td><td>${r.v.t.size-r.v.d.size}</td><td>${r.v.l.size}</td><td>${r.g.t.size}</td><td>${r.g.w.size}/${r.g.d.size}</td><td>${r.gv} / ${r.gg}</td></tr>`).join("")}
+      </table></div>`:`<div class="empty">Bu ay henüz teslim yok</div>`}
+    </div>
+    <div class="sect"><h3>⏰ Devam + mesai</h3>
+      <div class="sub" style="margin-bottom:8px">${wd} iş günü (pazar hariç) · geç = 09:10'dan sonra giriş · mesai geç gelme ve izin düşülmüş haliyle</div>
+      ${todayMissing.length?`<div class="lockbar">Bugün günlüğünü henüz doldurmayan: <b>${todayMissing.map(k=>esc(OWNERS[k]?.name||k)).join(", ")}</b></div>`:""}
+      <div class="tblwrap"><table class="compact"><tr><th>Kişi</th><th>Doldurma</th><th>Geç</th><th>Ort. giriş</th><th>Mesai</th><th>Eksik saat</th></tr>
+        ${devRows.map(r=>`<tr><td>${nmCell(r.k)}</td><td><b>${r.n}/${wd}</b></td><td class="${r.late?"late":""}">${r.late}</td><td>${r.avg}</td><td class="${otCls(r.ot)}">${otTxt(r.ot)}</td><td>${r.eksik?`⚠ ${r.eksik} gün`:"—"}</td></tr>`).join("")}
+      </table></div>
+    </div>`;
+  el.querySelectorAll("[data-oz]").forEach(b=>b.onclick=()=>{ S.ozMonth=b.dataset.oz; renderOzet(); });
 }
 const teamViews = () => [["tumu","🏛 Tüm Zamanlar"],["hafta","📅 Bu Hafta"]].concat(ayAylar().length?[["ay","🏆 Aylık Sıralama"]]:[]);
 function renderTeam(){
@@ -1375,6 +1475,7 @@ function renderTeam(){
     </div>
     ${teamWarn}
     ${isAdmin()?`<div class="demo" style="margin-bottom:12px">🛒 Talep & ofis alışverişi sorumlusu: <select id="talepSel">${Object.keys(OWNERS).map(k=>`<option value="${esc(k)}" ${k===S.kreRoles.talep?"selected":""}>${esc(k)} · ${esc(OWNERS[k].name)}</option>`).join("")}</select><span style="font-weight:600;color:var(--mut)">Talepler bölümünü yalnızca bu kişi, sen ve ortaklar görür.</span></div>
+    <div class="demo" style="margin-bottom:12px">👑 Takım lideri: <select id="leadSel"><option value="">— yok</option>${Object.keys(OWNERS).map(k=>`<option value="${esc(k)}" ${k===kreLead()?"selected":""}>${esc(k)} · ${esc(OWNERS[k].name)}</option>`).join("")}</select><span style="font-weight:600;color:var(--mut)">Günüm'e denetim saatini yazar, Aylık Özet'i görür, panel ona farklı renkte açılır. Sıralamada denetim saati kadar payında ekibin winner oranı sayılır.</span></div>
     <div style="margin-bottom:12px"><button class="addbtn" id="teamAdd" style="width:100%">＋ Ekip üyesi ekle</button></div>`:""}
     <div class="cards">
     ${rows.map(r=>{
@@ -1407,6 +1508,7 @@ function renderTeam(){
   $("tabTeam").querySelectorAll("[data-tf]").forEach(b=>b.onclick=()=>{S.teamFmt=b.dataset.tf; renderTeam();});
   if(isAdmin()){
     if($("teamAdd")) $("teamAdd").onclick=()=>openTeamModal(null);
+    if($("leadSel")) $("leadSel").onchange=async e=>{ const v={...S.kreRoles, lead:e.target.value||null}; if(!DEMO){ const {error}=await sb.from("kre_settings").upsert({key:"roles",value:v,updated_at:nowIso()},{onConflict:"key"}); if(error){ toast("Hata: "+error.message); return; } } S.kreRoles=v; toast(v.lead?"Takım lideri: "+OWNERS[v.lead].name:"Takım lideri kaldırıldı"); };
     if($("talepSel")) $("talepSel").onchange=async e=>{ const v={...S.kreRoles, talep:e.target.value}; if(!DEMO){ const {error}=await sb.from("kre_settings").upsert({key:"roles",value:v,updated_at:nowIso()},{onConflict:"key"}); if(error){ toast("Hata: "+error.message); return; } } S.kreRoles=v; toast("Talep sorumlusu: "+OWNERS[v.talep].name); };
     $("tabTeam").querySelectorAll("[data-tedit]").forEach(b=>b.onclick=()=>openTeamModal(b.dataset.tedit));
   }
@@ -1623,6 +1725,7 @@ function renderNav(){
   const tabs = [
     ["board","📊","Board"],["gun","📝","Günüm"],["puan","⭐","Puan"],["mesai","⏱","Mesai"],["gallery","🖼","Galeri"],["hooks","🪝","Hooklar"],["prod","🛠","Üretim"],["links","🔗","Linkler"],["team","👥","Ekip"],["analiz","📊","DM Analizi"],
   ];
+  if(canOzet()) tabs.splice(1,0,["ozet","📋","Aylık Özet"]);
   if(canFin()) tabs.push(["finance","💰","Finans"]);
   if(isAdmin()) tabs.push(["geri","💬","Geri bildirim"],["import","📥","Aktar"]);
   $("nav").innerHTML = tabs.map(([id,ic,l])=>
@@ -1807,18 +1910,19 @@ async function docLoadReaders(k, el){
 /*/DOCS*/
 function renderAll(){
   renderNav(); renderWeeks();
-  ["Board","Gun","Puan","Mesai","Geri","Gallery","Hooks","Prod","Links","Team","Finance","Import","Analiz"].forEach(t=>$("tab"+t).classList.add("hidden"));
-  const map={board:"Board",gun:"Gun",puan:"Puan",mesai:"Mesai",geri:"Geri",gallery:"Gallery",hooks:"Hooks",prod:"Prod",links:"Links",team:"Team",finance:"Finance",import:"Import",analiz:"Analiz"};
-  if((S.tab==="finance"&&!canFin())||((S.tab==="import"||S.tab==="geri")&&!isAdmin())) S.tab="board";
+  ["Board","Gun","Puan","Mesai","Geri","Gallery","Hooks","Prod","Links","Team","Ozet","Finance","Import","Analiz"].forEach(t=>$("tab"+t).classList.add("hidden"));
+  const map={board:"Board",gun:"Gun",puan:"Puan",mesai:"Mesai",geri:"Geri",gallery:"Gallery",hooks:"Hooks",prod:"Prod",links:"Links",team:"Team",ozet:"Ozet",finance:"Finance",import:"Import",analiz:"Analiz"};
+  if((S.tab==="finance"&&!canFin())||((S.tab==="import"||S.tab==="geri")&&!isAdmin())||(S.tab==="ozet"&&!canOzet())) S.tab="board";
+  document.documentElement.classList.toggle("lead", isKreLead());
   $("tab"+map[S.tab]).classList.remove("hidden");
   document.querySelector("main").classList.toggle("wide", S.tab==="prod");
-  renderBoard(); renderGun(); renderPuan(); renderMesai(); renderGeri(); renderGallery(); renderHooks(); renderProd(); renderLinks(); renderTeam(); renderFinance(); renderImport();
+  renderBoard(); renderGun(); renderPuan(); renderMesai(); renderGeri(); renderGallery(); renderHooks(); renderProd(); renderLinks(); renderTeam(); renderOzet(); renderFinance(); renderImport();
   if(S.tab==="analiz") renderDoc("dm-analiz",$("tabAnaliz"));
   docBanner();
   const ini = (S.profile?.initial || S.profile?.name?.[0] || "?").toUpperCase();
   $("avatar").textContent = ini; $("avatarSide").textContent = ini;
   $("userName").textContent = S.profile?.name || "";
-  $("userRole").textContent = S.profile?.role==="admin"?"Yönetici":S.profile?.role==="partner"?"Ortak":"Kreatif Ekip";
+  $("userRole").textContent = S.profile?.role==="admin"?"Yönetici":S.profile?.role==="partner"?"Ortak":isKreLead()?"👑 Takım Lideri":"Kreatif Ekip";
   renderViewBar();
 }
 
@@ -1877,6 +1981,16 @@ const myIni = ()=>{ if(S.profile?.initial && OWNERS[S.profile.initial]) return S
 const canTalep = ()=>kreAdmin() || (myIni() && myIni()===S.kreRoles.talep);
 const kreAdmin = ()=>canFin();                       // yönetici + ortaklar
 const KRE_INIS = ()=>Object.keys(OWNERS);
+// takım lideri (kre_settings.roles.lead): Günüm'de denetim saati yazar, Aylık Özet'i görür, panel kendi renginde açılır
+const kreLead = ()=>S.kreRoles?.lead||null;
+const isKreLead = ()=>!kreAdmin() && !!myIni() && myIni()===kreLead();
+const canOzet = ()=>kreAdmin() || isKreLead();
+const revCol = ()=>DEMO || S.kdaily.some(x=>"review_h" in x);
+const LEAD_K = 4;   // liderin az videosunda kendi oranı bu kadar "ekip ortalaması videosu" ile dengelenir
+const hNum = v=>{ const s=String(v??"").trim().replace(",","."); if(s==="") return null; const n=parseFloat(s); return isNaN(n)?null:Math.max(0,Math.min(24,n)); };
+const fmtH = h=>String(Math.round((h||0)*10)/10).replace(".",",");
+const workH = r=>{ const a=mins(r?.in_time), b=mins(r?.out_time); if(a==null||b==null||b<=a) return null; return Math.max(0,(b-a-(+r.leave_min||0))/60); };
+const revOf = r=>{ const w=workH(r), v=+r?.review_h||0; return w==null?0:Math.min(v,w); };
 const kdOf = (ini,day)=>S.kdaily.find(r=>r.initial===ini && r.day===day);
 const prodOf = r=>(r.new_video||0)+(r.new_image||0)+(r.var_video||0)+(r.var_image||0);
 function gunIni(){
@@ -2125,6 +2239,10 @@ function renderGun(){
   if(!ini){ el.innerHTML=`<h2>Günüm</h2><div class="empty">Profilinde kreatif harfin (C/İ/E/M/R) yok. Yönetici Ekip sekmesinden atasın.</div>`; return; }
   const P=HYB.byIni(ini), hy=HYB.isHyb(P);   // hibrit: iki tarafın saati tek formda
   const r=hy?HYB.merged(P,day):(kdOf(ini,day)||{}); const v=k=>r[k]==null?"":r[k];
+  const leadRow = !hy && ini===kreLead() && revCol();   // takım lideri: günün ne kadarı denetimdi
+  const leadBox = leadRow?`<div class="hyb" style="background:var(--lead-s,#CCEFE9)"><div class="hyb-h">👑 Takım lideri · denetim</div>
+      <div class="fgrid"><div><div class="flabel">Denetimde geçen saat</div><input type="text" inputmode="decimal" id="g_review_h" value="${r.review_h==null?"":String(r.review_h).replace(".",",")}" placeholder="0"></div></div>
+      <div class="hyb-m" id="g_revmsg"></div><div class="hyb-m">Boş bırakırsan bütün gün üretim sayılır.</div></div>`:"";
   const num=(k,l)=>`<div><div class="flabel">${l}</div><input type="number" inputmode="numeric" min="0" id="g_${k}" value="${v(k)}" placeholder="0"></div>`;
   const sel = kreAdmin()?`<select id="gunIni">${KRE_INIS().map(k=>`<option value="${esc(k)}" ${k===ini?"selected":""}>${esc(k)} · ${esc(OWNERS[k].name)}</option>`).join("")}</select>`:"";
   const filled = KRE_INIS().filter(k=>!kreHidden(k) && (!kreAway(k) || HYB.present(kdOf(k,day)))).map(k=>{ const ok=HYB.present(kdOf(k,day)); return `<span class="w ${ok?"ok":"no"}">${ok?"✓":"✗"} ${esc(OWNERS[k].name)}</span>`; }).join("");
@@ -2135,6 +2253,7 @@ function renderGun(){
   el.innerHTML=`
     <h2>Günüm</h2>
     <div class="sub">Akşam çıkmadan 2 dakikada doldur: saatler, bugün ürettiklerin, notun.</div>
+    ${isKreLead()&&ini===myIni()?`<div class="leadhero">👑 <b>Takım lideri</b> olarak giriş yaptın. Ekibin işlerini denetlemeye ayırdığın saati aşağıya yaz; kalan süre üretim sayılır. Ekibin ayını <b>📋 Aylık Özet</b> sekmesinde görürsün.</div>`:""}
     ${dayNav("gunDay", day, sel + (kreAdmin()?`<button class="btn ghost sm" id="kTaskAdd">📌 Görev ata</button>`:""))}
     ${kTaskList(ini, day)}
     ${WC.card([OWNERS[ini]?.name, ini===myIni()?S.profile?.name:null], day, kreAdmin())}
@@ -2144,7 +2263,7 @@ function renderGun(){
         <div><div class="flabel">Giriş</div><input type="time" id="g_in_time" value="${v("in_time")}"></div>
         <div><div class="flabel">Çıkış</div><input type="time" id="g_out_time" value="${v("out_time")}"></div>
         ${num("leave_min","İzin (dk)")}<div><div class="flabel">Mesai (otomatik)</div><div class="otlive" id="g_otlive"></div></div>
-      </div>${hy?HYB.hoursHtml(P,r):""}</div>
+      </div>${hy?HYB.hoursHtml(P,r):""}${leadBox}</div>
       <div class="sect" ${hy?`data-hyside="kre"`:""}><h3>🎬 Bugün ürettiklerim</h3><div class="fgrid">
         ${num("new_video","Sıfır video")}${num("new_image","Sıfır görsel")}${num("var_video","Varyasyon video")}${num("var_image","Varyasyon görsel")}
       </div></div>${hy?HYB.otherHtml(P,r):""}
@@ -2180,6 +2299,12 @@ function renderGun(){
     $("g_otlive").innerHTML = c.kind==="eksik" ? `<span style="color:var(--mut)">saatleri gir</span>` : c.kind==="hata" ? "⚠ saatleri kontrol et" : `<span class="${otCls(c.min)}">${otTxt(c.min)}</span>${c.kind==="pazar"?" <small>pazar ×1,5</small>":""}`; };
   ["g_in_time","g_out_time","g_leave_min"].forEach(k=>$(k).addEventListener("input",otLive)); otLive();
   if(hy) HYB.bind($("gunForm"), P, ()=>({in_time:$("g_in_time").value, out_time:$("g_out_time").value, leave_min:numOrNull($("g_leave_min").value)}));
+  if(leadRow){ const upd=()=>{ const m=$("g_revmsg"), x=hNum($("g_review_h").value)||0;
+      const w=workH({in_time:$("g_in_time").value, out_time:$("g_out_time").value, leave_min:numOrNull($("g_leave_min").value)});
+      if(w==null){ m.className="hyb-m"; m.textContent="Giriş-çıkış saatini yazınca üretim ve denetim süresi ayrılır."; return; }
+      const d=Math.min(x,w); m.className="hyb-m"+(x>w?" bad":"");
+      m.textContent=x>w?`Denetim saati çalışılan süreden (${fmtH(w)} sa) fazla, ${fmtH(w)} sa sayılır.`:`Üretim ${fmtH(w-d)} sa · Denetim ${fmtH(d)} sa`; };
+    ["g_in_time","g_out_time","g_leave_min","g_review_h"].forEach(k=>$(k).addEventListener("input",upd)); upd(); }
   if(dayLocked(day)) $("gunForm").querySelectorAll("input,textarea,button").forEach(x=>x.disabled=true);
   $("gunSave").onclick=async ()=>{
     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
@@ -2187,6 +2312,7 @@ function renderGun(){
     const row={initial:ini, day, in_time:$("g_in_time").value||null, out_time:$("g_out_time").value||null, updated_at:nowIso()};
     ["leave_min","new_video","new_image","var_video","var_image"].forEach(k=>row[k]=numOrNull($("g_"+k).value));
     row.note=$("g_note").value.trim()||null; row.wish=$("g_wish").value.trim()||null;
+    if(leadRow) row.review_h=hNum($("g_review_h").value);
     { const c=otCalc(row); row.ot_min=(c.kind==="normal"||c.kind==="pazar")?c.min:null; }
     if(stampCol() && adminEntry()){ row.admin_edits=(r.admin_edits||0)+1; row.admin_by=S.profile?.id||null; row.admin_by_name=S.profile?.name||null; row.admin_at=nowIso(); }
     $("gunSave").disabled=true;
@@ -3435,6 +3561,7 @@ async function boot(){
       S.profile = r==="admin" ? {name:"Demo Yönetici",role:"admin",initial:"Y"}
         : r==="partner" ? {name:"Demo Ortak",role:"partner",initial:"O"}
         : r==="ozlem" ? {id:"u_ozlem",name:"Özlem",role:"creative",initial:"Ö"}
+        : r==="lead" ? {name:"İmkan",role:"creative",initial:"İ"}
         : {name:"Demo Çağdaş",role:"creative",initial:"C"};
       S.tab="board"; renderAll();
     };
