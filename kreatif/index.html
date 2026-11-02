@@ -1245,7 +1245,9 @@ function aylikVideoSiralama(ym){
   let rows = Object.keys(per).map(o=>{
     const t=per[o].kod.size, d=per[o].dec.size, w=per[o].win.size;
     const r={o, teslim:t, dec:d, win:w, rate: d? w/d : null, eski:per[o].eski.size};
-    if(o===L && LD){ r.lead={...LD, own: d? w/d : null}; r.rate = LD.u*((w + LEAD_K*LD.tRate)/(d + LEAD_K)) + (1-LD.u)*LD.tRate; }
+    // üretim payı: hiç video teslim etmediyse 0; az videoda kendi oranı ekip oranına çekilir
+    if(o===L && LD){ const own = t ? (w + LEAD_K*LD.tRate)/(d + LEAD_K) : 0;
+      r.lead={...LD, own: d? w/d : (t? null : 0)}; r.rate = LD.u*own + (1-LD.u)*LD.tRate; }
     return r;
   }).filter(r=>r.teslim>0 || r.eski>0 || r.lead);
   const maxT = Math.max(1,...rows.filter(r=>!r.lead).map(r=>r.teslim));
@@ -1314,7 +1316,7 @@ function renderAylik(){
         ${kreAdmin()?`<span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">⭐ Ekip puanı <b class="mono">${r.pEkip==null?"—":nf1.format(r.pEkip)}</b></span>`:""}
         <span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">📝 Doldurma <b class="mono">%${Math.round(r.pDold)}</b></span>
         <span style="background:var(--cream2);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">⏰ Zamanında <b class="mono">%${Math.round(r.pZam)}</b></span>
-        ${r.lead?`<span style="background:var(--lead-s,#CCEFE9);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">👑 Takım lideri · üretim ${fmtH(r.lead.tot-r.lead.rev)} sa / denetim ${fmtH(r.lead.rev)} sa · oran = kendi ${pct(r.lead.own)} × %${Math.round(r.lead.u*100)} + ekibin ${pct(r.lead.tRate)} × %${100-Math.round(r.lead.u*100)}</span>`:""}
+        ${r.lead?`<span style="background:var(--lead-s,#CCEFE9);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">👑 Takım lideri · üretim ${fmtH(r.lead.tot-r.lead.rev)} sa / denetim ${fmtH(r.lead.rev)} sa · oran = kendi ${r.teslim?pct(r.lead.own):"0 (video yok)"} × %${Math.round(r.lead.u*100)} + ekibin ${pct(r.lead.tRate)} × %${100-Math.round(r.lead.u*100)}</span>`:""}
         ${r.eski?`<span style="background:var(--green-s);border:var(--b2);border-radius:9px;padding:4px 10px;font-size:.7rem;font-weight:700">♻️ Önceki aylardan +${r.eski} video hâlâ winner (puana girmez)</span>`:""}
       </div>
     </div>`;
