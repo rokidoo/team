@@ -1251,7 +1251,8 @@ function aylikVideoSiralama(ym){
     return r;
   }).filter(r=>r.teslim>0 || r.eski>0 || r.lead);
   const maxT = Math.max(1,...rows.filter(r=>!r.lead).map(r=>r.teslim));
-  const maxR = Math.max(0.0001,...rows.map(r=>r.rate||0));
+  // ayın en yüksek oranı sadece sıralamaya girenlerden (≥4 karar ya da lider) alınır
+  const maxR = Math.max(0.0001,...rows.filter(r=>r.dec>=4 || (r.lead && r.lead.tDec>=4)).map(r=>r.rate||0));
   // Puan = Winner oranı %50 + Ekip puanı %30 + İş hacmi (teslim) %10 + Doldurma %5 + Zamanında %5
   // Ekip puanı olmayan (puanlanmayan ortaklar) ya da henüz hesaplanamayan bileşen, ağırlığı diğerlerine dağıtılarak çıkarılır.
   let wd=0; for(let d=first; d<=upto; d=addDays(d,1)) if(dow(d)!==0) wd++;
