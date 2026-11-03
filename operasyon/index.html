@@ -1231,6 +1231,7 @@ function renderMesai(){
 const undelCol = ()=>DEMO || S.daily.some(r=>"undel_nolook" in r);
 // yönetici başkasının ya da kapanmış günün kaydını doldurursa iz bırakılır
 const stampCol = ()=>DEMO || S.daily.some(r=>"admin_edits" in r);
+const absCol = ()=>DEMO || S.daily.some(r=>"absent" in r);   // hasta / izinli / gelmedi etiketi (v5.2)
 const adminEntry = (memberId, day)=>isAdmin() && (day!==trToday() || memberId!==S.me?.id);
 /* ================= TUVALET TEMİZLİĞİ SIRASI (operasyon + kreatif ortak) =================
    Her cumartesi tek kişi; sıra shared_settings.wc_rotation = {start:"YYYY-MM-DD" (cumartesi), names:[...]}.
@@ -1327,7 +1328,7 @@ const HYB = (()=>{
   const byOps=id=>people.find(p=>p.ops_member_id===id)||null;
   const byIni=ini=>people.find(p=>p.kre_initial===ini)||null;
   const byUser=u=>people.find(p=>p.user_id===u)||null;
-  const present=r=>!!r && (r.hours==null || +r.hours>0);
+  const present=r=>!!r && !r.absent && (r.hours==null || +r.hours>0);
   const rowOf=(sd,key,day)=>(sd===here?own():rows).find(r=>r[SIDE[sd].k]===key && r.day===day)||null;
   const pad=n=>String(n).padStart(2,"0");
   const addD=(s,n)=>{ const d=new Date(s+"T00:00:00"); d.setDate(d.getDate()+n); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
@@ -1352,6 +1353,7 @@ const HYB = (()=>{
     const ro=rowOf("ops",p.ops_member_id,day), rk=rowOf("kre",p.kre_initial,day), home=p.home==="ops"?ro:rk, any=home||ro||rk;
     const m={...(ro||{}), ...(rk||{})};
     TIMES.forEach(k=>m[k]=home?.[k]??null);
+    m.absent=home?.absent??ro?.absent??rk?.absent??null;
     m.note=home?.note??ro?.note??rk?.note??null; m.wish=home?.wish??ro?.wish??rk?.wish??null;
     m.id=any?.id||null; m.updated_at=[ro?.updated_at,rk?.updated_at].filter(Boolean).sort().pop()||null;
     m.admin_edits=Math.max(ro?.admin_edits||0, rk?.admin_edits||0)||null;
@@ -1412,10 +1414,43 @@ const HYB = (()=>{
   // puan kartındaki kısa bilgi: hibritse bugün bu tarafta kaç saat
   function tag(p, day, r){
     if(!isHyb(p)) return "";
-    const t = !r ? "henüz saat yazmadı" : r.hours==null ? "bu tarafta" : +r.hours>0 ? `bugün burada ${hTxt(+r.hours)} saat` : "bugün bu tarafta çalışmadı";
+    const g = day===new Date().toLocaleDateString("sv-SE",{timeZone:"Europe/Istanbul"}) ? "bugün" : "o gün";
+    const t = !r ? "henüz saat yazmadı" : r.hours==null ? "bu tarafta" : +r.hours>0 ? `${g} burada ${hTxt(+r.hours)} saat` : `${g} bu tarafta çalışmadı`;
     return `<span class="pill hyb-pill" title="İki tarafta çalışıyor (ana ekibi: ${SIDE[p.home].lbl})">🔀 hibrit · ${E(t)}</span>`;
   }
   const MARKS={gelmedi:"🚫 Gelmedi", yok:"↔ Bu tarafta değildi"};
+
+  // hasta / izinli / gelmedi (v5.2 SQL'i): kişi o gün hiç gelmedi, kendini Günüm'den etiketler.
+  // Satır saat 0 yazılır (DB trigger'ı giriş-çıkışı da boşaltır), o gün kimse ona puan veremez. Hibritte iki taraf birlikte.
+  const ABSENT={hasta:["🤒","Hasta","Hastayım"], izin:["🌴","İzinli","İzinliyim"], gelmedi:["🚫","Gelmedi","Gelmiyorum"]};
+  const absLbl=k=>ABSENT[k]?ABSENT[k][0]+" "+ABSENT[k][1]:"";
+  function absentHtml(r, own){
+    if(r.absent) return `<div class="absbar"><b>${absLbl(r.absent)}</b> · ${own?"bugün işe gelmediğini":"bu gün işe gelmediği"} kayıtlı. O gün kimse puan veremez, giriş-çıkış ve mesai yazılmaz.
+      <button type="button" class="btn ghost sm" id="absUndo">Geri al</button></div>`;
+    return `<div class="absrow"><span>${own?"Bugün işe gelmiyor musun?":"Bu gün işe gelmedi mi?"}</span>${Object.entries(ABSENT).map(([k,v])=>`<button type="button" class="btn ghost sm" data-abs="${k}">${v[0]} ${own?v[2]:v[1]}</button>`).join("")}</div>`;
+  }
+  // sides: [[taraf, anahtar]] · hibritte iki taraf; undo'da hibritin öbür tarafı saat 0 kalır
+  async function saveAbsent(p, sides, day, kind, stamp){
+    if(isHyb(p)) sides=["ops","kre"].map(sd=>[sd, keyOf(p,sd)]);
+    const res={};
+    for(const [sd,k] of sides){
+      const ex=rowOf(sd,k,day); if(!kind && !ex) continue;
+      const row={[SIDE[sd].k]:k, day, absent:kind||null, hours:kind?0:(isHyb(p)&&sd!==p.home?0:null), updated_at:new Date().toISOString(), ...(stamp?stamp(ex):{})};
+      if(kind) TIMES.forEach(t=>row[t]=null);
+      if(DEMO) res[sd]={...(ex||{id:"h"+Math.random().toString(36).slice(2,9)}), ...row};
+      else{ const {data,error}=await sb.from(SIDE[sd].t).upsert(row,{onConflict:SIDE[sd].k+",day"}).select().single(); if(error) throw error; res[sd]=data; }
+      if(sd!==here){ const i=rows.findIndex(x=>x[SIDE[sd].k]===k&&x.day===day); if(i>=0) rows[i]=res[sd]; else rows.unshift(res[sd]); }
+    }
+    return res;
+  }
+  // root: Günüm; o.save(kind|null) host'ta kaydeder, hata mesajını o.err çevirir
+  function bindAbsent(root, o){
+    root.querySelectorAll("[data-abs]").forEach(b=>b.onclick=async ()=>{
+      const k=b.dataset.abs; if(!confirm(`${absLbl(k)} olarak işaretlensin mi? O gün kimse puan veremez, giriş-çıkış silinir.`)) return;
+      b.disabled=true; try{ await o.save(k); }catch(e){ b.disabled=false; o.err(e); }
+    });
+    const u=root.querySelector("#absUndo"); if(u) u.onclick=async ()=>{ u.disabled=true; try{ await o.save(null); }catch(e){ u.disabled=false; o.err(e); } };
+  }
   function markRow(cur, hyb, id){ return `<div class="mkrow" data-ratee="${E(id)}">${Object.entries(MARKS).filter(([k])=>k==="gelmedi"||hyb).map(([k,l])=>`<button type="button" class="mkbtn ${cur===k?"on":""}" data-mk="${k}">${l}</button>`).join("")}</div>`; }
 
   // yönetim kontrolü: işaret çelişkisi (14 gün) + kollama uyarısı (7 gün)
@@ -1457,9 +1492,14 @@ const HYB = (()=>{
     .hyb-audit{margin-bottom:14px}.hyb-audit summary{cursor:pointer;font-weight:800}
     .hyb-ah{font-weight:800;font-size:.82rem;margin:10px 0 4px}.hyb-ah small{font-weight:600;color:var(--mut,#777)}
     .hyb-ar{font-size:.82rem;padding:4px 0;border-bottom:1px dashed var(--line,#eee)}.hyb-ar.ok{color:var(--mut,#777)}
+    .absrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 12px;font-size:.84rem;color:var(--mut,#777)}
+    .absrow .btn{width:auto;margin:0}
+    .absbar{background:var(--mustard-s,#fef3c7);border-radius:12px;padding:10px 12px;margin:0 0 12px;font-size:.88rem}
+    .absbar .btn{width:auto;margin:6px 0 0;display:block}
+    .w.abs{background:var(--mustard-s,#fef3c7)}
     .hidden{display:none!important}
   </style>`);
-  return {init, load, setDemo, isHyb, byOps, byIni, byUser, present, rowOf, merged, hoursHtml, otherHtml, bind, saveDay, tag, markRow, audit, MARKS,
+  return {init, load, setDemo, isHyb, byOps, byIni, byUser, present, rowOf, merged, hoursHtml, otherHtml, bind, saveDay, tag, markRow, audit, MARKS, ABSENT, absLbl, absentHtml, saveAbsent, bindAbsent,
           get ok(){ return ok; }, get people(){ return people; }};
 })();
 /*HYB-END*/
@@ -1478,7 +1518,7 @@ function renderGun(){
   const v = k=> r[k]==null? "" : r[k];
   const num = (k,l,ph="0")=>`<div><div class="flabel">${l}</div><input type="number" inputmode="numeric" min="0" id="g_${k}" value="${v(k)}" placeholder="${ph}"></div>`;
   const memSel = isAdmin() ? `<select id="gunMember">${actives().map(x=>opt(x.id,x.name,m.id)).join("")}</select><button class="btn ghost sm" id="gunTask">📌 Görev ata</button>` : "";
-  const filled = actives().filter(x=>{ const hp=HYB.byOps(x.id); return !(HYB.isHyb(hp)&&hp.home!=="ops") || HYB.present(dailyOf(x.id,day)); }).map(x=>{ const ok=HYB.present(dailyOf(x.id,day)); return `<span class="w ${ok?"ok":"no"}">${ok?"✓":"✗"} ${esc(x.name)}</span>`; }).join("");
+  const filled = actives().filter(x=>{ const hp=HYB.byOps(x.id); return !(HYB.isHyb(hp)&&hp.home!=="ops") || HYB.present(dailyOf(x.id,day)); }).map(x=>{ const a=dailyOf(x.id,day)?.absent, ok=HYB.present(dailyOf(x.id,day)); return `<span class="w ${a?"abs":ok?"ok":"no"}">${a?HYB.ABSENT[a][0]:ok?"✓":"✗"} ${esc(x.name)}</span>`; }).join("");
   const last7 = S.daily.filter(x=>x.member_id===m.id && x.day<day).sort((a,b)=>b.day<a.day?-1:1).slice(0,7);
   el.innerHTML = `
     <h2>Günüm</h2>
@@ -1488,7 +1528,8 @@ function renderGun(){
     ${taskList(m, day)}
     ${WC.card([m.name, m.id===S.me?.id?S.profile?.name:null], day, isAdmin())}
     ${lockNote(day)}
-    <div class="card ${dayLocked(day)?"locked":""}" id="gunForm" style="margin-bottom:16px">
+    ${absCol()?HYB.absentHtml(r, m.id===S.me?.id && day===trToday()):""}
+    <div class="card ${dayLocked(day)?"locked":""} ${r.absent?"hidden":""}" id="gunForm" style="margin-bottom:16px">
       <div class="sect"><h3>⏰ Saatler</h3>
         <div class="fgrid">
           <div><div class="flabel">Giriş</div><input type="time" id="g_in_time" value="${v("in_time")}"></div>
@@ -1517,7 +1558,7 @@ function renderGun(){
     <div class="sect"><h3>👥 ${trDate(day)} · kim doldurdu</h3><div class="who">${filled}</div></div>
     ${last7.length?`<div class="sect"><h3>📅 Son günlerim</h3><div class="tblwrap"><table class="compact">
       <tr><th>Gün</th><th>Giriş</th><th>Çıkış</th><th>Kargo</th><th>Arama</th><th>Bakmadı</th><th>Mesaj</th><th>Sipariş</th><th>Mesai</th></tr>
-      ${last7.map(x=>`<tr><td>${trShort(x.day)}</td><td class="${mins(x.in_time)>LATE_MIN?"late":""}">${esc(x.in_time||"—")}</td><td>${esc(x.out_time||"—")}</td><td>${x.cargo??"—"}</td><td>${x.call_total??"—"}</td><td>${x.call_nolook??"—"}</td><td>${msgOf(x)}</td><td>${ordOf(x)}</td><td>${(()=>{ const c=otCalc(x); return c.kind==="normal"||c.kind==="pazar"?`<span class="${otCls(c.min)}">${otTxt(c.min)}</span>`:"—"; })()}</td></tr>`).join("")}
+      ${last7.map(x=>`<tr><td>${trShort(x.day)}</td>${x.absent?`<td colspan="2">${HYB.absLbl(x.absent)}</td>`:`<td class="${mins(x.in_time)>LATE_MIN?"late":""}">${esc(x.in_time||"—")}</td><td>${esc(x.out_time||"—")}</td>`}<td>${x.cargo??"—"}</td><td>${x.call_total??"—"}</td><td>${x.call_nolook??"—"}</td><td>${msgOf(x)}</td><td>${ordOf(x)}</td><td>${(()=>{ const c=otCalc(x); return c.kind==="normal"||c.kind==="pazar"?`<span class="${otCls(c.min)}">${otTxt(c.min)}</span>`:"—"; })()}</td></tr>`).join("")}
     </table></div></div>`:""}
   `;
   bindDayNav(el,"day",renderGun); bindTaskList(el, renderGun); WC.bind(el, renderGun);
@@ -1527,7 +1568,14 @@ function renderGun(){
     $("g_otlive").innerHTML = c.kind==="eksik" ? `<span style="color:var(--mut)">saatleri gir</span>` : c.kind==="hata" ? "⚠ saatleri kontrol et" : `<span class="${otCls(c.min)}">${otTxt(c.min)}</span>${c.kind==="pazar"?" <small>pazar ×1,5</small>":""}`; };
   ["g_in_time","g_out_time","g_leave_min"].forEach(k=>$(k).addEventListener("input",otLive)); otLive();
   if(hy) HYB.bind($("gunForm"), P, ()=>({in_time:$("g_in_time").value, out_time:$("g_out_time").value, leave_min:numOrNull($("g_leave_min").value)}));
-  if(dayLocked(day)) $("gunForm").querySelectorAll("input,textarea,button").forEach(x=>x.disabled=true);
+  if(dayLocked(day)) el.querySelectorAll("#gunForm input,#gunForm textarea,#gunForm button,[data-abs],#absUndo").forEach(x=>x.disabled=true);
+  if(absCol()) HYB.bindAbsent(el, {err:e=>toast(errMsg(e)), save:async k=>{
+    if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
+    if(dayLocked(day)){ toast(LOCK_MSG); return; }
+    const stamp = stampCol() && adminEntry(m.id, day) ? ex=>({admin_edits:(ex?.admin_edits||0)+1, admin_by:S.profile?.id||null, admin_by_name:S.profile?.name||null, admin_at:nowIso()}) : null;
+    const res=await HYB.saveAbsent(P, [["ops", m.id]], day, k, stamp);
+    if(res.ops){ const i=S.daily.findIndex(x=>x.member_id===m.id&&x.day===day); if(i>=0) S.daily[i]=res.ops; else S.daily.unshift(res.ops); }
+    toast(k?HYB.absLbl(k)+" ✓":"Geri alındı ✓"); renderGun(); }});
   $("gunSave").onclick = async ()=>{
     if(VIEW()){ toast("👁 Görüntüleme modu: kaydetme kapalı"); return; }
     if(dayLocked(day)){ toast(LOCK_MSG); return; }
@@ -1560,7 +1608,8 @@ function renderPuan(){
   if(!S.me){ el.innerHTML=`<h2>Ekip Puanı</h2>${audit}<div class="empty">${isAdmin()?"Yönetici hesabı bir ekip üyesine bağlı değil; puanlama ekip üyeleri içindir. Puan raporu Pano'da.":"Hesabın bir ekip üyesine bağlı değil."}</div>`; return; }
   if(noScore(S.me)){ el.innerHTML=`<h2>Ekip Puanı</h2><div class="empty">Uzaktan çalıştığın için puan vermiyorsun ve sana puan verilmiyor.</div>`; return; }
   if(noGive(S.me)){ el.innerHTML=`<h2>Ekip Puanı</h2><div class="empty">Şu an ekip puanı vermiyorsun.</div>`; return; }
-  const others = S.members.filter(m=>workedOn(m,day) && !isPuanciM(m)).sort((a,b)=>(a.sort||0)-(b.sort||0)).filter(x=>x.id!==S.me.id && canRateL(S.me.id,x));
+  const others0 = S.members.filter(m=>workedOn(m,day) && !isPuanciM(m)).sort((a,b)=>(a.sort||0)-(b.sort||0)).filter(x=>x.id!==S.me.id && canRateL(S.me.id,x));
+  const away = others0.filter(x=>dailyOf(x.id,day)?.absent), others = others0.filter(x=>!dailyOf(x.id,day)?.absent);   // hasta / izinli / gelmedi: puan verilmez
   const mine = id=>S.scores.find(s=>s.day===day && s.rater_id===S.me.id && s.ratee_id===id) || {};
   const need = requiredRatees(S.me.id, day), miss = need.filter(m=>mine(m.id).score==null && !mine(m.id).mark);
   const meHy = HYB.isHyb(HYB.byOps(S.me.id)) && !HYB.present(dailyOf(S.me.id, day)), mk = markCol();
@@ -1573,6 +1622,7 @@ function renderPuan(){
     <div class="lockbar" style="background:${miss.length?"var(--orange-s)":"var(--green-s)"}">${miss.length?`⚠️ O gün işe gelen <b>herkese</b> puan vermezsen o günkü puanlarının <b>hiçbiri sayılmaz</b>. Eksik: <b>${miss.map(m=>esc(m.name)).join(", ")}</b>`:need.length?"✅ O gün işe gelen herkesi puanladın; puanların sayılıyor.":"Bu gün henüz günlüğünü dolduran ekip arkadaşın yok."}</div>
     ${dayNav("puanDay", day)}
     ${lockNote(day)}
+    ${away.length?`<div class="lockbar" style="background:var(--mustard-s)">${away.map(x=>`<b>${esc(x.name)}</b> ${HYB.absLbl(dailyOf(x.id,day).absent).toLocaleLowerCase("tr")}`).join(" · ")} — bu gün puan verilmez.</div>`:""}
     <div id="puanForm" class="${dayLocked(day)?"locked":""}">
     ${others.map(x=>{ const s=mine(x.id); return `
       <div class="card" style="margin-bottom:12px">
