@@ -1237,7 +1237,8 @@ function aylikVideoSiralama(ym){
     const tot=D.reduce((a,x)=>a+(workH(x)||0),0), rev=D.reduce((a,x)=>a+revOf(x),0);
     if(rev>0 && tot>0){
       const tDec=new Set(), tWin=new Set();
-      Object.keys(per).forEach(o=>{ if(o===L) return;
+      const NR0=kreNoRank();
+      Object.keys(per).forEach(o=>{ if(o===L || NR0.has(o)) return;
         per[o].dec.forEach(c=>{ if(!per[L].kod.has(c)) tDec.add(c); }); per[o].win.forEach(c=>{ if(!per[L].kod.has(c)) tWin.add(c); }); });
       if(tDec.size) LD={tot, rev, u:(tot-rev)/tot, tDec:tDec.size, tWin:tWin.size, tRate:tWin.size/tDec.size};
     }
@@ -1250,6 +1251,7 @@ function aylikVideoSiralama(ym){
       r.lead={...LD, own: d? w/d : (t? null : 0)}; r.rate = LD.u*own + (1-LD.u)*LD.tRate; }
     return r;
   }).filter(r=>r.teslim>0 || r.eski>0 || r.lead);
+  const NR=kreNoRank(), disari=rows.filter(r=>NR.has(r.o)); rows=rows.filter(r=>!NR.has(r.o));
   const maxT = Math.max(1,...rows.filter(r=>!r.lead).map(r=>r.teslim));
   // ayın en yüksek oranı sadece sıralamaya girenlerden (≥4 karar ya da lider) alınır
   const maxR = Math.max(0.0001,...rows.filter(r=>r.dec>=4 || (r.lead && r.lead.tDec>=4)).map(r=>r.rate||0));
@@ -1273,7 +1275,7 @@ function aylikVideoSiralama(ym){
   });
   const sirali = rows.filter(r=>r.yeterli).sort((a,b)=>b.puan-a.puan);
   const onSinyal = rows.filter(r=>!r.yeterli).sort((a,b)=>b.teslim-a.teslim);
-  return {wks, sirali, onSinyal};
+  return {wks, sirali, onSinyal, disari};
 }
 // ayın ekip puanı ortalamaları (geçerli puanlarla, sunucuda hesaplanır: kre_rank_scores)
 async function loadKrank(ym){
@@ -1292,7 +1294,7 @@ function renderAylik(){
   const aylar = ayAylar();
   if(!S.teamMonth || !aylar.includes(S.teamMonth)) S.teamMonth = aylar[0] || "";
   loadKrank(S.teamMonth);
-  const {wks, sirali, onSinyal} = aylikVideoSiralama(S.teamMonth);
+  const {wks, sirali, onSinyal, disari} = aylikVideoSiralama(S.teamMonth);
   const achips = aylar.map(a=>`<button class="fchip ${S.teamMonth===a?"on":""}" data-tm="${a}">${ayAdi(a)}</button>`).join("");
   const madalya = i => ["🥇","🥈","🥉"][i] || `${i+1}.`;
   const kart = (r,i) => {
@@ -1332,6 +1334,13 @@ function renderAylik(){
         const w=OWNERS[r.o]||{name:r.o};
         return `<div class="card" style="opacity:.8"><div class="trow">${ownBadge(r.o)}<span class="nm">${esc(w.name)}</span>
           <span style="flex:1"></span><span class="mono" style="font-size:.78rem">${r.teslim} teslim · ${r.win}/${r.dec} winner</span></div></div>`;
+      }).join("")}</div></div>`:""}
+    ${disari.length?`<div class="sect" style="margin-top:22px"><h3>Sıralama Dışı <span class="cnt">${disari.length}</span></h3>
+      <div class="sub" style="margin-bottom:10px">Sadece rakamlar · sıralamaya ve puanlara girmez</div>
+      <div class="cards">${disari.map(r=>{
+        const w=OWNERS[r.o]||{name:r.o};
+        return `<div class="card" style="opacity:.85"><div class="trow">${ownBadge(r.o)}<span class="nm">${esc(w.name)}</span>
+          <span style="flex:1"></span><span class="mono" style="font-size:.78rem">${r.teslim} video teslim · ${r.win}/${r.dec} winner${r.dec?" · "+pct(r.win/r.dec):""}</span></div></div>`;
       }).join("")}</div></div>`:""}
   `;
 }
@@ -1457,15 +1466,16 @@ function renderTeam(){
     const eski = weekly ? mine.filter(c=>info[c.code]?.eskiWin).length : 0;
     return {o, ...a, eski, g: agg(mine.filter(c=>fmtOf(c)==="gorsel")), v: agg(mine.filter(c=>fmtOf(c)==="video"))};
   });
-  rows.sort((a,b)=>(b.win-a.win)||((b.rate??0)-(a.rate??0)));
-  const maxWin = Math.max(1,...rows.map(r=>r.win));
+  const NR=kreNoRank();
+  rows.sort((a,b)=>(NR.has(a.o)-NR.has(b.o))||(b.win-a.win)||((b.rate??0)-(a.rate??0)));
+  const maxWin = Math.max(1,...rows.filter(r=>!NR.has(r.o)).map(r=>r.win));
   const teamWarn = (isAdmin() && !DEMO && !S.teamTable)
     ? `<div class="demo" style="margin-bottom:14px">Ekip düzenleme için Supabase'de <b>team_members</b> tablosu gerekli — Claude'un verdiği SQL'i bir kez çalıştır.</div>` : "";
   const tvchips = teamViews().map(([v,l])=>
     `<button class="fchip ${S.teamView===v?"on":""}" data-tv="${v}">${l}</button>`).join("");
   const tfchips = [["","Görsel + Video"],["gorsel","🖼 Sadece Görsel"],["video","🎬 Sadece Video"]].map(([v,l])=>
     `<button class="fchip ${S.teamFmt===v?"on":""}" data-tf="${v}">${l}</button>`).join("");
-  const tot = rows.reduce((a,r)=>({t:a.t+r.teslim, e:a.e+r.evald, w:a.w+r.win}),{t:0,e:0,w:0});
+  const tot = rows.filter(r=>!NR.has(r.o)).reduce((a,r)=>({t:a.t+r.teslim, e:a.e+r.evald, w:a.w+r.win}),{t:0,e:0,w:0});
   $("tabTeam").innerHTML = `
     <h2>Ekip Skoru</h2>
     <div class="sub">${weekly?(S.week?weekLabel(S.week)+" döneminde ilk kez teslim edilenler":"Hafta seçilmedi"):"Tüm haftaların toplamı — bir kreatif herhangi bir haftada winner olduysa sayılır"} · görsel ve video birlikte sayılır, kırılımı her kartta görürsün · küçük örneklemde oran "ön sinyal"dir</div>
@@ -1487,8 +1497,8 @@ function renderTeam(){
       return `<div class="card">
         <div class="trow">
           ${ownBadge(r.o)}
-          <span class="nm">${esc(w.name)}</span>
-          <div class="bar"><i style="width:${(r.win/maxWin)*100}%;background:${w.c}"></i></div>
+          <span class="nm">${esc(w.name)}${NR.has(r.o)?` <span class="pill" style="font-size:.62rem">sıralama dışı</span>`:""}</span>
+          <div class="bar"><i style="width:${Math.min(100,(r.win/maxWin)*100)}%;background:${w.c}"></i></div>
           <span class="wn">${r.win}</span>
           ${isAdmin()?`<button class="editbtn" data-tedit="${esc(r.o)}" title="Düzenle">✏️</button>`:""}
         </div>
@@ -1987,6 +1997,8 @@ const kreAdmin = ()=>canFin();                       // yönetici + ortaklar
 const KRE_INIS = ()=>Object.keys(OWNERS);
 // takım lideri (kre_settings.roles.lead): Günüm'de denetim saati yazar, Aylık Özet'i görür, panel kendi renginde açılır
 const kreLead = ()=>S.kreRoles?.lead||null;
+// sıralama dışı (Remaks · hikâye videoları ve görseller): rakamları görünür, hiçbir sıralamaya, birinciliğe ve ekip toplamına girmez
+const kreNoRank = ()=>new Set(S.kreRoles?.norank || ["R"]);
 const isKreLead = ()=>!kreAdmin() && !!myIni() && myIni()===kreLead();
 const canOzet = ()=>kreAdmin() || isKreLead();
 const revCol = ()=>DEMO || S.kdaily.some(x=>"review_h" in x);
