@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Anket</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#F4F2EC; --card:#FFFDF9; --ink:#121212; --soft:#4A4A46; --mut:#8A867E;
+    --cobalt:#2F5DFF; --cobalt-s:#E4EBFF; --green:#22C55E; --green-s:#DFF6E7; --red:#E8402A; --red-s:#FDE4DF;
+    --fh:'Space Grotesk','Plus Jakarta Sans',sans-serif; --fb:'Plus Jakarta Sans',sans-serif;
+    --b:3px solid var(--ink); --b2:2px solid var(--ink); --sh:6px 6px 0 var(--ink); --sh-sm:4px 4px 0 var(--ink);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{background:var(--cream);color:var(--ink);font-family:var(--fb);min-height:100dvh;padding:28px 16px 60px}
+  .wrap{max-width:620px;margin:0 auto}
+  .card{background:var(--card);border:var(--b);border-radius:22px;box-shadow:var(--sh);padding:24px 22px}
+  h1{font-family:var(--fh);font-size:1.55rem;line-height:1.2;letter-spacing:-.02em;margin-bottom:12px}
+  .intro{color:var(--soft);font-size:.95rem;line-height:1.55;margin-bottom:20px}
+  label.lb{display:block;font-weight:800;font-size:.85rem;margin:18px 0 8px}
+  input[type=text],textarea{width:100%;border:var(--b2);border-radius:12px;padding:12px 13px;font:inherit;font-size:1rem;background:#fff}
+  textarea{min-height:120px;resize:vertical}
+  .opt{display:flex;gap:12px;align-items:flex-start;border:var(--b2);border-radius:14px;padding:13px 14px;margin-bottom:10px;cursor:pointer;background:#fff;transition:transform .08s}
+  .opt input{margin-top:3px;width:18px;height:18px;accent-color:var(--cobalt);flex:none}
+  .opt .t{font-weight:700;line-height:1.35}
+  .opt .h{color:var(--mut);font-size:.83rem;margin-top:4px;line-height:1.4}
+  .opt.on{background:var(--cobalt-s);box-shadow:var(--sh-sm);transform:translate(-2px,-2px)}
+  .req{color:var(--red);font-weight:700;font-size:.8rem;margin-left:6px}
+  button{font:inherit;font-weight:800;border:var(--b2);border-radius:12px;padding:13px 18px;background:var(--ink);color:#fff;cursor:pointer;box-shadow:var(--sh-sm);margin-top:20px;width:100%;font-size:1rem}
+  button:disabled{opacity:.5;cursor:default}
+  button.sec{background:#fff;color:var(--ink);width:auto;margin-top:0;padding:9px 14px;font-size:.88rem}
+  .err{background:var(--red-s);border:var(--b2);border-radius:12px;padding:10px 12px;margin-top:14px;font-weight:600;font-size:.9rem;display:none}
+  .msg{text-align:center;padding:30px 10px}
+  .msg .big{font-size:2.6rem;margin-bottom:10px}
+  .msg p{color:var(--soft);margin-top:6px}
+  .mut{color:var(--mut);font-size:.82rem}
+  .bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+  .pill{display:inline-block;border:var(--b2);border-radius:99px;padding:3px 10px;font-weight:800;font-size:.78rem}
+  .pill.open{background:var(--green-s)} .pill.closed{background:var(--red-s)}
+  .res{border:var(--b2);border-radius:14px;padding:12px 14px;margin-bottom:10px;background:#fff}
+  .res .row{display:flex;justify-content:space-between;gap:10px;font-weight:700}
+  .meter{height:10px;border:2px solid var(--ink);border-radius:99px;margin-top:8px;overflow:hidden;background:var(--cream)}
+  .meter i{display:block;height:100%;background:var(--cobalt)}
+  .names{color:var(--soft);font-size:.83rem;margin-top:6px}
+  .cm{border-left:4px solid var(--ink);padding:8px 12px;margin:10px 0;background:#fff;border-radius:0 10px 10px 0}
+  .cm b{font-size:.85rem} .cm .ch{color:var(--mut);font-size:.78rem;margin-left:6px}
+  .cm div{white-space:pre-wrap;margin-top:4px;line-height:1.45}
+  h2{font-family:var(--fh);font-size:1.1rem;margin:22px 0 10px}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="card" id="app"><div class="msg"><p>Yükleniyor…</p></div></div></div>
+<script type="module">
+const SUPABASE_URL      = "https://ciwpxeqqrwfsuoggdync.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpd3B4ZXFxcndmc3VvZ2dkeW5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MjI4ODQsImV4cCI6MjEwMjE5ODg4NH0.S_vgxYMAjQ9RtkRHxyMJs0NG9aj94_Jn2FfaGszzTOI";
+const app = document.getElementById("app");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const token = new URLSearchParams(location.search).get("k") || "";
+const doneKey = "anket_done_" + token;
+const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+const msg = (icon, title, sub) => { app.innerHTML = `<div class="msg"><div class="big">${icon}</div><h1>${esc(title)}</h1>${sub ? `<p>${sub}</p>` : ""}</div>`; };
+const closedMsg = () => msg("🔒", "Bu sayfa kapalı", "");
+
+let sb, S;
+try {
+  const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
+  sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} catch { msg("⚠️", "Bağlantı kurulamadı", "Sayfayı yenile."); throw 0; }
+
+async function load() {
+  if (!token) return closedMsg();
+  const { data, error } = await sb.rpc("survey_get", { p_token: token });
+  if (error || !data || data.closed && !data.admin) return closedMsg();
+  S = data;
+  if (S.admin) return renderAdmin();
+  if (lsGet(doneKey)) return msg("✅", "Cevabın alındı", "Teşekkürler.");
+  renderForm();
+}
+
+function renderForm() {
+  app.innerHTML = `
+    <h1>${esc(S.title)}</h1>
+    ${S.intro ? `<p class="intro">${esc(S.intro)}</p>` : ""}
+    <p class="mut" style="margin-bottom:4px">İsim sorulmuyor, cevabın isimsiz kaydedilir.</p>
+    <label class="lb">Seçimin</label>
+    <div id="opts">${S.options.map((o, i) => `
+      <label class="opt" data-i="${i}"><input type="radio" name="ch" value="${i + 1}">
+        <span><div class="t">${esc(o.t)}</div>${o.h ? `<div class="h">${esc(o.h)}</div>` : ""}</span></label>`).join("")}</div>
+    <label class="lb">${esc(S.comment_label || "Yorumun")}<span class="req" id="rq" style="display:none">bu seçimde zorunlu</span></label>
+    <textarea id="cm" maxlength="3000" placeholder="Somut yaz: hangi iş, hangi gün, ne oldu."></textarea>
+    <div class="err" id="er"></div>
+    <button id="go">Gönder</button>`;
+  const opts = [...app.querySelectorAll(".opt")];
+  opts.forEach(el => el.querySelector("input").addEventListener("change", () => {
+    opts.forEach(x => x.classList.toggle("on", x.querySelector("input").checked));
+    document.getElementById("rq").style.display = S.options[+el.dataset.i].need ? "" : "none";
+  }));
+  document.getElementById("go").onclick = submit;
+}
+
+async function submit() {
+  const er = document.getElementById("er"), go = document.getElementById("go");
+  const ch = +(app.querySelector("input[name=ch]:checked")?.value || 0);
+  const cm = document.getElementById("cm").value.trim();
+  const fail = t => { er.textContent = t; er.style.display = "block"; };
+  er.style.display = "none";
+  if (!ch) return fail("Bir seçenek işaretle.");
+  if (S.options[ch - 1].need && cm.length < 15) return fail("Bu seçimde yorum zorunlu, kısaca somut bir örnek yaz.");
+  go.disabled = true; go.textContent = "Gönderiliyor…";
+  const { error } = await sb.rpc("survey_answer", { p_token: token, p_name: null, p_choice: ch, p_comment: cm });
+  if (error) { go.disabled = false; go.textContent = "Gönder"; return fail(/kapalı/i.test(error.message) ? "Anket kapandı." : "Kaydedilemedi, tekrar dene."); }
+  lsSet(doneKey, "1");
+  msg("✅", "Cevabın alındı", "Teşekkürler.");
+}
+
+function renderAdmin() {
+  const A = S.answers || [], n = A.length;
+  const link = location.origin + location.pathname + "?k=" + encodeURIComponent(token);
+  const counts = S.options.map((o, i) => A.filter(a => a.choice === i + 1));
+  const fmt = t => new Date(t).toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  app.innerHTML = `
+    <div class="bar"><span class="pill ${S.closed ? "closed" : "open"}">${S.closed ? "Kapalı · sadece sen görüyorsun" : "Açık · linki olan cevaplayabilir"}</span>
+      <span style="display:flex;gap:8px"><button class="sec" id="cp">Linki kopyala</button>
+      <button class="sec" id="tg">${S.closed ? "Yeniden aç" : "Anketi bitir"}</button></span></div>
+    <h1>${esc(S.title)}</h1>
+    <p class="mut">${n} cevap</p>
+    <h2>Seçimler</h2>
+    ${S.options.map((o, i) => `<div class="res"><div class="row"><span>${esc(o.t)}</span><span>${counts[i].length}</span></div>
+      <div class="meter"><i style="width:${n ? Math.round(counts[i].length / n * 100) : 0}%"></i></div>
+</div>`).join("")}
+    <h2>Yorumlar</h2>
+    ${A.filter(a => a.comment).map(a => `<div class="cm"><b>${a.choice}. seçenek</b><span class="ch">${fmt(a.at)}</span><div>${esc(a.comment)}</div></div>`).join("") || `<p class="mut">Henüz yorum yok.</p>`}`;
+  document.getElementById("cp").onclick = async e => { try { await navigator.clipboard.writeText(link); e.target.textContent = "Kopyalandı"; } catch { prompt("Link:", link); } };
+  document.getElementById("tg").onclick = async () => {
+    if (!S.closed && !confirm("Anket bitsin mi? Bundan sonra senden başka kimse bu sayfayı açamaz.")) return;
+    const { error } = await sb.rpc("survey_close", { p_token: token, p_closed: !S.closed });
+    if (error) return alert("Olmadı: " + error.message);
+    load();
+  };
+}
+
+load();
+</script>
+</body>
+</html>
