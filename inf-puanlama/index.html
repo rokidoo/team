@@ -809,7 +809,7 @@ const LET={A:"Kesinlikle çalış",B:"Çalışılabilir",C:"Çok zor durumda",D:
 const PARTL={kalite:"Video kalitesi",iletisim:"İletişim",izlenme:"İzlenme",maliyet:"Maliyet",guven:"Güvenilirlik"};
 
 /* ---------- durum ---------- */
-const S = { me:null, profile:null, mgr:false, prod:"*", P:[], set:{}, R:[], V:{}, G:{}, cfg:null, ready:true, err:"", q:"", fL:"", todo:false };
+const S = { me:null, profile:null, mgr:false, prod:"*", P:[], set:{}, R:[], V:{}, A:[], G:{}, cfg:null, ready:true, err:"", q:"", fL:"", todo:false };
 const products = ()=>Array.isArray(S.set.products)?S.set.products:[];
 const prodL = k=>k?(products().find(p=>p.k===k)?.l||k):"Ürün seçilmedi";
 const ukey = p=>p.username?String(p.username).trim().toLowerCase():"id:"+p.id;
@@ -819,6 +819,10 @@ const myR = (scope,ref)=>S.R.find(r=>r.scope===scope&&r.ref===ref&&r.rater===S.m
 const mean = a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 const n15 = v=>{ v=+v; return v>=1&&v<=5?v:null; };
 const f1 = x=>x==null?"—":(Math.round(x*10)/10).toLocaleString("tr-TR");
+const nrm = s=>trNorm(s).replace(/[^a-z0-9]/g,"");
+// puanda reklam videosunun izlenmesi sayılır; reklamı yoksa influencer'ın kendi paylaşımı
+const vViews = v=>{ const x = v.adv?.views ?? (v.card ? S.V[v.card.id]?.views : null); return x==null?null:+x; };
+const hookOf = a=>a&&+a.imp>0&&a.views!=null?Math.round(1000*a.views/a.imp)/10:null;
 
 /* ---------- veri ---------- */
 async function fetchAll(table, build){
@@ -836,24 +840,37 @@ async function loadAll(){
     if(S.mgr){ const {data,error}=await sb.from("inf_puan_cfg").select("value").eq("id",1).maybeSingle(); if(error) throw error; S.cfg=data?.value||null; }
     S.ready=!S.mgr||!!S.cfg;
   }catch(e){ S.ready=false; S.err=e?.message||String(e); }
+  try{ S.A=await fetchAll("inf_ad_videos"); }catch(e){ S.A=[]; }   // reklam videoları tablosu yoksa sayfa yine çalışır
 }
 
 /* ---------- kişiler: aynı kullanıcı adındaki kartlar tek kişi ---------- */
 function groups(){
-  const m=new Map();
-  S.P.forEach(p=>{ const k=ukey(p); let g=m.get(k); if(!g){ g={k,cards:[]}; m.set(k,g); } g.cards.push(p); });
+  const m=new Map(), byU=new Map(), byN=new Map();
+  S.P.forEach(p=>{ const k=ukey(p); let g=m.get(k); if(!g){ g={k,cards:[],avids:[]}; m.set(k,g); } g.cards.push(p);
+    if(p.username&&!byU.has(nrm(p.username))) byU.set(nrm(p.username),g); if(p.name&&!byN.has(nrm(p.name))) byN.set(nrm(p.name),g); });
+  // reklam videoları: kullanıcı adı ya da adla kişiye bağlanır; eşi yoksa kendi başına listelenir
+  S.A.forEach(a=>{ const base=String(a.ad||"").replace(/\s*-\s*\d+$/,"").trim(), n=nrm(base); if(!n) return;
+    let g=byU.get(n)||byN.get(n);
+    if(!g){ const isU=/^[a-z0-9._]{2,30}$/i.test(base), key=isU?base.toLowerCase():"ad:"+n;
+      g=m.get(key); if(!g){ g={k:key,cards:[],avids:[],adName:isU?"":base,adUser:isU?base.toLowerCase():""}; m.set(key,g); }
+      (isU?byU:byN).set(n,g); }
+    g.avids.push(a); });
   const out=[];
   m.forEach(g=>{
-    g.vids=g.cards.filter(hasVideo).sort((a,b)=>(a.video_at||a.updated_at||"")<(b.video_at||b.updated_at||"")?1:-1);
+    const cv=g.cards.filter(hasVideo).sort((a,b)=>(a.video_at||a.updated_at||"")<(b.video_at||b.updated_at||"")?1:-1);
+    const av=[...g.avids].sort((a,b)=>(+b.views||0)-(+a.views||0));
     g.kacti=g.cards.some(c=>c.stage==="kacti");
-    if(!g.vids.length&&!g.kacti) return;
-    g.name=g.cards.map(c=>c.name).find(Boolean)||""; g.username=g.cards.map(c=>c.username).find(Boolean)||"";
-    g.ig=g.cards.map(c=>c.ig_url).find(isUrl)||null; g.followers=Math.max(0,...g.cards.map(c=>+c.followers||0))||null;
-    const vv=g.vids.map(v=>S.V[v.id]?.views).filter(x=>x!=null).map(Number); g.views=vv.length?mean(vv):null;
-    g.fee=g.vids.length?g.vids.filter(paidDeal).reduce((a,v)=>a+(+v.fee||0),0)/g.vids.length:null;
+    if(!cv.length&&!av.length&&!g.kacti) return;
+    // kişinin kartındaki video ile reklam videosu sırayla eşlenir (aynı video iki kez puanlanmasın); artan reklam videoları ayrı listelenir
+    g.vids=[...cv.map((c,i)=>({ref:c.id, card:c, adv:av[i]||null})), ...av.slice(cv.length).map(a=>({ref:"ad:"+a.ad, card:null, adv:a}))];
+    g.name=g.cards.map(c=>c.name).find(Boolean)||g.adName||""; g.username=g.cards.map(c=>c.username).find(Boolean)||g.adUser||"";
+    g.ig=g.cards.map(c=>c.ig_url).find(isUrl)||(g.username?`https://www.instagram.com/${g.username}/`:null); g.followers=Math.max(0,...g.cards.map(c=>+c.followers||0))||null;
+    const vv=g.vids.map(vViews).filter(x=>x!=null); g.views=vv.length?mean(vv):null;
+    const im=av.reduce((x,a)=>x+(+a.imp||0),0); g.imp=im||null; g.rate=im?av.reduce((x,a)=>x+(+a.views||0),0)/im:null;
+    g.fee=cv.length?cv.filter(paidDeal).reduce((a,v)=>a+(+v.fee||0),0)/cv.length:null;
     const mk=myR("kisi",g.k);
-    g.mine = !mk && !g.vids.some(v=>myR("video",v.id)) ? 0
-      : (mk && ILET.every(([f])=>n15(mk.s?.[f])) && g.vids.every(v=>{ const r=myR("video",v.id); return r && VID.every(([f])=>n15(r.s?.[f])); })) ? 2 : 1;
+    g.mine = !mk && !g.vids.some(v=>myR("video",v.ref)) ? 0
+      : (mk && ILET.every(([f])=>n15(mk.s?.[f])) && g.vids.every(v=>{ const r=myR("video",v.ref); return r && VID.every(([f])=>n15(r.s?.[f])); })) ? 2 : 1;
     out.push(g);
   });
   return out;
@@ -865,26 +882,29 @@ function compute(G){
   if(!c){ G.forEach(g=>{ const pub=S.G[g.k]; g.letter=pub?.letter||null; g.manual=!!pub?.manual; }); return; }
   G.forEach(g=>{
     const kR=rOf("kisi",g.k);
-    const kalite=mean(g.vids.map(v=>mean(rOf("video",v.id).map(r=>mean(VID.map(([f])=>n15(r.s?.[f])).filter(x=>x!=null))).filter(x=>x!=null))).filter(x=>x!=null));
+    const kalite=mean(g.vids.map(v=>mean(rOf("video",v.ref).map(r=>mean(VID.map(([f])=>n15(r.s?.[f])).filter(x=>x!=null))).filter(x=>x!=null))).filter(x=>x!=null));
     const iletisim=mean(kR.map(r=>mean(ILET.map(([f])=>n15(r.s?.[f])).filter(x=>x!=null))).filter(x=>x!=null));
     const comp=[], add=x=>{ if(x!=null) comp.push(x); };
     add(mean(kR.map(r=>c.teslim?.[r.s?.teslim]).filter(x=>x!=null)));
     add(mean(kR.map(r=>r.s?.revize_n==null||r.s.revize_n===""?null:c.revize[Math.min(Math.max(0,Math.round(+r.s.revize_n)),c.revize.length-1)]).filter(x=>x!=null)));
     add(mean(kR.map(r=>n15(r.s?.uyum)).filter(x=>x!=null)));
     add(mean(kR.map(r=>c.ham?.[r.s?.ham]).filter(x=>x!=null)));
-    const days=g.vids.filter(v=>v.delivered_at&&v.video_at).map(v=>Math.max(0,dayDiff(v.delivered_at,v.video_at)));
+    const days=g.vids.map(v=>v.card).filter(v=>v&&v.delivered_at&&v.video_at).map(v=>Math.max(0,dayDiff(v.delivered_at,v.video_at)));
     add(mean(days.map(d=>{ const i=c.teslim_gun.findIndex(t=>d<=t); return 5-(i<0?c.teslim_gun.length:i); })));
     g.days=mean(days);
     g.parts={kalite, iletisim, guven:mean(comp)};
     g.etk=mean(kR.map(r=>n15(r.s?.etkilesim)).filter(x=>x!=null)); g.prof=mean(kR.map(r=>n15(r.s?.profil)).filter(x=>x!=null));
     g.tekrar=kR.map(r=>r.s?.tekrar).filter(Boolean);
-    g.raters=new Set([...kR.map(r=>r.rater), ...g.vids.flatMap(v=>rOf("video",v.id).map(r=>r.rater))]).size;
+    g.raters=new Set([...kR.map(r=>r.rater), ...g.vids.flatMap(v=>rOf("video",v.ref).map(r=>r.rater))]).size;
   });
   // göreli kriterler: kişinin diğerleri arasındaki yeri (0 = en düşük, 1 = en yüksek)
   const pr=(arr,val)=>{ const n=arr.length; if(n<=1) return .5; return (arr.filter(x=>x<val).length + (arr.filter(x=>x===val).length-1)/2)/(n-1); };
-  const VW=G.filter(g=>g.views!=null).map(g=>g.views), FE=G.filter(g=>g.fee>0).map(g=>g.fee);
+  // izlenme ölçüsü: "sayi" = izlenme adedi; "oran" = gösterimin yüzde kaçı 3 sn izledi (az gösterimli videolar sayılmaz)
+  const oran=c.izlenme_olcu==="oran", mv=g=>oran?(g.rate!=null&&g.imp>=(c.izlenme_min_gosterim||0)?g.rate:null):g.views;
+  const VW=G.map(mv).filter(x=>x!=null), FE=G.filter(g=>g.fee>0).map(g=>g.fee);
   G.forEach(g=>{
-    g.parts.izlenme = g.views!=null ? c.izlenme[0]+(c.izlenme[1]-c.izlenme[0])*pr(VW,g.views) : null;
+    const x0=mv(g);
+    g.parts.izlenme = x0!=null ? c.izlenme[0]+(c.izlenme[1]-c.izlenme[0])*pr(VW,x0) : null;
     g.parts.maliyet = g.fee==null ? null : g.fee>0 ? c.ucret[0]-(c.ucret[0]-c.ucret[1])*pr(FE,g.fee) : c.barter;
     const rated=g.parts.kalite!=null||g.parts.iletisim!=null;
     let tw=0, ts=0; g.pct={};
@@ -956,24 +976,24 @@ const segRow=(id,l,q,opts,v)=>`<div class="crit"><div><b>${esc(l)}</b><div class
 function openGroup(g){
   if(!g) return;
   const mk=myR("kisi",g.k)?.s||{}, mnote=myR("kisi",g.k)?.note||"";
-  const others=S.mgr?[...new Map([...rOf("kisi",g.k), ...g.vids.flatMap(v=>rOf("video",v.id))].filter(r=>r.rater!==S.me?.id).map(r=>[r.rater,r.rater_name||"(isimsiz)"]))]:[];
+  const others=S.mgr?[...new Map([...rOf("kisi",g.k), ...g.vids.flatMap(v=>rOf("video",v.ref))].filter(r=>r.rater!==S.me?.id).map(r=>[r.rater,r.rater_name||"(isimsiz)"]))]:[];
   const lbl=(arr,s)=>arr.filter(([f])=>s?.[f]!=null&&s[f]!=="").map(([f,l])=>`${l} ${s[f]}`).join(" · ");
   modal(`<h3>${ltChip(g.letter,1)} ${gName(g)}${g.ig?` <a class="ext" href="${esc(g.ig)}" target="_blank" rel="noopener">Instagram ↗</a>`:""}</h3>
     <div class="note" style="margin:-6px 0 10px">${g.letter?esc(g.letter+" · "+LET[g.letter]):"Puan bekliyor"}${g.followers?" · "+nf.format(g.followers)+" takipçi":""}</div>
     ${S.mgr&&S.cfg?`<div class="mgrbox"><div class="flabel">Yönetici · puan dökümü</div>
       ${g.score!=null?`<div class="tot"><b>${Math.round(g.score)}</b>/100 · otomatik harf <b>${g.auto||"—"}</b> · ${g.raters} puanlayan</div>
         ${Object.keys(PARTL).map(k=>`<div class="pt"><span>${PARTL[k]}</span><i style="background-size:${g.pct[k]!=null?Math.round(g.pct[k]):0}% 100%"></i><em>${g.pct[k]!=null?Math.round(g.pct[k]):"yok"}</em></div>`).join("")}
-        <div class="note">Profil kalitesi ${f1(g.prof)} · etkileşim ${f1(g.etk)}${g.days!=null?` · teslimden videoya ${f1(g.days)} gün`:""}${g.fee!=null?` · video başına ${g.fee>0?TL(g.fee):"barter"}`:""}${g.views!=null?` · ${nf.format(Math.round(g.views))} izlenme`:""}</div>`
+        <div class="note">Profil kalitesi ${f1(g.prof)} · etkileşim ${f1(g.etk)}${g.days!=null?` · teslimden videoya ${f1(g.days)} gün`:""}${g.fee!=null?` · video başına ${g.fee>0?TL(g.fee):"barter"}`:""}${g.views!=null?` · ${nf.format(Math.round(g.views))} izlenme`:""}${g.rate!=null?` · ilk 3 sn %${f1(g.rate*100)}`:""}</div>`
         :`<div class="note" style="margin-top:0">Henüz puan girilmemiş${g.auto?`; otomatik harf <b>${g.auto}</b>`:""}.</div>`}
       ${g.why.map(w=>`<div class="why">⚠️ ${esc(w)}</div>`).join("")}
       <div class="ovr"><select id="ovL"><option value="">Otomatik (${g.auto||"puan bekliyor"})</option>${Object.keys(LET).map(k=>`<option value="${k}" ${g.manual&&g.letter===k?"selected":""}>${k} · ${LET[k]} (elle)</option>`).join("")}</select>
         <input id="ovR" placeholder="Elle harfin gerekçesi" value="${esc(g.manual?g.reason:"")}"><button class="btn sm" id="ovS">Harfi kaydet</button></div></div>`:""}
     <div class="sec">🎬 Videolar</div>
-    ${g.vids.map(v=>{ const s=myR("video",v.id)?.s||{}, vw=S.V[v.id];
-      return `<div class="vcard"><div class="vh"><span class="pc">${esc(v.product||"ürün?")}</span> <b>${v.video_at?trShort(v.video_at):"tarih yok"}</b> <span class="tg">${esc(DEALS[v.deal]||"Belirsiz")}${+v.fee?" · "+esc(TL(v.fee)):""}</span>${vw?.views!=null?`<span class="tg b">👁 ${nf.format(vw.views)} izlenme</span>`:""}</div>
-        <div class="vl">${isUrl(v.video_url)?`<a class="ext" href="${esc(v.video_url)}" target="_blank" rel="noopener">🎬 Videoyu aç ↗</a>`:`<span class="q">Video linki girilmemiş</span>`}${isUrl(v.ig_url_post)?` <a class="ext" href="${esc(v.ig_url_post)}" target="_blank" rel="noopener">📱 Instagram paylaşımı ↗</a>`:""}</div>
-        ${VID.map(([f,l,q])=>starRow(`v:${v.id}:${f}`,l,q,n15(s[f]))).join("")}
-        ${S.mgr?rOf("video",v.id).filter(r=>r.rater!==S.me?.id).map(r=>`<div class="oth"><b>${esc(r.rater_name||"")}</b> ${esc(lbl(VID,r.s))}</div>`).join(""):""}</div>`; }).join("")||`<div class="note">Bu kişiden video gelmedi.</div>`}
+    ${g.vids.map((x,i)=>{ const s=myR("video",x.ref)?.s||{}, v=x.card, a=x.adv, hk=hookOf(a);
+      return `<div class="vcard"><div class="vh">${v?`<span class="pc">${esc(v.product||"ürün?")}</span> <b>${v.video_at?trShort(v.video_at):"tarih yok"}</b> <span class="tg">${esc(DEALS[v.deal]||"Belirsiz")}${+v.fee?" · "+esc(TL(v.fee)):""}</span>`:`<span class="pc">reklam videosu</span> <b>${a.first_at?trShort(a.first_at):""}</b>`}${a?.views!=null?`<span class="tg b">📣 reklamda ${nf.format(a.views)} izlenme</span>`:""}${hk!=null?`<span class="tg">ilk 3 sn %${f1(hk)}</span>`:""}${v&&S.V[v.id]?.views!=null?`<span class="tg g">📱 kendi paylaşımı ${nf.format(S.V[v.id].views)}</span>`:""}</div>
+        <div class="vl">${v&&isUrl(v.video_url)?`<a class="ext" href="${esc(v.video_url)}" target="_blank" rel="noopener">🎬 Videoyu aç ↗</a>`:""}${a&&isUrl(a.url)?`<a class="ext" href="${esc(a.url)}" target="_blank" rel="noopener">📣 Instagram'da izle ↗</a>`:""}${v&&isUrl(v.ig_url_post)?`<a class="ext" href="${esc(v.ig_url_post)}" target="_blank" rel="noopener">📱 Kendi paylaşımı ↗</a>`:""}${!(v&&(isUrl(v.video_url)||isUrl(v.ig_url_post)))&&!(a&&isUrl(a.url))?`<span class="q">Video linki girilmemiş</span>`:""}</div>
+        ${VID.map(([f,l,q])=>starRow(`v:${i}:${f}`,l,q,n15(s[f]))).join("")}
+        ${S.mgr?rOf("video",x.ref).filter(r=>r.rater!==S.me?.id).map(r=>`<div class="oth"><b>${esc(r.rater_name||"")}</b> ${esc(lbl(VID,r.s))}</div>`).join(""):""}</div>`; }).join("")||`<div class="note">Bu kişiden video gelmedi.</div>`}
     <div class="sec">💬 İletişim</div>${ILET.map(([f,l,q])=>starRow("k:"+f,l,q,n15(mk[f]))).join("")}
     <div class="sec">🤝 Güvenilirlik</div>
       ${segRow("k:teslim","Söz verdiği tarihte teslim","Videoyu söylediği günde gönderdi mi?",TESLIM,mk.teslim)}
@@ -1000,7 +1020,7 @@ function openGroup(g){
     const rv=$("kRev").value.trim(); if(rv!==""&&+rv>=0) ks.revize_n=Math.round(+rv);
     const note=$("kNote").value.trim()||null;
     if(Object.keys(ks).length||note||myR("kisi",g.k)) rows.push({...base, scope:"kisi", ref:g.k, s:ks, note});
-    g.vids.forEach(v=>{ const s={}; VID.forEach(([f])=>{ const x=val(`v:${v.id}:${f}`); if(x) s[f]=+x; }); if(Object.keys(s).length||myR("video",v.id)) rows.push({...base, scope:"video", ref:v.id, s, note:null}); });
+    g.vids.forEach((v,i)=>{ const s={}; VID.forEach(([f])=>{ const x=val(`v:${i}:${f}`); if(x) s[f]=+x; }); if(Object.keys(s).length||myR("video",v.ref)) rows.push({...base, scope:"video", ref:v.ref, s, note:null}); });
     if(!rows.length){ toast("Önce en az bir puan ver."); return; }
     $("gSave").disabled=true;
     try{
@@ -1022,24 +1042,31 @@ function openGroup(g){
 
 /* ---------- izlenme aktarımı (yönetici) ---------- */
 function openViews(){
-  const links=S.P.filter(p=>isUrl(p.ig_url_post)).map(p=>({id:p.id, url:p.ig_url_post.trim()}));
-  const have=links.filter(l=>S.V[l.id]?.views!=null).length;
+  const links=S.P.filter(p=>isUrl(p.ig_url_post)&&S.V[p.id]?.views==null).map(p=>({id:p.id, url:p.ig_url_post.trim()}));
   modal(`<h3>📈 İzlenme aktar</h3>
-    <div class="help">Instagram'da paylaşılmış ${links.length} videonun linki aşağıda (${have} tanesinin izlenmesi kayıtlı). Listeyi kopyala; izlenmeler çekilince gelen metni alttaki kutuya yapıştır.</div>
-    <div class="flabel">1 · Paylaşım linkleri</div><textarea id="vwOut" rows="5" readonly>${esc(JSON.stringify(links))}</textarea>
+    <div class="help">Kayıtlı: ${S.A.length} reklam videosu, ${Object.keys(S.V).length} influencer paylaşımı. Aşağıdaki liste, influencer'ın kendi Instagram paylaşımı girilmiş ama izlenmesi henüz olmayan ${links.length} videodur. Gelen sonucu (reklam videoları ya da paylaşım izlenmeleri) alttaki kutuya yapıştır.</div>
+    <div class="flabel">1 · İzlenmesi eksik paylaşım linkleri</div><textarea id="vwOut" rows="4" readonly>${esc(JSON.stringify(links))}</textarea>
     <button class="btn ghost sm" id="vwCp" style="margin:6px 0 14px">Linkleri kopyala</button>
-    <div class="flabel">2 · İzlenme sonucu</div><textarea id="vwIn" rows="5" placeholder='[{"id":"…","views":12345,"likes":320,"comments":14}]'></textarea>
+    <div class="flabel">2 · İzlenme sonucu</div><textarea id="vwIn" rows="5" placeholder='[{"id":"…","views":12345}] ya da [{"ad":"…","url":"…","views":12345,"imp":90000}]'></textarea>
     <div class="mbtn"><button class="btn ghost" id="vwCan">Kapat</button><button class="btn" id="vwGo">İzlenmeleri kaydet</button></div>`);
   $("vwCp").onclick=()=>copyText($("vwOut").value);
   $("vwCan").onclick=closeModal;
   $("vwGo").onclick=async ()=>{
     let arr; try{ arr=JSON.parse($("vwIn").value); }catch(e){ toast("Metin okunamadı; gelen sonucu eksiksiz yapıştır."); return; }
+    arr=Array.isArray(arr)?arr.filter(Boolean):[];
     const ids=new Set(S.P.map(p=>p.id)), int=v=>v==null||v===""||isNaN(+v)?null:Math.round(+v);
-    const rows=(Array.isArray(arr)?arr:[]).filter(x=>x&&ids.has(x.id)&&int(x.views)!=null).map(x=>({person_id:x.id, url:x.url||S.P.find(p=>p.id===x.id)?.ig_url_post||null, views:int(x.views), likes:int(x.likes), comments:int(x.comments), fetched_at:nowIso()}));
-    if(!rows.length){ toast("Kaydedilecek izlenme bulunamadı."); return; }
+    const rows=arr.filter(x=>x.id&&ids.has(x.id)&&int(x.views)!=null).map(x=>({person_id:x.id, url:x.url||S.P.find(p=>p.id===x.id)?.ig_url_post||null, views:int(x.views), likes:int(x.likes), comments:int(x.comments), fetched_at:nowIso()}));
+    const ads=[...new Map(arr.filter(x=>x.ad&&int(x.views)!=null).map(x=>[String(x.ad).trim(),{ad:String(x.ad).trim(), url:isUrl(x.url)?x.url:null, views:int(x.views), imp:int(x.imp), thru:int(x.thru), first_at:/^\d{4}-\d\d-\d\d$/.test(x.first_at||"")?x.first_at:null, fetched_at:nowIso()}])).values()];
+    if(!rows.length&&!ads.length){ toast("Kaydedilecek izlenme bulunamadı."); return; }
     $("vwGo").disabled=true;
-    try{ if(!DEMO){ const {error}=await sb.from("inf_views").upsert(rows,{onConflict:"person_id"}); if(error) throw error; }
-      rows.forEach(r=>S.V[r.person_id]=r); closeModal(); toast(rows.length+" videonun izlenmesi kaydedildi ✓"); render();
+    try{
+      if(!DEMO){
+        if(rows.length){ const {error}=await sb.from("inf_views").upsert(rows,{onConflict:"person_id"}); if(error) throw error; }
+        for(let i=0;i<ads.length;i+=200){ const {error}=await sb.from("inf_ad_videos").upsert(ads.slice(i,i+200),{onConflict:"ad"}); if(error) throw error; }
+      }
+      rows.forEach(r=>S.V[r.person_id]=r);
+      ads.forEach(r=>{ const i=S.A.findIndex(x=>x.ad===r.ad); if(i>=0) S.A[i]=r; else S.A.push(r); });
+      closeModal(); toast((rows.length+ads.length)+" videonun izlenmesi kaydedildi ✓"); render();
     }catch(e){ toast("Kaydedilemedi: "+(e?.message||e)); $("vwGo").disabled=false; }
   };
 }
@@ -1097,6 +1124,7 @@ function demoData(){
     P("p6","Deniz Bekleyen","deniz.demo",{stage:"iletisim"}),
   ];
   S.V={p1:{person_id:"p1",views:48200,likes:900,comments:31}, p3:{person_id:"p3",views:6100,likes:120,comments:4}};
+  S.A=[{ad:"elif.anne.demo",url:"https://www.instagram.com/p/DEMOA/",views:21000,imp:150000,first_at:d(12)},{ad:"Reklam Demo-1",url:"https://www.instagram.com/p/DEMOB/",views:9000,imp:40000,first_at:d(30)},{ad:"Reklam Demo-2",url:"https://www.instagram.com/p/DEMOC/",views:300,imp:5000,first_at:d(28)},{ad:"yeni.kisi.demo",url:"https://www.instagram.com/p/DEMOD/",views:52000,imp:210000,first_at:d(3)}];
   const R=(scope,ref,rater,nm,s,note)=>({scope,ref,rater,rater_name:nm,s,note:note||null});
   S.R=[
     R("video","p1","u_admin","Demo Yönetici",{dogal:5,goruntu:4,ses:5,anlatim:5}), R("video","p1","u2","Takipçi Bir",{dogal:4,goruntu:5,ses:4,anlatim:5}), R("video","p1b","u2","Takipçi Bir",{dogal:5,goruntu:4,ses:4,anlatim:4}),
