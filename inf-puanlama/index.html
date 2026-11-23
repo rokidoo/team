@@ -786,6 +786,9 @@ const nf = new Intl.NumberFormat("tr-TR");
 const TL = n=>n==null||n===""?"—":new Intl.NumberFormat("tr-TR",{style:"currency",currency:"TRY",maximumFractionDigits:0}).format(+n||0);
 const trNorm = s=>String(s||"").toLocaleLowerCase("tr").replace(/ç/g,"c").replace(/ğ/g,"g").replace(/ı/g,"i").replace(/ö/g,"o").replace(/ş/g,"s").replace(/ü/g,"u");
 const isUrl = u=>/^https?:\/\/\S+$/i.test(String(u||"").trim());
+// yalnız gerçek profil adresi: mesaj (direct), gönderi (p/reel) gibi linkler profil sayılmaz
+const profUrl = u=>{ const m=String(u||"").trim().match(/^https?:\/\/(?:www\.)?instagram\.com\/([A-Za-z0-9._]+)(?:\/(?:reels|tagged|following|followers))?\/?(?:\?.*)?$/i);
+  return m&&!/^(direct|p|reel|reels|explore|stories|tv|accounts)$/i.test(m[1])?`https://www.instagram.com/${m[1]}/`:null; };
 let toastT=null;
 function toast(msg){ $("toastHost").innerHTML=`<div class="toast">${esc(msg)}</div>`; clearTimeout(toastT); toastT=setTimeout(()=>$("toastHost").innerHTML="",2600); }
 function closeModal(){ $("modalHost").innerHTML=""; }
@@ -816,6 +819,11 @@ const ukey = p=>p.username?String(p.username).trim().toLowerCase():"id:"+p.id;
 const hasVideo = p=>!!(p.video_url||p.video_at||rank(p.stage)>=rank("video"));
 const rOf = (scope,ref)=>S.R.filter(r=>r.scope===scope&&r.ref===ref);
 const myR = (scope,ref)=>S.R.find(r=>r.scope===scope&&r.ref===ref&&r.rater===S.me?.id);
+// kişi puanı: kişinin anahtarı sonradan değişse de (karta kullanıcı adı eklenince, video kişiye bağlanınca) eski puan kaybolmasın
+const adKey = a=>{ const b=String(a.ad||"").replace(/^@/,"").replace(/\s*-\s*\d+$/,"").trim(); return /^[a-z0-9._]{2,30}$/i.test(b)?b.toLowerCase():"ad:"+nrm(b); };
+const rOfK = g=>{ const m=new Map(); S.R.filter(r=>r.scope==="kisi"&&g.krefs.includes(r.ref)).sort((a,b)=>String(a.updated_at||"")<String(b.updated_at||"")?-1:1).forEach(r=>m.set(r.rater,r)); return [...m.values()]; };
+const myRK = g=>rOfK(g).find(r=>r.rater===S.me?.id);
+const pubOf = g=>S.G[g.k]||g.krefs.map(k=>S.G[k]).find(Boolean);
 const mean = a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 const n15 = v=>{ v=+v; return v>=1&&v<=5?v:null; };
 const f1 = x=>x==null?"—":(Math.round(x*10)/10).toLocaleString("tr-TR");
@@ -855,13 +863,16 @@ function groups(){
     if(p.username&&!byU.has(nrm(p.username))) byU.set(nrm(p.username),g); if(p.name&&!byN.has(nrm(p.name))) byN.set(nrm(p.name),g); });
   // influencer'ın kendi Instagram paylaşımları: kullanıcı adıyla kişiye bağlanır
   S.I.forEach(p=>{ const u=String(p.username||"").trim().toLowerCase(), n=nrm(u); if(!n) return;
-    let g=byU.get(n); if(!g){ g=mk(u,{adUser:u}); byU.set(n,g); }
+    let g=byU.get(n);
+    if(!g){ const c=byN.get(nrm(p.full_name)||"-"); if(c&&c.cards.length&&!c.cards.some(x=>x.username)){ g=c; byU.set(n,g); } }
+    if(!g){ g=mk(u,{adUser:u}); byU.set(n,g); }
     if(p.full_name){ g.fullName=g.fullName||p.full_name; const fn=nrm(p.full_name); if(fn&&!byN.has(fn)) byN.set(fn,g); }
     g.igs.push(p); });
   // reklam videoları: kullanıcı adı ya da adla kişiye bağlanır (yönetici "kimin" yazdıysa ona); eşi yoksa kendi başına listelenir
   S.A.forEach(a=>{ const base=String(a.person||a.ad||"").replace(/^@/,"").replace(/\s*-\s*\d+$/,"").trim(), n=nrm(base); if(!n) return;
     let g=byU.get(n)||byN.get(n);
-    if(!g){ const isU=/^[a-z0-9._]{2,30}$/i.test(base); g=mk(isU?base.toLowerCase():"ad:"+n, isU?{adUser:base.toLowerCase()}:{adName:base}); (isU?byU:byN).set(n,g); }
+    if(!g){ const isU=/^[a-z0-9._]{2,30}$/i.test(base); g=mk(isU?base.toLowerCase():"ad:"+n, isU?{adUser:base.toLowerCase(), adGuess:!a.person}:{adName:base}); (isU?byU:byN).set(n,g); }
+    else if(a.person) g.adGuess=false;
     g.avids.push(a); });
   const out=[];
   m.forEach(g=>{
@@ -872,13 +883,14 @@ function groups(){
     // kart, Instagram paylaşımı ve reklam videosu sırayla eşlenir (aynı video üç kez puanlanmasın)
     g.vids=Array.from({length:Math.max(cv.length,iv.length,av.length)},(_,i)=>{ const v={card:cv[i]||null, ig:iv[i]||null, adv:av[i]||null};
       v.refs=[v.card&&v.card.id, v.ig&&"ig:"+v.ig.code, v.adv&&"ad:"+v.adv.ad].filter(Boolean); v.ref=v.refs[0]; return v; });
-    g.name=g.cards.map(c=>c.name).find(Boolean)||g.fullName||g.adName||""; g.username=g.cards.map(c=>c.username).find(Boolean)||g.adUser||"";
-    g.ig=g.cards.map(c=>c.ig_url).find(isUrl)||(g.username?`https://www.instagram.com/${g.username}/`:null); g.followers=Math.max(0,...g.cards.map(c=>+c.followers||0))||null;
+    g.name=g.cards.map(c=>c.name).find(Boolean)||g.fullName||g.adName||""; g.username=String(g.cards.map(c=>c.username).find(Boolean)||g.igs.map(p=>p.username).find(Boolean)||g.adUser||"").trim().replace(/^@/,"");
+    g.ig=g.cards.map(c=>profUrl(c.ig_url)).find(Boolean)||(g.username&&!g.adGuess?`https://www.instagram.com/${g.username}/`:null); g.followers=Math.max(0,...g.cards.map(c=>+c.followers||0))||null;
     const a1=g.vids.map(igV).filter(x=>x!=null), a2=g.vids.map(metaV).filter(x=>x!=null);
     g.igViews=a1.length?mean(a1):null; g.metaViews=a2.length?mean(a2):null;
     const im=av.reduce((x,a)=>x+(+a.imp||0),0); g.imp=im||null; g.rate=im?av.reduce((x,a)=>x+(+a.views||0),0)/im:null;
     g.fee=cv.length?cv.filter(paidDeal).reduce((a,v)=>a+(+v.fee||0),0)/cv.length:null;
-    const mk2=myR("kisi",g.k);
+    g.krefs=[...new Set([g.k, ...g.cards.map(c=>"id:"+c.id), ...g.igs.map(p=>String(p.username||"").trim().toLowerCase()).filter(Boolean), ...g.avids.map(adKey)])];
+    const mk2=myRK(g);
     g.mine = !mk2 && !g.vids.some(v=>myRV(v)) ? 0
       : (mk2 && (mk2.s?.ilet_yok || ILET.every(([f])=>n15(mk2.s?.[f]))) && g.vids.every(v=>{ const r=myRV(v); return r && VID.every(([f])=>n15(r.s?.[f])); })) ? 2 : 1;
     out.push(g);
@@ -889,9 +901,9 @@ function groups(){
 /* ---------- hesap (yalnız yönetici; kurallar S.cfg'den) ---------- */
 function compute(G){
   const c=S.cfg;
-  if(!c){ G.forEach(g=>{ const pub=S.G[g.k]; g.letter=pub?.letter||null; g.manual=!!pub?.manual; }); return; }
+  if(!c){ G.forEach(g=>{ const pub=pubOf(g); g.letter=pub?.letter||null; g.manual=!!pub?.manual; }); return; }
   G.forEach(g=>{
-    const kR=rOf("kisi",g.k);
+    const kR=rOfK(g);
     const kalite=mean(g.vids.map(v=>mean(rOfV(v).map(r=>mean(VID.map(([f])=>n15(r.s?.[f])).filter(x=>x!=null))).filter(x=>x!=null))).filter(x=>x!=null));
     g.iletYok=kR.some(r=>r.s?.ilet_yok);
     const iletisim=g.iletYok?null:mean(kR.map(r=>mean(ILET.map(([f])=>n15(r.s?.[f])).filter(x=>x!=null))).filter(x=>x!=null));
@@ -936,7 +948,7 @@ function compute(G){
     }
     if(g.kacti){ L="D"; why.push("Ürünü aldı, video atmadı (kaçtı)"); }
     g.auto=L; g.why=why;
-    const pub=S.G[g.k]; g.manual=!!pub?.manual; g.letter=g.manual?pub.letter:L; g.reason=pub?.reason||"";
+    const pub=pubOf(g); g.manual=!!pub?.manual; g.letter=g.manual?pub.letter:L; g.reason=pub?.reason||"";
   });
 }
 // hesaplanan harfleri ekip görsün diye yayınla (elle verilenlere dokunma)
@@ -990,10 +1002,11 @@ const starRow=(id,l,q,v)=>`<div class="crit"><div><b>${esc(l)}</b><div class="q"
 const segRow=(id,l,q,opts,v)=>`<div class="crit"><div><b>${esc(l)}</b><div class="q">${esc(q)}</div></div><div class="segs" data-f="${id}" data-v="${esc(v||"")}">${opts.map(([k,t])=>`<button type="button" data-o="${k}" class="${v===k?"on":""}">${esc(t)}</button>`).join("")}</div></div>`;
 function openGroup(g){
   if(!g) return;
-  const mk=myR("kisi",g.k)?.s||{}, mnote=myR("kisi",g.k)?.note||"";
-  const others=S.mgr?[...new Map([...rOf("kisi",g.k), ...g.vids.flatMap(v=>rOfV(v))].filter(r=>r.rater!==S.me?.id).map(r=>[r.rater,r.rater_name||"(isimsiz)"]))]:[];
+  const mk=myRK(g)?.s||{}, mnote=myRK(g)?.note||"";
+  const others=S.mgr?[...new Map([...rOfK(g), ...g.vids.flatMap(v=>rOfV(v))].filter(r=>r.rater!==S.me?.id).map(r=>[r.rater,r.rater_name||"(isimsiz)"]))]:[];
   const lbl=(arr,s)=>arr.filter(([f])=>s?.[f]!=null&&s[f]!=="").map(([f,l])=>`${l} ${s[f]}`).join(" · ");
   modal(`<h3>${ltChip(g.letter,1)} ${gName(g)}${g.ig?` <a class="ext" href="${esc(g.ig)}" target="_blank" rel="noopener">Profil ↗</a>`:""}</h3>
+    ${g.ig?"":`<div class="note" style="margin:-6px 0 8px">⚠️ ${g.adGuess?"Profil doğrulanmadı (ad reklam adından geliyor)":"Profil linki kayıtlı değil"}${g.cards.length?": takip sayfasındaki kartına Instagram kullanıcı adını ekleyin":S.mgr?": aşağıdaki “Kişiye bağla” alanına kullanıcı adını yazın":""}.</div>`}
     <div class="note" style="margin:-6px 0 10px">${g.letter?esc(g.letter+" · "+LET[g.letter]):"Puan bekliyor"}${g.followers?" · "+nf.format(g.followers)+" takipçi":""}</div>
     ${S.mgr&&S.cfg?`<div class="mgrbox"><div class="flabel">Yönetici · puan dökümü</div>
       ${g.score!=null?`<div class="tot"><b>${Math.round(g.score)}</b>/100 · otomatik harf <b>${g.auto||"—"}</b> · ${g.raters} puanlayan</div>
@@ -1024,7 +1037,7 @@ function openGroup(g){
     <div class="sec">⭐ Genel</div>
       ${segRow("k:tekrar","Tekrar çalışır mıydın?","Bu kişiyle bir daha iş yapar mısın?",TEKRAR,mk.tekrar)}
       <div class="flabel" style="margin-top:12px">Not (isteğe bağlı)</div><textarea id="kNote" rows="3" placeholder="Genel fikrin, dikkat edilmesi gerekenler…">${esc(mnote)}</textarea>
-    ${S.mgr&&others.length?`<div class="sec">👥 Diğer puanlar</div>${others.map(([id,nm])=>{ const r=rOf("kisi",g.k).find(x=>x.rater===id); const s=r?.s||{};
+    ${S.mgr&&others.length?`<div class="sec">👥 Diğer puanlar</div>${others.map(([id,nm])=>{ const r=rOfK(g).find(x=>x.rater===id); const s=r?.s||{};
       return `<div class="oth blk"><b>${esc(nm)}</b>${r?`<div>${s.ilet_yok?"İletişim onda değildi":esc(lbl(ILET,s))}</div><div>${esc([s.teslim?"Teslim: "+(TESLIM.find(t=>t[0]===s.teslim)||[,""])[1]:"", s.revize_n!=null&&s.revize_n!==""?"Revize: "+s.revize_n:"", s.uyum?"Uyum "+s.uyum:"", s.ham?"Ham görüntü: "+s.ham:"", lbl(PROF,s), s.tekrar?"Tekrar: "+s.tekrar:""].filter(Boolean).join(" · "))}</div>${r.note?`<div class="nt">“${esc(r.note)}”</div>`:""}`:`<div>Sadece video puanı girmiş.</div>`}</div>`; }).join("")}`:""}
     <div class="mbtn"><button class="btn ghost" id="gCan">Kapat</button><button class="btn" id="gSave">Puanı kaydet</button></div>`);
   const H=$("modalHost");
@@ -1041,7 +1054,7 @@ function openGroup(g){
     ["teslim","ham","tekrar"].forEach(f=>{ const v=val("k:"+f); if(v) ks[f]=v; });
     const rv=$("kRev").value.trim(); if(rv!==""&&+rv>=0) ks.revize_n=Math.round(+rv);
     const note=$("kNote").value.trim()||null;
-    if(Object.keys(ks).length||note||myR("kisi",g.k)) rows.push({...base, scope:"kisi", ref:g.k, s:ks, note});
+    if(Object.keys(ks).length||note||myRK(g)) rows.push({...base, scope:"kisi", ref:myRK(g)?.ref||g.k, s:ks, note});
     g.vids.forEach((v,i)=>{ const s={}; VID.forEach(([f])=>{ const x=val(`v:${i}:${f}`); if(x) s[f]=+x; }); const old=myRV(v); if(Object.keys(s).length||old) rows.push({...base, scope:"video", ref:old?.ref||v.ref, s, note:null}); });
     if(!rows.length){ toast("Önce en az bir puan ver."); return; }
     $("gSave").disabled=true;
@@ -1151,10 +1164,12 @@ function demoData(){
     P("p4","Merve Blog","merve.blog.demo",{stage:"kacti",followers:30000}),
     P("p5","Selin Yeni","selin.demo",{stage:"video",video_at:d(2),delivered_at:d(8),video_url:"https://example.com/v5",deal:"ucretli",fee:2500}),
     P("p6","Deniz Bekleyen","deniz.demo",{stage:"iletisim"}),
+    P("p7","Dm Paylaşan",null,{ig_url:"https://www.instagram.com/direct/t/111/",stage:"video",video_at:d(3),delivered_at:d(9),video_url:"https://example.com/v7"}),
+    P("p8","Dm Linksiz",null,{ig_url:"https://www.instagram.com/direct/t/222/",stage:"video",video_at:d(4),delivered_at:d(9),video_url:"https://example.com/v8"}),
   ];
   S.V={p1:{person_id:"p1",views:48200,likes:900,comments:31}, p3:{person_id:"p3",views:6100,likes:120,comments:4}};
-  S.A=[{ad:"elif.anne.demo",url:"https://www.instagram.com/p/DEMOA/",views:21000,imp:150000,first_at:d(12)},{ad:"Reklam Demo-1",url:"https://www.instagram.com/p/DEMOB/",views:9000,imp:40000,first_at:d(30)},{ad:"Reklam Demo-2",url:"https://www.instagram.com/p/DEMOC/",views:300,imp:5000,first_at:d(28)},{ad:"yeni.kisi.demo",url:"https://www.instagram.com/p/DEMOD/",views:52000,imp:210000,first_at:d(3)}];
-  S.I=[{code:"IG1",username:"yeni.kisi.demo",full_name:"Yeni Kişi",url:"https://www.instagram.com/p/IG1/",plays:120000,posted_at:d(4)},{code:"IG2",username:"sadece.ig.demo",full_name:"Sadece Paylaşan",url:"https://www.instagram.com/p/IG2/",plays:3400,posted_at:d(6)},{code:"IG3",username:"elif.anne.demo",full_name:"Elif Anne",url:"https://www.instagram.com/p/IG3/",plays:7700,posted_at:d(13)}];
+  S.A=[{ad:"elif.anne.demo",url:"https://www.instagram.com/p/DEMOA/",views:21000,imp:150000,first_at:d(12)},{ad:"Reklam Demo-1",url:"https://www.instagram.com/p/DEMOB/",views:9000,imp:40000,first_at:d(30)},{ad:"Reklam Demo-2",url:"https://www.instagram.com/p/DEMOC/",views:300,imp:5000,first_at:d(28)},{ad:"tahmini.ad.demo1",url:"https://www.instagram.com/p/DEMOE/",views:800,imp:9000,first_at:d(7)},{ad:"eski.ad.demo",person:"dogru.ad.demo",url:"https://www.instagram.com/p/DEMOF/",views:900,imp:9500,first_at:d(8)},{ad:"yeni.kisi.demo",url:"https://www.instagram.com/p/DEMOD/",views:52000,imp:210000,first_at:d(3)}];
+  S.I=[{code:"IG1",username:"yeni.kisi.demo",full_name:"Yeni Kişi",url:"https://www.instagram.com/p/IG1/",plays:120000,posted_at:d(4)},{code:"IG2",username:"sadece.ig.demo",full_name:"Sadece Paylaşan",url:"https://www.instagram.com/p/IG2/",plays:3400,posted_at:d(6)},{code:"IG4",username:"dm.paylasan.demo",full_name:"Dm Paylaşan",url:"https://www.instagram.com/p/IG4/",plays:5100,posted_at:d(2)},{code:"IG3",username:"elif.anne.demo",full_name:"Elif Anne",url:"https://www.instagram.com/p/IG3/",plays:7700,posted_at:d(13)}];
   const R=(scope,ref,rater,nm,s,note)=>({scope,ref,rater,rater_name:nm,s,note:note||null});
   S.R=[
     R("video","p1","u_admin","Demo Yönetici",{dogal:5,goruntu:4,ses:5,anlatim:5}), R("video","p1","u2","Takipçi Bir",{dogal:4,goruntu:5,ses:4,anlatim:5}), R("video","p1b","u2","Takipçi Bir",{dogal:5,goruntu:4,ses:4,anlatim:4}),
