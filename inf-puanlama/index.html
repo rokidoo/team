@@ -880,7 +880,7 @@ function groups(){
     g.fee=cv.length?cv.filter(paidDeal).reduce((a,v)=>a+(+v.fee||0),0)/cv.length:null;
     const mk2=myR("kisi",g.k);
     g.mine = !mk2 && !g.vids.some(v=>myRV(v)) ? 0
-      : (mk2 && ILET.every(([f])=>n15(mk2.s?.[f])) && g.vids.every(v=>{ const r=myRV(v); return r && VID.every(([f])=>n15(r.s?.[f])); })) ? 2 : 1;
+      : (mk2 && (mk2.s?.ilet_yok || ILET.every(([f])=>n15(mk2.s?.[f]))) && g.vids.every(v=>{ const r=myRV(v); return r && VID.every(([f])=>n15(r.s?.[f])); })) ? 2 : 1;
     out.push(g);
   });
   return out;
@@ -893,7 +893,7 @@ function compute(G){
   G.forEach(g=>{
     const kR=rOf("kisi",g.k);
     const kalite=mean(g.vids.map(v=>mean(rOfV(v).map(r=>mean(VID.map(([f])=>n15(r.s?.[f])).filter(x=>x!=null))).filter(x=>x!=null))).filter(x=>x!=null));
-    const iletisim=mean(kR.map(r=>mean(ILET.map(([f])=>n15(r.s?.[f])).filter(x=>x!=null))).filter(x=>x!=null));
+    const iletisim=mean(kR.filter(r=>!r.s?.ilet_yok).map(r=>mean(ILET.map(([f])=>n15(r.s?.[f])).filter(x=>x!=null))).filter(x=>x!=null));
     const comp=[], add=x=>{ if(x!=null) comp.push(x); };
     add(mean(kR.map(r=>c.teslim?.[r.s?.teslim]).filter(x=>x!=null)));
     add(mean(kR.map(r=>r.s?.revize_n==null||r.s.revize_n===""?null:c.revize[Math.min(Math.max(0,Math.round(+r.s.revize_n)),c.revize.length-1)]).filter(x=>x!=null)));
@@ -1010,7 +1010,9 @@ function openGroup(g){
         ${S.mgr&&a&&!v&&!p?`<div class="ovr" style="margin:6px 0 4px"><input data-who="${i}" placeholder="Bu video kimin? @kullanıcı adı ya da ad soyad" value="${esc(a.person||"")}"><button class="btn sm ghost" data-whos="${i}">Kişiye bağla</button></div>`:""}
         ${VID.map(([f,l,q])=>starRow(`v:${i}:${f}`,l,q,n15(s[f]))).join("")}
         ${S.mgr?rOfV(x).filter(r=>r.rater!==S.me?.id).map(r=>`<div class="oth"><b>${esc(r.rater_name||"")}</b> ${esc(lbl(VID,r.s))}</div>`).join(""):""}</div>`; }).join("")||`<div class="note">Bu kişiden video gelmedi.</div>`}
-    <div class="sec">💬 İletişim</div>${ILET.map(([f,l,q])=>starRow("k:"+f,l,q,n15(mk[f]))).join("")}
+    <div class="sec">💬 İletişim</div>
+      <div class="crit"><div><b>Bu kişiyle ben yazışmadım</b><div class="q">İletişim sende değildiyse işaretle: iletişim puanı yazışanların verdiğinden hesaplanır. Güvenilirlikte bilmediklerini boş bırakabilirsin.</div></div><div class="segs" data-f="k:ilet_yok" data-v="${mk.ilet_yok?"evet":""}"><button type="button" data-o="evet" class="${mk.ilet_yok?"on":""}">İletişim bende değil</button></div></div>
+      <div id="kIlet"${mk.ilet_yok?" hidden":""}>${ILET.map(([f,l,q])=>starRow("k:"+f,l,q,n15(mk[f]))).join("")}</div>
     <div class="sec">🤝 Güvenilirlik</div>
       ${segRow("k:teslim","Söz verdiği tarihte teslim","Videoyu söylediği günde gönderdi mi?",TESLIM,mk.teslim)}
       <div class="crit"><div><b>Revize sayısı</b><div class="q">Kaç kez düzeltme istendi?</div></div><input id="kRev" type="number" min="0" max="20" inputmode="numeric" value="${esc(mk.revize_n??"")}" placeholder="0"></div>
@@ -1021,17 +1023,19 @@ function openGroup(g){
       ${segRow("k:tekrar","Tekrar çalışır mıydın?","Bu kişiyle bir daha iş yapar mısın?",TEKRAR,mk.tekrar)}
       <div class="flabel" style="margin-top:12px">Not (isteğe bağlı)</div><textarea id="kNote" rows="3" placeholder="Genel fikrin, dikkat edilmesi gerekenler…">${esc(mnote)}</textarea>
     ${S.mgr&&others.length?`<div class="sec">👥 Diğer puanlar</div>${others.map(([id,nm])=>{ const r=rOf("kisi",g.k).find(x=>x.rater===id); const s=r?.s||{};
-      return `<div class="oth blk"><b>${esc(nm)}</b>${r?`<div>${esc(lbl(ILET,s))}</div><div>${esc([s.teslim?"Teslim: "+(TESLIM.find(t=>t[0]===s.teslim)||[,""])[1]:"", s.revize_n!=null&&s.revize_n!==""?"Revize: "+s.revize_n:"", s.uyum?"Uyum "+s.uyum:"", s.ham?"Ham görüntü: "+s.ham:"", lbl(PROF,s), s.tekrar?"Tekrar: "+s.tekrar:""].filter(Boolean).join(" · "))}</div>${r.note?`<div class="nt">“${esc(r.note)}”</div>`:""}`:`<div>Sadece video puanı girmiş.</div>`}</div>`; }).join("")}`:""}
+      return `<div class="oth blk"><b>${esc(nm)}</b>${r?`<div>${s.ilet_yok?"İletişim onda değildi":esc(lbl(ILET,s))}</div><div>${esc([s.teslim?"Teslim: "+(TESLIM.find(t=>t[0]===s.teslim)||[,""])[1]:"", s.revize_n!=null&&s.revize_n!==""?"Revize: "+s.revize_n:"", s.uyum?"Uyum "+s.uyum:"", s.ham?"Ham görüntü: "+s.ham:"", lbl(PROF,s), s.tekrar?"Tekrar: "+s.tekrar:""].filter(Boolean).join(" · "))}</div>${r.note?`<div class="nt">“${esc(r.note)}”</div>`:""}`:`<div>Sadece video puanı girmiş.</div>`}</div>`; }).join("")}`:""}
     <div class="mbtn"><button class="btn ghost" id="gCan">Kapat</button><button class="btn" id="gSave">Puanı kaydet</button></div>`);
   const H=$("modalHost");
   H.querySelectorAll(".stars,.segs").forEach(w=>w.querySelectorAll("button").forEach(b=>b.onclick=()=>{
     const nv = w.dataset.v===b.dataset.o ? "" : b.dataset.o; w.dataset.v=nv;
     w.querySelectorAll("button").forEach(x=>x.classList.toggle("on", w.classList.contains("stars") ? !!nv && +x.dataset.o<=+nv : x.dataset.o===nv)); }));
   const val=f=>{ const w=H.querySelector(`[data-f="${f}"]`); return w&&w.dataset.v!==""?w.dataset.v:null; };
+  H.querySelector('[data-f="k:ilet_yok"] button').addEventListener("click",()=>{ $("kIlet").hidden = val("k:ilet_yok")==="evet"; });
   $("gCan").onclick=closeModal;
   $("gSave").onclick=async ()=>{
     const base={rater:S.me?.id, rater_name:S.profile?.name||null, updated_at:nowIso()}, rows=[];
-    const ks={}; [...ILET,...PROF,["uyum"]].forEach(([f])=>{ const v=val("k:"+f); if(v) ks[f]=+v; });
+    const ks={}, iy=val("k:ilet_yok")==="evet"; if(iy) ks.ilet_yok=true;
+    [...(iy?[]:ILET),...PROF,["uyum"]].forEach(([f])=>{ const v=val("k:"+f); if(v) ks[f]=+v; });
     ["teslim","ham","tekrar"].forEach(f=>{ const v=val("k:"+f); if(v) ks[f]=v; });
     const rv=$("kRev").value.trim(); if(rv!==""&&+rv>=0) ks.revize_n=Math.round(+rv);
     const note=$("kNote").value.trim()||null;
