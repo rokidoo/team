@@ -893,7 +893,8 @@ function compute(G){
   G.forEach(g=>{
     const kR=rOf("kisi",g.k);
     const kalite=mean(g.vids.map(v=>mean(rOfV(v).map(r=>mean(VID.map(([f])=>n15(r.s?.[f])).filter(x=>x!=null))).filter(x=>x!=null))).filter(x=>x!=null));
-    const iletisim=mean(kR.filter(r=>!r.s?.ilet_yok).map(r=>mean(ILET.map(([f])=>n15(r.s?.[f])).filter(x=>x!=null))).filter(x=>x!=null));
+    g.iletYok=kR.some(r=>r.s?.ilet_yok);
+    const iletisim=g.iletYok?null:mean(kR.map(r=>mean(ILET.map(([f])=>n15(r.s?.[f])).filter(x=>x!=null))).filter(x=>x!=null));
     const comp=[], add=x=>{ if(x!=null) comp.push(x); };
     add(mean(kR.map(r=>c.teslim?.[r.s?.teslim]).filter(x=>x!=null)));
     add(mean(kR.map(r=>r.s?.revize_n==null||r.s.revize_n===""?null:c.revize[Math.min(Math.max(0,Math.round(+r.s.revize_n)),c.revize.length-1)]).filter(x=>x!=null)));
@@ -997,6 +998,7 @@ function openGroup(g){
     ${S.mgr&&S.cfg?`<div class="mgrbox"><div class="flabel">Yönetici · puan dökümü</div>
       ${g.score!=null?`<div class="tot"><b>${Math.round(g.score)}</b>/100 · otomatik harf <b>${g.auto||"—"}</b> · ${g.raters} puanlayan</div>
         ${Object.keys(PARTL).map(k=>`<div class="pt"><span>${PARTL[k]}</span><i style="background-size:${g.pct[k]!=null?Math.round(g.pct[k]):0}% 100%"></i><em>${g.pct[k]!=null?Math.round(g.pct[k]):"yok"}</em></div>`).join("")}
+        ${g.iletYok?`<div class="note">💬 “İletişim bende değil” işaretlendi: iletişim puana katılmadı, ağırlığı diğer kriterlere dağıldı.</div>`:""}
         <div class="note">Profil kalitesi ${f1(g.prof)} · etkileşim ${f1(g.etk)}${g.days!=null?` · teslimden videoya ${f1(g.days)} gün`:""}${g.fee!=null?` · video başına ${g.fee>0?TL(g.fee):"barter"}`:""}</div>
         <div class="note">İzlenme: 📱 Instagram ${g.igViews!=null?nf.format(Math.round(g.igViews))+" (puan "+Math.round((g.izl.ig-1)/4*100)+")":"yok"} · 📣 reklam ${g.metaViews!=null?nf.format(Math.round(g.metaViews))+(g.izl.meta!=null?" (puan "+Math.round((g.izl.meta-1)/4*100)+")":""):"yok"}${g.rate!=null?` · ilk 3 sn %${f1(g.rate*100)}`:""}${S.cfg.izlenme_pay?` · pay: Instagram %${S.cfg.izlenme_pay.ig}, reklam %${S.cfg.izlenme_pay.meta}`:""}</div>`
         :`<div class="note" style="margin-top:0">Henüz puan girilmemiş${g.auto?`; otomatik harf <b>${g.auto}</b>`:""}.</div>`}
@@ -1011,7 +1013,7 @@ function openGroup(g){
         ${VID.map(([f,l,q])=>starRow(`v:${i}:${f}`,l,q,n15(s[f]))).join("")}
         ${S.mgr?rOfV(x).filter(r=>r.rater!==S.me?.id).map(r=>`<div class="oth"><b>${esc(r.rater_name||"")}</b> ${esc(lbl(VID,r.s))}</div>`).join(""):""}</div>`; }).join("")||`<div class="note">Bu kişiden video gelmedi.</div>`}
     <div class="sec">💬 İletişim</div>
-      <div class="crit"><div><b>Bu kişiyle ben yazışmadım</b><div class="q">İletişim sende değildiyse işaretle: iletişim puanı yazışanların verdiğinden hesaplanır. Güvenilirlikte bilmediklerini boş bırakabilirsin.</div></div><div class="segs" data-f="k:ilet_yok" data-v="${mk.ilet_yok?"evet":""}"><button type="button" data-o="evet" class="${mk.ilet_yok?"on":""}">İletişim bende değil</button></div></div>
+      <div class="crit"><div><b>Bu kişiyle ben yazışmadım</b><div class="q">İletişim sende değildiyse işaretle: iletişim puana katılmaz, harf diğer kriterlerden hesaplanır. Güvenilirlikte bilmediklerini boş bırakabilirsin.</div></div><div class="segs" data-f="k:ilet_yok" data-v="${mk.ilet_yok?"evet":""}"><button type="button" data-o="evet" class="${mk.ilet_yok?"on":""}">İletişim bende değil</button></div></div>
       <div id="kIlet"${mk.ilet_yok?" hidden":""}>${ILET.map(([f,l,q])=>starRow("k:"+f,l,q,n15(mk[f]))).join("")}</div>
     <div class="sec">🤝 Güvenilirlik</div>
       ${segRow("k:teslim","Söz verdiği tarihte teslim","Videoyu söylediği günde gönderdi mi?",TESLIM,mk.teslim)}
